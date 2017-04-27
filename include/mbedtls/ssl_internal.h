@@ -387,8 +387,12 @@ unsigned char mbedtls_ssl_sig_from_pk( mbedtls_pk_context *pk );
 mbedtls_pk_type_t mbedtls_ssl_pk_alg_from_sig( unsigned char sig );
 #endif
 
-mbedtls_md_type_t mbedtls_ssl_md_alg_from_hash( unsigned char hash );
-unsigned char mbedtls_ssl_hash_from_md_alg( int md );
+mbedtls_md_type_t mbedtls_ssl_md_decode( unsigned char hash );
+unsigned char     mbedtls_ssl_md_encode( mbedtls_md_type_t md );
+
+mbedtls_sig_type_t mbedtls_ssl_sig_decode( unsigned char sig );
+unsigned char      mbedtls_ssl_sig_encode( mbedtls_sig_type_t sig );
+
 int mbedtls_ssl_set_calc_verify_md( mbedtls_ssl_context *ssl, int md );
 
 #if defined(MBEDTLS_ECP_C)

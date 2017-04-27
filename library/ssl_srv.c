@@ -212,7 +212,7 @@ static int ssl_parse_signature_algorithms_ext( mbedtls_ssl_context *ssl,
      */
     for( md_cur = ssl->conf->sig_hashes; *md_cur != MBEDTLS_MD_NONE; md_cur++ ) {
         for( p = buf + 2; p < end; p += 2 ) {
-            if( *md_cur == (int) mbedtls_ssl_md_alg_from_hash( p[0] ) ) {
+            if( *md_cur == (int) mbedtls_ssl_md_decode( p[0] ) ) {
                 ssl->handshake->sig_alg = p[0];
                 goto have_sig_alg;
             }
@@ -607,7 +607,7 @@ static int ssl_pick_cert( mbedtls_ssl_context *ssl,
                           const mbedtls_ssl_ciphersuite_t * ciphersuite_info )
 {
     mbedtls_ssl_key_cert *cur, *list, *fallback = NULL;
-    mbedtls_pk_type_t pk_alg = mbedtls_ssl_get_ciphersuite_sig_pk_alg( ciphersuite_info );
+    mbedtls_pk_type_t pk_alg = mbedtls_ssl_get_ciphersuite_pk_alg( ciphersuite_info );
     uint32_t flags;
 
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
@@ -2561,7 +2561,7 @@ static int ssl_write_certificate_request( mbedtls_ssl_context *ssl )
          */
         for( cur = ssl->conf->sig_hashes; *cur != MBEDTLS_MD_NONE; cur++ )
         {
-            unsigned char hash = mbedtls_ssl_hash_from_md_alg( *cur );
+            unsigned char hash = mbedtls_ssl_md_encode( *cur );
 
             if( MBEDTLS_SSL_HASH_NONE == hash || mbedtls_ssl_set_calc_verify_md( ssl, hash ) )
                 continue;
@@ -2869,7 +2869,7 @@ curve_matching_done:
 #if defined(MBEDTLS_SSL_PROTO_TLS1_2)
         if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_3 )
         {
-            md_alg = mbedtls_ssl_md_alg_from_hash( ssl->handshake->sig_alg );
+            md_alg = mbedtls_ssl_md_decode( ssl->handshake->sig_alg );
 
             if( md_alg == MBEDTLS_MD_NONE )
             {
@@ -3645,7 +3645,7 @@ static int ssl_parse_certificate_verify( mbedtls_ssl_context *ssl )
         /*
          * Hash
          */
-        md_alg = mbedtls_ssl_md_alg_from_hash( ssl->in_msg[i] );
+        md_alg = mbedtls_ssl_md_decode( ssl->in_msg[i] );
 
         if( md_alg == MBEDTLS_MD_NONE || mbedtls_ssl_set_calc_verify_md( ssl, ssl->in_msg[i] ) )
         {

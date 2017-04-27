@@ -7396,7 +7396,7 @@ mbedtls_pk_type_t mbedtls_ssl_pk_alg_from_sig( unsigned char sig )
 /*
  * Convert from MBEDTLS_SSL_HASH_XXX to MBEDTLS_MD_XXX
  */
-mbedtls_md_type_t mbedtls_ssl_md_alg_from_hash( unsigned char hash )
+mbedtls_md_type_t mbedtls_ssl_md_decode( unsigned char hash )
 {
     switch( hash )
     {
@@ -7428,7 +7428,7 @@ mbedtls_md_type_t mbedtls_ssl_md_alg_from_hash( unsigned char hash )
 /*
  * Convert from MBEDTLS_MD_XXX to MBEDTLS_SSL_HASH_XXX
  */
-unsigned char mbedtls_ssl_hash_from_md_alg( int md )
+unsigned char mbedtls_ssl_md_encode( mbedtls_md_type_t md )
 {
     switch( md )
     {
@@ -7454,6 +7454,46 @@ unsigned char mbedtls_ssl_hash_from_md_alg( int md )
 #endif
         default:
             return( MBEDTLS_SSL_HASH_NONE );
+    }
+}
+
+/*
+ * Convert from MBEDTLS_SSL_SIG_XXX to MBEDTLS_SIG_XXX
+ */
+mbedtls_sig_type_t mbedtls_ssl_sig_decode( unsigned char sig )
+{
+    switch( sig )
+    {
+#if defined(MBEDTLS_ECDSA_C)
+    case MBEDTLS_SSL_SIG_ECDSA:
+        return( MBEDTLS_SIG_ECDSA );
+#endif
+#if defined(MBEDTLS_RSA_C)
+    case MBEDTLS_SSL_SIG_RSA:
+        return( MBEDTLS_SIG_RSA );
+#endif
+    default:
+        return( MBEDTLS_SIG_NONE );
+    }
+}
+
+/*
+ * Convert from MBEDTLS_SIG_XXX to MBEDTLS_SSL_SIG_XXX
+ */
+unsigned char mbedtls_ssl_sig_encode( mbedtls_sig_type_t sig )
+{
+    switch( sig )
+    {
+#if defined(MBEDTLS_ECDSA_C)
+    case MBEDTLS_SIG_ECDSA:
+        return( MBEDTLS_SSL_SIG_ECDSA );
+#endif
+#if defined(MBEDTLS_RSA_C)
+    case MBEDTLS_SIG_RSA:
+        return( MBEDTLS_SSL_SIG_RSA );
+#endif
+    default:
+        return( MBEDTLS_SSL_SIG_ANON );        
     }
 }
 

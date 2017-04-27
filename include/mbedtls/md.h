@@ -49,6 +49,12 @@ typedef enum {
     MBEDTLS_MD_RIPEMD160,
 } mbedtls_md_type_t;
 
+typedef enum {
+    MBEDTLS_SIG_RSA=0,
+    MBEDTLS_SIG_ECDSA,
+    MBEDTLS_SIG_NONE,
+} mbedtls_sig_type_t;
+
 #if defined(MBEDTLS_SHA512_C)
 #define MBEDTLS_MD_MAX_SIZE         64  /* longest known is SHA512 */
 #else

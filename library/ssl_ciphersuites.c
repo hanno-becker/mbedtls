@@ -1796,7 +1796,7 @@ int mbedtls_ssl_get_ciphersuite_id( const char *ciphersuite_name )
 }
 
 #if defined(MBEDTLS_PK_C)
-mbedtls_pk_type_t mbedtls_ssl_get_ciphersuite_sig_pk_alg( const mbedtls_ssl_ciphersuite_t *info )
+mbedtls_pk_type_t mbedtls_ssl_get_ciphersuite_pk_alg( const mbedtls_ssl_ciphersuite_t *info )
 {
     switch( info->key_exchange )
     {
@@ -1818,6 +1818,22 @@ mbedtls_pk_type_t mbedtls_ssl_get_ciphersuite_sig_pk_alg( const mbedtls_ssl_ciph
     }
 }
 #endif /* MBEDTLS_PK_C */
+
+mbedtls_sig_type_t mbedtls_ssl_get_ciphersuite_sig_alg( const mbedtls_ssl_ciphersuite_t *info )
+{
+    switch( info->key_exchange )
+    {
+        case MBEDTLS_KEY_EXCHANGE_DHE_RSA:
+        case MBEDTLS_KEY_EXCHANGE_ECDHE_RSA:
+            return( MBEDTLS_SIG_RSA );
+
+        case MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA:
+            return( MBEDTLS_SIG_ECDSA );
+
+        default:
+            return( MBEDTLS_SIG_NONE );
+    }
+}
 
 #if defined(MBEDTLS_ECDH_C) || defined(MBEDTLS_ECDSA_C)
 int mbedtls_ssl_ciphersuite_uses_ec( const mbedtls_ssl_ciphersuite_t *info )

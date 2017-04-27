@@ -201,11 +201,11 @@ static void ssl_write_signature_algorithms_ext( mbedtls_ssl_context *ssl,
     for( md = ssl->conf->sig_hashes; *md != MBEDTLS_MD_NONE; md++ )
     {
 #if defined(MBEDTLS_ECDSA_C)
-        sig_alg_list[sig_alg_len++] = mbedtls_ssl_hash_from_md_alg( *md );
+        sig_alg_list[sig_alg_len++] = mbedtls_ssl_md_encode( *md );
         sig_alg_list[sig_alg_len++] = MBEDTLS_SSL_SIG_ECDSA;
 #endif
 #if defined(MBEDTLS_RSA_C)
-        sig_alg_list[sig_alg_len++] = mbedtls_ssl_hash_from_md_alg( *md );
+        sig_alg_list[sig_alg_len++] = mbedtls_ssl_md_encode( *md );
         sig_alg_list[sig_alg_len++] = MBEDTLS_SSL_SIG_RSA;
 #endif
     }
@@ -2111,7 +2111,7 @@ static int ssl_parse_signature_algorithm( mbedtls_ssl_context *ssl,
     /*
      * Get hash algorithm
      */
-    if( ( *md_alg = mbedtls_ssl_md_alg_from_hash( (*p)[0] ) ) == MBEDTLS_MD_NONE )
+    if( ( *md_alg = mbedtls_ssl_md_decode( (*p)[0] ) ) == MBEDTLS_MD_NONE )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "Server used unsupported "
                             "HashAlgorithm %d", *(p)[0] ) );
@@ -2359,7 +2359,7 @@ static int ssl_parse_server_key_exchange( mbedtls_ssl_context *ssl )
                 return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_KEY_EXCHANGE );
             }
 
-            if( pk_alg != mbedtls_ssl_get_ciphersuite_sig_pk_alg( ciphersuite_info ) )
+            if( pk_alg != mbedtls_ssl_get_ciphersuite_pk_alg( ciphersuite_info ) )
             {
                 MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server key exchange message" ) );
                 return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_KEY_EXCHANGE );
@@ -2371,7 +2371,7 @@ static int ssl_parse_server_key_exchange( mbedtls_ssl_context *ssl )
     defined(MBEDTLS_SSL_PROTO_TLS1_1)
         if( ssl->minor_ver < MBEDTLS_SSL_MINOR_VERSION_3 )
         {
-            pk_alg = mbedtls_ssl_get_ciphersuite_sig_pk_alg( ciphersuite_info );
+            pk_alg = mbedtls_ssl_get_ciphersuite_pk_alg( ciphersuite_info );
 
             /* Default hash for ECDSA is SHA-1 */
             if( pk_alg == MBEDTLS_PK_ECDSA && md_alg == MBEDTLS_MD_NONE )
