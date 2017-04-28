@@ -157,6 +157,25 @@
 extern "C" {
 #endif
 
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
+    defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)    
+/*
+ * Abstraction for a grid of allowed signature-hash-algorithm pairs.
+ */
+struct mbedtls_sig_hash_set
+{
+    /* At the moment, we only need to remember a single suitable
+     * hash algorithm per signature algorithm. As long as that's
+     * the case - and we don't need a general lookup function - 
+     * we can implement the sig-hash-set as a map from signatures
+     * to hash algorithms. */
+    mbedtls_md_type_t rsa;
+    mbedtls_md_type_t ecdsa;
+};    
+typedef struct mbedtls_sig_hash_set mbedtls_sig_hash_set;
+#endif /* MBEDTLS_SSL_PROTO_TLS1_2) && 
+          MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
+
 /*
  * This structure contains the parameters only needed during handshake.
  */
@@ -165,8 +184,12 @@ struct mbedtls_ssl_handshake_params
     /*
      * Handshake specific crypto variables
      */
-    int sig_alg;                        /*!<  Hash algorithm for signature   */
-    int verify_sig_alg;                 /*!<  Signature algorithm for verify */
+
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
+    defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
+    mbedtls_sig_hash_set hash_algs;             /*!<  Set of suitable sig-hash pairs */
+#endif
+    int verify_sig_alg;                         /*!<  Signature algorithm for verify */
 #if defined(MBEDTLS_DHM_C)
     mbedtls_dhm_context dhm_ctx;                /*!<  DHM key exchange        */
 #endif
@@ -329,6 +352,65 @@ struct mbedtls_ssl_flight_item
 };
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
 
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
+    defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)        
+   
+/* Find an entry in a signature-hash set matching a given hash algorithm. */
+static inline 
+mbedtls_md_type_t mbedtls_sig_hash_set_find( mbedtls_sig_hash_set *set,
+                                             mbedtls_pk_type_t sig_alg )
+{
+    switch( sig_alg )
+    {
+        case MBEDTLS_PK_RSA:
+            return( set->rsa );
+        case MBEDTLS_PK_ECDSA:
+            return( set->ecdsa );
+        default:
+            return( MBEDTLS_MD_NONE );
+    }
+}
+
+/* Add a signature-hash-pair to a signature-hash set */
+static inline
+void mbedtls_sig_hash_set_add( mbedtls_sig_hash_set *set,
+                               mbedtls_pk_type_t sig_alg,
+                               mbedtls_md_type_t md_alg )
+{
+    switch( sig_alg )
+    {
+        case MBEDTLS_PK_RSA:
+            if( set->rsa == MBEDTLS_MD_NONE )
+                set->rsa = md_alg;
+            break;
+            
+        case MBEDTLS_PK_ECDSA:
+            if( set->ecdsa == MBEDTLS_MD_NONE )
+                set->ecdsa = md_alg;
+            break;
+            
+        default:
+            break;
+    }
+}
+
+/* Allow exactly one hash algorithm for each signature. */
+static inline
+void mbedtls_sig_hash_set_const_hash( mbedtls_sig_hash_set *set,
+                                      mbedtls_md_type_t md_alg )
+{
+    set->rsa   = md_alg;
+    set->ecdsa = md_alg;
+}
+
+/* Setup an empty signature-hash set */
+static inline void mbedtls_sig_hash_init( mbedtls_sig_hash_set *set )
+{
+    mbedtls_sig_hash_set_const_hash( set, MBEDTLS_MD_NONE );
+}
+
+#endif /* MBEDTLS_SSL_PROTO_TLS1_2) && 
+          MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */    
 
 /**
  * \brief           Free referenced items in an SSL transform context and clear
