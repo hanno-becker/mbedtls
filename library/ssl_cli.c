@@ -1991,7 +1991,8 @@ static int ssl_parse_server_psk_hint( mbedtls_ssl_context *ssl,
 
     if( (*p) + len > end )
     {
-        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server key exchange message (psk_identity_hint length)" ) );
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server key exchange message "
+                                    "(psk_identity_hint length)" ) );
         return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_KEY_EXCHANGE );
     }
 
@@ -2192,7 +2193,8 @@ static int ssl_get_ecdh_params_from_cert( mbedtls_ssl_context *ssl )
 static int ssl_parse_server_key_exchange( mbedtls_ssl_context *ssl )
 {
     int ret;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
     unsigned char *p, *end;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse server key exchange" ) );
@@ -2517,7 +2519,8 @@ exit:
 #if !defined(MBEDTLS_KEY_EXCHANGE__WITHOUT_CLIENT_AUTH__ENABLED)
 static int ssl_parse_certificate_request( mbedtls_ssl_context *ssl )
 {
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse certificate request" ) );
 
@@ -2538,7 +2541,8 @@ static int ssl_parse_certificate_request( mbedtls_ssl_context *ssl )
     unsigned char *buf;
     size_t n = 0;
     size_t cert_type_len = 0, dn_len = 0;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse certificate request" ) );
 
@@ -2628,7 +2632,8 @@ static int ssl_parse_certificate_request( mbedtls_ssl_context *ssl )
 
         for( i = 0; i < sig_alg_len; i += 2 )
         {
-            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Supported Signature Algorithm found: %d,%d", sig_alg[i], sig_alg[i + 1]  ) );
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Supported Signature Algorithm found: %d"
+                                        ",%d", sig_alg[i], sig_alg[i + 1]  ) );
         }
 #endif
 
@@ -2705,7 +2710,8 @@ static int ssl_write_client_key_exchange( mbedtls_ssl_context *ssl )
 {
     int ret;
     size_t i, n;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write client key exchange" ) );
 
@@ -2962,7 +2968,8 @@ static int ssl_write_client_key_exchange( mbedtls_ssl_context *ssl )
     !defined(MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED)
 static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
 {
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
     int ret;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate verify" ) );
@@ -2991,7 +2998,8 @@ static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
 static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
 {
     int ret = MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->transform_negotiate->ciphersuite_info;
     size_t n = 0, offset = 0;
     unsigned char hash[48];
     unsigned char *hash_start = hash;
