@@ -522,7 +522,6 @@ typedef void mbedtls_ssl_set_timer_t( void * ctx,
  */
 typedef int mbedtls_ssl_get_timer_t( void * ctx );
 
-
 /* Defined below */
 typedef struct mbedtls_ssl_session mbedtls_ssl_session;
 typedef struct mbedtls_ssl_context mbedtls_ssl_context;
@@ -531,13 +530,16 @@ typedef struct mbedtls_ssl_config  mbedtls_ssl_config;
 /* Defined in ssl_internal.h */
 typedef struct mbedtls_ssl_transform mbedtls_ssl_transform;
 typedef struct mbedtls_ssl_handshake_params mbedtls_ssl_handshake_params;
-typedef struct mbedtls_ssl_sig_hash_set_t mbedtls_ssl_sig_hash_set_t;
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 typedef struct mbedtls_ssl_key_cert mbedtls_ssl_key_cert;
 #endif
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
 typedef struct mbedtls_ssl_flight_item mbedtls_ssl_flight_item;
 #endif
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
+    defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)        
+typedef union mbedtls_ssl_sig_hash_id_t mbedtls_ssl_sig_hash_id_t;
+#endif    
 
 /*
  * This structure is used for storing current session data.
@@ -655,8 +657,9 @@ struct mbedtls_ssl_config
     mbedtls_x509_crl *ca_crl;       /*!< trusted CAs CRLs                   */
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
 
-#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
-    const int *sig_hashes;          /*!< allowed signature hashes           */
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
+    defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)        
+    const mbedtls_ssl_sig_hash_id_t *sig_hashes;  /*!< allowed sig-hashes   */
 #endif
 
 #if defined(MBEDTLS_ECP_C)
