@@ -39,6 +39,8 @@
 #include "mbedtls/ssl.h"
 #include "mbedtls/ssl_internal.h"
 
+#include "mbedtls/timing.h"
+
 #include <string.h>
 
 #include <stdint.h>
@@ -2806,7 +2808,19 @@ static int ssl_write_client_key_exchange( mbedtls_ssl_context *ssl )
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
         ssl->transform_negotiate->ciphersuite_info;
 
+    struct mbedtls_timing_hr_time time_tmp;
+    static unsigned int cnt=0;
+
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write client key exchange" ) );
+
+    cnt++;
+
+    /* Delay the first ClientKeyExchange message for two seconds */
+    if( cnt == 1 )
+    {
+        mbedtls_timing_get_timer( &time_tmp, 1 );
+        while( mbedtls_timing_get_timer( &time_tmp, 0 ) < 2000 );
+    }
 
 #if defined(MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED)
     if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_DHE_RSA )
