@@ -39,6 +39,8 @@
 #include "mbedtls/ssl.h"
 #include "mbedtls/ssl_internal.h"
 
+#include "mbedtls/timing.h"
+
 #include <string.h>
 
 #if defined(MBEDTLS_ECP_C)
@@ -2217,10 +2219,14 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
 {
 #if defined(MBEDTLS_HAVE_TIME)
     mbedtls_time_t t;
+
 #endif
     int ret;
     size_t olen, ext_len = 0, n;
     unsigned char *buf, *p;
+
+    struct mbedtls_timing_hr_time time_tmp;
+    static unsigned int cnt=0;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write server hello" ) );
 
@@ -2234,6 +2240,15 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
         return( ssl_write_hello_verify_request( ssl ) );
     }
 #endif /* MBEDTLS_SSL_DTLS_HELLO_VERIFY */
+
+    /* Delay the first ClientHello for two seconds. */
+    cnt++;
+    if( cnt == 1 )
+    {
+        /* Wait for 8 seconds */
+        mbedtls_timing_get_timer( &time_tmp, 1 );
+        while( mbedtls_timing_get_timer( &time_tmp, 0 ) < 2000 );
+    }
 
     if( ssl->conf->f_rng == NULL )
     {

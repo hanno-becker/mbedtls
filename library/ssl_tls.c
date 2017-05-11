@@ -47,6 +47,8 @@
 #include "mbedtls/ssl.h"
 #include "mbedtls/ssl_internal.h"
 
+#include "mbedtls/timing.h"
+
 #include <string.h>
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
@@ -2588,7 +2590,26 @@ static void ssl_swap_epochs( mbedtls_ssl_context *ssl )
  */
 int mbedtls_ssl_resend( mbedtls_ssl_context *ssl )
 {
+    struct mbedtls_timing_hr_time time_tmp;
+    static unsigned int cnt = 0;
+
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> mbedtls_ssl_resend" ) );
+
+    /* Delay client's two resends of the final flight. */
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_CLIENT )
+    {
+        cnt++;
+        if( cnt == 2 )
+        {
+            mbedtls_timing_get_timer( &time_tmp, 1 );
+            while( mbedtls_timing_get_timer( &time_tmp, 0 ) < 1000 );
+        }
+        else if( cnt == 3 )
+        {
+            mbedtls_timing_get_timer( &time_tmp, 1 );
+            while( mbedtls_timing_get_timer( &time_tmp, 0 ) < 4000 );
+        }
+    }
 
     if( ssl->handshake->retransmit_state != MBEDTLS_SSL_RETRANS_SENDING )
     {
