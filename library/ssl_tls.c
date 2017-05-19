@@ -3727,27 +3727,35 @@ int mbedtls_ssl_read_record( mbedtls_ssl_context *ssl )
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> read record" ) );
 
-    do {
+    if( ssl->keep_current_message == 0 )
+    {
+        do {
 
-        if( ( ret = mbedtls_ssl_read_record_layer( ssl ) ) != 0 )
+            if( ( ret = mbedtls_ssl_read_record_layer( ssl ) ) != 0 )
+            {
+                MBEDTLS_SSL_DEBUG_RET( 1, ( "mbedtls_ssl_read_record_layer" ), ret );
+                return( ret );
+            }
+
+            ret = mbedtls_ssl_handle_message_type( ssl );
+
+        } while( MBEDTLS_ERR_SSL_NON_FATAL == ret );
+
+        if( 0 != ret )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, ( "mbedtls_ssl_read_record_layer" ), ret );
             return( ret );
         }
 
-        ret = mbedtls_ssl_handle_message_type( ssl );
-
-    } while( MBEDTLS_ERR_SSL_NON_FATAL == ret );
-
-    if( 0 != ret )
-    {
-        MBEDTLS_SSL_DEBUG_RET( 1, ( "mbedtls_ssl_handle_message_type" ), ret );
-        return( ret );
+        if( ssl->in_msgtype == MBEDTLS_SSL_MSG_HANDSHAKE )
+        {
+            mbedtls_ssl_update_handshake_status( ssl );
+        }
     }
-
-    if( ssl->in_msgtype == MBEDTLS_SSL_MSG_HANDSHAKE )
+    else
     {
-        mbedtls_ssl_update_handshake_status( ssl );
+        MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= reuse previously read message" ) );
+        ssl->keep_current_message = 0;
     }
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= read record" ) );
@@ -5490,7 +5498,8 @@ static int ssl_session_reset_int( mbedtls_ssl_context *ssl, int partial )
 
     ssl->in_hslen = 0;
     ssl->nb_zero = 0;
-    ssl->record_read = 0;
+    
+    ssl->keep_current_message = 0;
 
     ssl->out_msg = ssl->out_buf + 13;
     ssl->out_msgtype = 0;
@@ -6513,7 +6522,7 @@ static int ssl_check_ctr_renegotiate( mbedtls_ssl_context *ssl )
  */
 int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
 {
-    int ret, record_read = 0;
+    int ret;
     size_t n;
 
     if( ssl == NULL || ssl->conf == NULL )
@@ -6547,9 +6556,12 @@ int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
     if( ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER )
     {
         ret = mbedtls_ssl_handshake( ssl );
+
+        /* Pass-through messages while waiting for ServerHello
+         * in response to a renegotiation requesting ClientHello. */
         if( ret == MBEDTLS_ERR_SSL_WAITING_SERVER_HELLO_RENEGO )
         {
-            record_read = 1;
+            ssl->keep_current_message = 1;
         }
         else if( ret != 0 )
         {
@@ -6567,16 +6579,13 @@ int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
             ssl_set_timer( ssl, ssl->conf->read_timeout );
         }
 
-        if( ! record_read )
+        if( ( ret = mbedtls_ssl_read_record( ssl ) ) != 0 )
         {
-            if( ( ret = mbedtls_ssl_read_record( ssl ) ) != 0 )
-            {
-                if( ret == MBEDTLS_ERR_SSL_CONN_EOF )
-                    return( 0 );
+            if( ret == MBEDTLS_ERR_SSL_CONN_EOF )
+                return( 0 );
 
-                MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret );
-                return( ret );
-            }
+            MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret );
+            return( ret );
         }
 
         if( ssl->in_msglen  == 0 &&
@@ -6679,7 +6688,9 @@ int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
                 ret = ssl_start_renegotiation( ssl );
                 if( ret == MBEDTLS_ERR_SSL_WAITING_SERVER_HELLO_RENEGO )
                 {
-                    record_read = 1;
+                    /* Pass-through messages while waiting for ServerHello
+                     * in response to a renegotiation requesting ClientHello. */
+                    ssl->keep_current_message = 1;
                 }
                 else if( ret != 0 )
                 {
