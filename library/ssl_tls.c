@@ -2447,6 +2447,17 @@ int mbedtls_ssl_flush_output( mbedtls_ssl_context *ssl )
             return( ret );
 
         ssl->out_left -= ret;
+
+#if defined(MBEDTLS_SSL_PROTO_DTLS)
+        if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM &&
+            ssl->out_left != 0 )
+        {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "underlying transport layer couldn't  "
+                                        "deliver DTLS message within a single "
+                                        "datagram" ) );
+            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+        }
+#endif
     }
 
     for( i = 8; i > ssl_ep_len( ssl ); i-- )
