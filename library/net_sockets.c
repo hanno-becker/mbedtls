@@ -434,6 +434,56 @@ int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
 }
 
 /*
+ * Check if data is available on the socket
+ */
+
+int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, int timeout )
+{
+    int ret;
+    struct timeval tv;
+
+    fd_set read_fds;
+    fd_set write_fds;
+
+    int fd = ((mbedtls_net_context *) ctx)->fd;
+
+    int expect = 0;
+
+    if( fd < 0 )
+        return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
+
+    FD_ZERO( &read_fds );
+    if( rw & MBEDTLS_NET_POLL_READ )
+    {
+        rw &= ~MBEDTLS_NET_POLL_READ;
+        FD_SET( fd, &read_fds );
+        expect++;
+    }
+
+    FD_ZERO( &write_fds );
+    if( rw & MBEDTLS_NET_POLL_WRITE )
+    {
+        rw &= ~MBEDTLS_NET_POLL_WRITE;
+        FD_SET( fd, &write_fds );
+        expect++;
+    }
+
+    if( rw != 0 )
+        return( MBEDTLS_ERR_NET_BAD_INPUT_DATA );
+
+    tv.tv_sec  = timeout / 1000;
+    tv.tv_usec = ( timeout % 1000 ) * 1000;
+
+    ret = select( fd + 1, &read_fds, &write_fds, NULL,
+                  timeout < 0 ? NULL : &tv );
+
+    if( ret < 0 )
+        return( MBEDTLS_ERR_NET_POLL_FAILED );
+
+    return( ret != expect );
+}
+
+/*
  * Portable usleep helper
  */
 void mbedtls_net_usleep( unsigned long usec )
@@ -492,8 +542,8 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
 /*
  * Read at most 'len' characters, blocking for at most 'timeout' ms
  */
-int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf, size_t len,
-                      uint32_t timeout )
+int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf,
+                              size_t len, uint32_t timeout )
 {
     int ret;
     struct timeval tv;

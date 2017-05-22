@@ -45,11 +45,16 @@
 #define MBEDTLS_ERR_NET_UNKNOWN_HOST                      -0x0052  /**< Failed to get an IP address for the given hostname. */
 #define MBEDTLS_ERR_NET_BUFFER_TOO_SMALL                  -0x0043  /**< Buffer is too small to hold the data. */
 #define MBEDTLS_ERR_NET_INVALID_CONTEXT                   -0x0045  /**< The context is invalid, eg because it was free()ed. */
+#define MBEDTLS_ERR_NET_POLL_FAILED                       -0x0047  /**< Polling the net context failed. */
+#define MBEDTLS_ERR_NET_BAD_INPUT_DATA                    -0x0049  /**< Input invalid. */
 
 #define MBEDTLS_NET_LISTEN_BACKLOG         10 /**< The backlog that listen() should use. */
 
 #define MBEDTLS_NET_PROTO_TCP 0 /**< The TCP transport protocol */
 #define MBEDTLS_NET_PROTO_UDP 1 /**< The UDP transport protocol */
+
+#define MBEDTLS_NET_POLL_READ  1 /**< Used in \c mbedtls_net_poll to check for pending data  */
+#define MBEDTLS_NET_POLL_WRITE 2 /**< Used in \c mbedtls_net_poll to check if write possible */
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,6 +135,27 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
 int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
                         mbedtls_net_context *client_ctx,
                         void *client_ip, size_t buf_size, size_t *ip_len );
+
+/**
+ * \brief          Check and wait for the context to be ready for read/write
+ *
+ * \param ctx      Socket to check
+ * \param rw       Bitflag composed of MBEDTLS_NET_POLL_READ and
+ *                 MBEDTLS_NET_POLL_WRITE specifying the checks to
+ *                 perform.
+ *                 If MBEDTLS_NET_POLL_READ is set, the call checks
+ *                 for data ready to be read from the context.
+ *                 If MBEDTLS_NET_POLL_WRITE is set, the call checks
+ *                 for the context to be ready for a write.
+ * \param timeout  Maximal amount of time to wait before returning,
+ *                 in milliseconds. If \c timeout is zero, the
+ *                 function returns immediately. A negative value
+ *                 allows the function to block indefinitely.
+ *
+ * \return         0 if all checks are successful, 1 if not, or
+ *                 MBEDTLS_ERR_NET_POLL_FAILED on failure.
+ */
+int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, int timeout );
 
 /**
  * \brief          Set the socket blocking
