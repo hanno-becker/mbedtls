@@ -2232,11 +2232,54 @@ void mbedtls_ssl_conf_renegotiation_period( mbedtls_ssl_config *conf,
 #endif /* MBEDTLS_SSL_RENEGOTIATION */
 
 /**
- * \brief          Return the number of data bytes available to read
+ * \brief          Check if there is data already read from the
+ *                 underlying transport but not yet processed.
  *
  * \param ssl      SSL context
  *
- * \return         how many bytes are available in the read buffer
+ * \return         0 if nothing's pending, 1 otherwise.
+ *
+ * \note           This function is essential when using the library
+ *                 with event-driven I/O. The user should not idle
+ *                 (waiting for events from the underlying transport
+ *                 or from timers) before this function's check passes.
+ *                 Otherwise, it's possible to run into a deadlock
+ *                 (if processing the pending data involves essential
+ *                 communication with the peer) or to accumulate and
+ *                 potentially lose data.
+ *
+ * \note           This is different in purpose and behaviour from
+ *                 \c mbedtls_ssl_get_bytes_avail in that it considers
+ *                 any kind of unprocessed data, not only unread
+ *                 application data. If \c mbedtls_ssl_get_bytes
+ *                 returns a non-zero value, this function will
+ *                 also signal pending data, but the converse does
+ *                 not hold. For example, in DTLS there might be
+ *                 further records waiting to be processed from
+ *                 the current underlying transport's datagram.
+ *
+ * \note           If this function returns 0 (data pending), this
+ *                 does not imply that a subsequent call to
+ *                 \c mbedtls_ssl_read will provide any data;
+ *                 e.g., the unprocessed data might turn out
+ *                 to be an alert or a handshake message.
+ */
+int mbedtls_ssl_check_pending( const mbedtls_ssl_context *ssl );
+
+/**
+ * \brief          Return the number of application data bytes
+ *                 remaining to be read from the current record.
+ *
+ * \param ssl      SSL context
+ *
+ * \return         How many bytes are available in the application
+ *                 data record read buffer.
+ *
+ * \note           When working over a datagram transport, this is
+ *                 useful to detect the current datagram's boundary
+ *                 in case \c mbedtls_ssl_read has written the maximal
+ *                 amount of data fitting into the input buffer.
+ *
  */
 size_t mbedtls_ssl_get_bytes_avail( const mbedtls_ssl_context *ssl );
 
@@ -2426,6 +2469,14 @@ int mbedtls_ssl_renegotiate( mbedtls_ssl_context *ssl );
  *                 becomes unusable, and you should either free it or call
  *                 \c mbedtls_ssl_session_reset() on it before re-using it for
  *                 a new connection; the current connection must be closed.
+ *
+ * \note           For DTLS, this function preserves datagram boundaries,
+ *                 i.e. it will never read from multiple datagrams within a
+ *                 single read.
+ *                 If the given buffer is not large enough to hold the (rest of)
+ *                 the current datagram, the remaining amount of data can be
+ *                 checked by \c mbedtls_ssl_get_bytes_avail, and the read
+ *                 can be continued with another call to this function.
  *
  * \note           When this function return MBEDTLS_ERR_SSL_CLIENT_RECONNECT
  *                 (which can only happen server-side), it means that a client
