@@ -37,6 +37,8 @@ O_CLI="echo 'GET / HTTP/1.0' | $OPENSSL_CMD s_client"
 G_SRV="$GNUTLS_SERV --x509certfile data_files/server5.crt --x509keyfile data_files/server5.key"
 G_CLI="echo 'GET / HTTP/1.0' | $GNUTLS_CLI --x509cafile data_files/test-ca_cat12.crt"
 
+KILL_CMD="kill -KILL"
+
 TESTS=0
 FAILS=0
 SKIPS=0
@@ -144,7 +146,7 @@ requires_ipv6() {
         $P_SRV server_addr='::1' > $SRV_OUT 2>&1 &
         SRV_PID=$!
         sleep 1
-        kill $SRV_PID >/dev/null 2>&1
+        $KILL_CMD $SRV_PID >/dev/null 2>&1
         if grep "NET - Binding of the socket failed" $SRV_OUT >/dev/null; then
             HAS_IPV6="NO"
         else
@@ -309,13 +311,13 @@ wait_client_done() {
     CLI_DELAY=$(( $DOG_DELAY * $CLI_DELAY_FACTOR ))
     CLI_DELAY_FACTOR=1
 
-    ( sleep $CLI_DELAY; echo "===CLIENT_TIMEOUT===" >> $CLI_OUT; kill $CLI_PID ) &
+    ( sleep $CLI_DELAY; echo "===CLIENT_TIMEOUT===" >> $CLI_OUT; $KILL_CMD $CLI_PID ) &
     DOG_PID=$!
 
     wait $CLI_PID
     CLI_EXIT=$?
 
-    kill $DOG_PID >/dev/null 2>&1
+    $KILL_CMD $DOG_PID >/dev/null 2>&1
     wait $DOG_PID
 
     echo "EXIT: $CLI_EXIT" >> $CLI_OUT
@@ -426,10 +428,10 @@ run_test() {
         sleep 0.05
 
         # terminate the server (and the proxy)
-        kill $SRV_PID
+        $KILL_CMD $SRV_PID
         wait $SRV_PID
         if [ -n "$PXY_CMD" ]; then
-            kill $PXY_PID >/dev/null 2>&1
+            $KILL_CMD $PXY_PID >/dev/null 2>&1
             wait $PXY_PID
         fi
 
@@ -560,10 +562,10 @@ run_test() {
 
 cleanup() {
     rm -f $CLI_OUT $SRV_OUT $PXY_OUT $SESSION
-    test -n "${SRV_PID:-}" && kill $SRV_PID >/dev/null 2>&1
-    test -n "${PXY_PID:-}" && kill $PXY_PID >/dev/null 2>&1
-    test -n "${CLI_PID:-}" && kill $CLI_PID >/dev/null 2>&1
-    test -n "${DOG_PID:-}" && kill $DOG_PID >/dev/null 2>&1
+    test -n "${SRV_PID:-}" && $KILL_CMD $SRV_PID >/dev/null 2>&1
+    test -n "${PXY_PID:-}" && $KILL_CMD $PXY_PID >/dev/null 2>&1
+    test -n "${CLI_PID:-}" && $KILL_CMD $CLI_PID >/dev/null 2>&1
+    test -n "${DOG_PID:-}" && $KILL_CMD $DOG_PID >/dev/null 2>&1
     exit 1
 }
 
