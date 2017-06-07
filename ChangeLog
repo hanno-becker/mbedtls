@@ -19,6 +19,8 @@ Bugfix
      data.
 
 Changes
+   * Enhance benchmark test application by options for setting
+     number of iterations and duration per test.
    * Send fatal alerts in many more cases instead of dropping the connection.
 
 = mbed TLS 2.5.0 branch released 2017-05-17
