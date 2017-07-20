@@ -14,3 +14,4 @@ Execute the following command to create a link on linux from the mbed TLS `.git\
 Similarly, on Windows while running as administrator:  
 `mklink pre-push ..\..\git_hooks\pre-push`
 
+**Note: Currently the mbed TLS git hooks work only on a GNU platform. If using a non-GNU platform, don't enable these hooks!**
