@@ -1960,7 +1960,7 @@ int mbedtls_ecp_gen_keypair_base( mbedtls_ecp_group *grp,
          * - use the same byte ordering;
          * - keep the leftmost nbits bits of the generated octet string;
          * - try until result is in the desired range.
-         * This also avoids any biais, which is especially important for ECDSA.
+         * This also avoids any bias, which is especially important for ECDSA.
          */
         do
         {

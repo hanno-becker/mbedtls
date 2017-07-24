@@ -160,7 +160,7 @@ mbedtls_ecp_group;
  *
  * A generic key pair that could be used for ECDSA, fixed ECDH, etc.
  *
- * \note Members purposefully in the same order as struc mbedtls_ecdsa_context.
+ * \note Members purposefully in the same order as struct mbedtls_ecdsa_context.
  */
 typedef struct
 {
