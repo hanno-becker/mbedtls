@@ -144,7 +144,7 @@ typedef struct
     mbedtls_ecp_point G;        /*!<  generator of the (sub)group used              */
     mbedtls_mpi N;              /*!<  1. the order of G, or 2. unused               */
     size_t pbits;       /*!<  number of bits in P                           */
-    size_t nbits;       /*!<  number of bits in 1. P, or 2. private keys    */
+    size_t nbits;       /*!<  number of bits in 1. N, or 2. private keys    */
     unsigned int h;     /*!<  internal: 1 if the constants are static       */
     int (*modp)(mbedtls_mpi *); /*!<  function for fast reduction mod P             */
     int (*t_pre)(mbedtls_ecp_point *, void *);  /*!< unused                         */
