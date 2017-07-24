@@ -207,12 +207,12 @@ int mbedtls_ecdsa_verify( mbedtls_ecp_group *grp,
     mbedtls_mpi e, s_inv, u1, u2;
     mbedtls_ecp_point R;
 
-    mbedtls_ecp_point_init( &R );
-    mbedtls_mpi_init( &e ); mbedtls_mpi_init( &s_inv ); mbedtls_mpi_init( &u1 ); mbedtls_mpi_init( &u2 );
-
     /* Fail cleanly on curves such as Curve25519 that can't be used for ECDSA */
     if( grp->N.p == NULL )
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
+
+    mbedtls_ecp_point_init( &R );
+    mbedtls_mpi_init( &e ); mbedtls_mpi_init( &s_inv ); mbedtls_mpi_init( &u1 ); mbedtls_mpi_init( &u2 );
 
     /*
      * Step 1: make sure r and s are in range 1..n-1
