@@ -81,6 +81,9 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
     if( grp->N.p == NULL )
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
 
+    if( ( ret = mbedtls_ecp_check_privkey( grp, d ) ) != 0 )
+        return( MBEDTLS_ERR_ECP_INVALID_KEY );
+
     mbedtls_ecp_point_init( &R );
     mbedtls_mpi_init( &k ); mbedtls_mpi_init( &e ); mbedtls_mpi_init( &t );
 
