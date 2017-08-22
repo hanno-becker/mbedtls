@@ -2502,23 +2502,40 @@ int mbedtls_rsa_self_test( int verbose )
     unsigned char sha1sum[20];
 #endif
 
+    mbedtls_mpi N, P, Q, D, E, DP, DQ, QP;
+
+    mbedtls_mpi_init( &N );  mbedtls_mpi_init( &P );  mbedtls_mpi_init( &Q );
+    mbedtls_mpi_init( &D );  mbedtls_mpi_init( &E );
+    mbedtls_mpi_init( &DP ); mbedtls_mpi_init( &DQ ); mbedtls_mpi_init( &QP );
+
     mbedtls_rsa_init( &rsa, MBEDTLS_RSA_PKCS_V15, 0 );
 
-    rsa.len = KEY_LEN;
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.N , 16, RSA_N  ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.E , 16, RSA_E  ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.D , 16, RSA_D  ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.P , 16, RSA_P  ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.Q , 16, RSA_Q  ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.DP, 16, RSA_DP ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.DQ, 16, RSA_DQ ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &rsa.QP, 16, RSA_QP ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &N, 16, RSA_N ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &P, 16, RSA_P ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &Q, 16, RSA_Q ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &D, 16, RSA_D ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &E, 16, RSA_E ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &DP, 16, RSA_DP ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &DQ, 16, RSA_DQ ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &QP, 16, RSA_QP ) );
 
     if( verbose != 0 )
         mbedtls_printf( "  RSA key validation: " );
 
-    if( mbedtls_rsa_check_pubkey(  &rsa ) != 0 ||
-        mbedtls_rsa_check_privkey( &rsa ) != 0 )
+    if( mbedtls_rsa_validate( &N, &P, &Q, &D, &E, NULL, NULL ) ||
+        mbedtls_rsa_validate_crt( &P, &Q, &D, &DP, &DQ, &QP ) )
+    {
+        if( verbose != 0 )
+            mbedtls_printf( "failed\n" );
+
+        return( 1 );
+    }
+
+    if( verbose != 0 )
+        mbedtls_printf( "  RSA key import & complete: " );
+
+    if( mbedtls_rsa_import( &rsa, &N, &P, &Q, &D, &E ) != 0 ||
+        mbedtls_rsa_complete( &rsa, NULL, NULL ) != 0 )
     {
         if( verbose != 0 )
             mbedtls_printf( "failed\n" );
@@ -2599,6 +2616,10 @@ int mbedtls_rsa_self_test( int verbose )
         mbedtls_printf( "\n" );
 
 cleanup:
+    mbedtls_mpi_free( &N );  mbedtls_mpi_free( &P );  mbedtls_mpi_free( &Q );
+    mbedtls_mpi_free( &D );  mbedtls_mpi_free( &E );
+    mbedtls_mpi_free( &DP ); mbedtls_mpi_free( &DQ ); mbedtls_mpi_free( &QP );
+
     mbedtls_rsa_free( &rsa );
 #else /* MBEDTLS_PKCS1_V15 */
     ((void) verbose);
