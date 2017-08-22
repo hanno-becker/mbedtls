@@ -512,28 +512,51 @@ static int pk_get_rsapubkey( unsigned char **p,
     int ret;
     size_t len;
 
+    mbedtls_mpi N, E;
+
+    mbedtls_mpi_init( &N );
+    mbedtls_mpi_init( &E );
+
     if( ( ret = mbedtls_asn1_get_tag( p, end, &len,
             MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE ) ) != 0 )
-        return( MBEDTLS_ERR_PK_INVALID_PUBKEY + ret );
+    {
+        goto cleanup;
+    }
 
     if( *p + len != end )
-        return( MBEDTLS_ERR_PK_INVALID_PUBKEY +
-                MBEDTLS_ERR_ASN1_LENGTH_MISMATCH );
+    {
+        ret = MBEDTLS_ERR_ASN1_LENGTH_MISMATCH;
+        goto cleanup;
+    }
 
-    if( ( ret = mbedtls_asn1_get_mpi( p, end, &rsa->N ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( p, end, &rsa->E ) ) != 0 )
-        return( MBEDTLS_ERR_PK_INVALID_PUBKEY + ret );
+    if( ( ret = mbedtls_asn1_get_mpi( p, end, &N ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( p, end, &E ) ) != 0 )
+    {
+        goto cleanup;
+    }
+
+    if( ( ret = mbedtls_rsa_import( rsa, &N, NULL, NULL, NULL, &E ) ) != 0 ||
+        ( ret = mbedtls_rsa_complete( rsa, NULL, NULL ) ) != 0 )
+    {
+        ret = MBEDTLS_ERR_PK_INVALID_PUBKEY;
+        goto cleanup;
+    }
 
     if( *p != end )
-        return( MBEDTLS_ERR_PK_INVALID_PUBKEY +
-                MBEDTLS_ERR_ASN1_LENGTH_MISMATCH );
+    {
+        ret = MBEDTLS_ERR_ASN1_LENGTH_MISMATCH;
+        goto cleanup;
+    }
 
-    if( ( ret = mbedtls_rsa_check_pubkey( rsa ) ) != 0 )
-        return( MBEDTLS_ERR_PK_INVALID_PUBKEY );
+cleanup:
 
-    rsa->len = mbedtls_mpi_size( &rsa->N );
+    if( ret != 0 && ( ret & 0xff80 ) == 0 )
+        ret = MBEDTLS_ERR_PK_INVALID_PUBKEY + ret;
 
-    return( 0 );
+    mbedtls_mpi_free( &N );
+    mbedtls_mpi_free( &E );
+
+    return( ret );
 }
 #endif /* MBEDTLS_RSA_C */
 
@@ -643,9 +666,15 @@ static int pk_parse_key_pkcs1_der( mbedtls_rsa_context *rsa,
                                    const unsigned char *key,
                                    size_t keylen )
 {
-    int ret;
+    int ret, version;
     size_t len;
     unsigned char *p, *end;
+
+    mbedtls_mpi N, P, Q, D, E, DP, DQ, QP;
+
+    mbedtls_mpi_init( &N );  mbedtls_mpi_init( &P );  mbedtls_mpi_init( &Q );
+    mbedtls_mpi_init( &D );  mbedtls_mpi_init( &E );
+    mbedtls_mpi_init( &DP ); mbedtls_mpi_init( &DQ ); mbedtls_mpi_init( &QP );
 
     p = (unsigned char *) key;
     end = p + keylen;
@@ -667,52 +696,75 @@ static int pk_parse_key_pkcs1_der( mbedtls_rsa_context *rsa,
      *  }
      */
     if( ( ret = mbedtls_asn1_get_tag( &p, end, &len,
-            MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE ) ) != 0 )
+                 MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE ) ) != 0 )
     {
-        return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT + ret );
+        goto cleanup;
     }
 
     end = p + len;
 
-    if( ( ret = mbedtls_asn1_get_int( &p, end, &rsa->ver ) ) != 0 )
+    if( ( ret = mbedtls_asn1_get_int( &p, end, &version ) ) != 0 )
     {
-        return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT + ret );
+        goto cleanup;
     }
 
-    if( rsa->ver != 0 )
+    if( version != 0 )
     {
-        return( MBEDTLS_ERR_PK_KEY_INVALID_VERSION );
+        ret = MBEDTLS_ERR_PK_KEY_INVALID_VERSION;
+        goto cleanup;
     }
 
-    if( ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->N  ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->E  ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->D  ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->P  ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->Q  ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->DP ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->DQ ) ) != 0 ||
-        ( ret = mbedtls_asn1_get_mpi( &p, end, &rsa->QP ) ) != 0 )
+    if( ( ret = mbedtls_asn1_get_mpi( &p, end, &N  ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &E  ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &D  ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &P  ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &Q  ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &DP ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &DQ ) ) != 0 ||
+        ( ret = mbedtls_asn1_get_mpi( &p, end, &QP ) ) != 0 )
     {
-        mbedtls_rsa_free( rsa );
-        return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT + ret );
+        goto cleanup;
     }
 
-    rsa->len = mbedtls_mpi_size( &rsa->N );
+    /* Verify all parameters before importing them */
+    if( ( ret = mbedtls_rsa_validate( &N, &P, &Q, &D, &E,
+                                      NULL, NULL ) ) != 0 ||
+        ( ret = mbedtls_rsa_validate_crt( &P, &Q, &D,
+                                          &DP, &DQ, &QP ) ) != 0 )
+    {
+        ret = MBEDTLS_ERR_PK_KEY_INVALID_FORMAT;
+        goto cleanup;
+    }
+
+    /* Import and complete RSA key */
+    if( ( ret = mbedtls_rsa_import( rsa, &N, &P, &Q, &D, &E ) ) != 0 ||
+        ( ret = mbedtls_rsa_complete( rsa, NULL, NULL ) ) != 0 )
+    {
+        ret = MBEDTLS_ERR_PK_KEY_INVALID_FORMAT;
+        goto cleanup;
+    }
 
     if( p != end )
     {
-        mbedtls_rsa_free( rsa );
-        return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT +
-                MBEDTLS_ERR_ASN1_LENGTH_MISMATCH );
+        ret = MBEDTLS_ERR_ASN1_LENGTH_MISMATCH;
+        goto cleanup;
     }
 
-    if( ( ret = mbedtls_rsa_check_privkey( rsa ) ) != 0 )
+cleanup:
+
+    mbedtls_mpi_free( &N );  mbedtls_mpi_free( &P );  mbedtls_mpi_free( &Q );
+    mbedtls_mpi_free( &D );  mbedtls_mpi_free( &E );
+    mbedtls_mpi_free( &DP ); mbedtls_mpi_free( &DQ ); mbedtls_mpi_free( &QP );
+
+    if( ret != 0 )
     {
+        if( ( ret & 0xff80 ) == 0 )
+            ret = MBEDTLS_ERR_PK_KEY_INVALID_FORMAT + ret;
+
         mbedtls_rsa_free( rsa );
-        return( ret );
     }
 
-    return( 0 );
+    return( ret );
 }
 #endif /* MBEDTLS_RSA_C */
 
