@@ -237,6 +237,8 @@ int mbedtls_rsa_validate_crt( const mbedtls_mpi *P,  const mbedtls_mpi *Q,
  * Implementation of RSA interface
  */
 
+#if !defined(MBEDTLS_RSA_ALT)
+
 /**
  * \brief          RSA context structure
  */
@@ -279,6 +281,12 @@ typedef struct
 #endif
 }
 mbedtls_rsa_context;
+
+#else
+
+#include "rsa_alt.h"
+
+#endif /* MBEDTLS_RSA_ALT */
 
 /**
  * \brief          Initialize an RSA context
