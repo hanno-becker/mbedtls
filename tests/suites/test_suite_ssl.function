@@ -1,12 +1,204 @@
 /* BEGIN_HEADER */
+#include <stdio.h>
+#include <string.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
 #include <mbedtls/ssl.h>
+#include <mbedtls/debug.h>
 #include <mbedtls/ssl_internal.h>
+
+#define BUFFER_SIZE 16384
+typedef struct
+{
+    unsigned char buf[BUFFER_SIZE];
+    size_t avail;
+} message_buffer;
+
+static message_buffer c2s; /* Client-to-Server */
+static message_buffer s2c; /* Server-to-Client */
+
+void buffer_init( message_buffer *mbuf )
+{
+    memset( (unsigned char*) mbuf, 0, sizeof( message_buffer ) );
+}
+
+int buffer_read( int is_cli, unsigned char *dst, size_t size )
+{
+    message_buffer* const mbuf = is_cli ? &s2c : &c2s;
+    size_t remaining;
+
+    if( mbuf->avail == 0 )
+        return( MBEDTLS_ERR_SSL_WANT_READ );
+
+    if( size > mbuf->avail )
+    {
+        size      = mbuf->avail;
+        remaining = 0;
+    }
+    else
+    {
+        remaining = mbuf->avail - size;
+    }
+
+    memcpy( dst, mbuf->buf, size );
+    memmove( mbuf->buf, mbuf->buf + size, remaining );
+
+    mbuf->avail = remaining;
+
+    return( size );
+}
+
+int buffer_write( int is_cli, const unsigned char *src, size_t size )
+{
+    message_buffer* const mbuf = is_cli ? &c2s : &s2c;
+    const size_t remaining = sizeof( mbuf->buf ) - mbuf->avail;
+
+    if( remaining == 0 )
+        return( MBEDTLS_ERR_SSL_WANT_WRITE );
+
+    if( size > remaining )
+        size = remaining;
+
+    memcpy( mbuf->buf + mbuf->avail, src, size );
+    mbuf->avail += size;
+
+    return( size );
+}
+
+static void my_debug( void *ctx, int level,
+                      const char *file, int line,
+                      const char *str )
+{
+    ((void) level);
+
+    mbedtls_fprintf( (FILE *) ctx, "%s:%04d: %s", file, line, str );
+    fflush(  (FILE *) ctx  );
+}
+
 /* END_HEADER */
 
 /* BEGIN_DEPENDENCIES
  * depends_on:MBEDTLS_SSL_TLS_C
  * END_DEPENDENCIES
  */
+
+/* BEGIN_CASE */
+void ssl_test()
+{
+    int ret;
+    int turn = 0;
+    int cli_handshake_done = 0;
+    int srv_handshake_done = 0;
+
+    mbedtls_ssl_context ssl_srv,  ssl_cli;
+    mbedtls_ssl_config  conf_srv, conf_cli;
+
+    mbedtls_entropy_context  entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+
+    mbedtls_ssl_init( &ssl_srv );
+    mbedtls_ssl_init( &ssl_cli );
+    mbedtls_ssl_config_init( &conf_cli );
+    mbedtls_ssl_config_init( &conf_srv );
+    mbedtls_ctr_drbg_init( &ctr_drbg );
+
+    mbedtls_entropy_init( &entropy );
+    TEST_ASSERT( mbedtls_ctr_drbg_seed( &ctr_drbg, mbedtls_entropy_func,
+                                        &entropy, (unsigned char*) "test",
+                                        4 ) == 0 );
+
+    /*
+     * Setup client config
+     */
+
+    TEST_ASSERT( mbedtls_ssl_config_defaults( &conf_cli,
+                 MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM,
+                 MBEDTLS_SSL_PRESET_DEFAULT ) == 0 );
+
+    mbedtls_ssl_conf_authmode( &conf_cli, MBEDTLS_SSL_VERIFY_NONE );
+    mbedtls_ssl_conf_psk( &conf_cli, (const unsigned char*) "42", 2,
+                          (const unsigned char*) "galaxy", 6 );
+    mbedtls_ssl_conf_dbg( &conf_cli, my_debug, stdout );
+    mbedtls_ssl_conf_rng( &conf_cli, mbedtls_ctr_drbg_random, &ctr_drbg );
+
+    TEST_ASSERT( mbedtls_ssl_config_defaults( &conf_srv,
+                 MBEDTLS_SSL_IS_SERVER, MBEDTLS_SSL_TRANSPORT_STREAM,
+                 MBEDTLS_SSL_PRESET_DEFAULT ) == 0 );
+
+    /*
+     * Setup server config
+     */
+
+    mbedtls_ssl_conf_authmode( &conf_srv, MBEDTLS_SSL_VERIFY_NONE );
+    mbedtls_ssl_conf_psk( &conf_srv, (const unsigned char*) "42", 2,
+                          (const unsigned char*) "galaxy", 6 );
+    mbedtls_ssl_conf_dbg( &conf_srv, my_debug, stdout );
+    mbedtls_ssl_conf_rng( &conf_srv, mbedtls_ctr_drbg_random, &ctr_drbg );
+
+    TEST_ASSERT( mbedtls_ssl_setup( &ssl_srv, &conf_srv ) == 0 );
+    TEST_ASSERT( mbedtls_ssl_setup( &ssl_cli, &conf_cli ) == 0 );
+
+    mbedtls_ssl_set_bio( &ssl_srv, 0, buffer_write, buffer_read, NULL );
+    mbedtls_ssl_set_bio( &ssl_cli, 1, buffer_write, buffer_read, NULL );
+
+    /*
+     * Run client and server in turns
+     */
+
+    for( turn=0;; turn=!turn )
+    {
+        if( turn == 0 )
+        {
+            /* Client's turn */
+            if( !cli_handshake_done )
+            {
+                if( ( ret = mbedtls_ssl_handshake( &ssl_cli ) ) != 0 )
+                {
+                    TEST_ASSERT( ret == MBEDTLS_ERR_SSL_WANT_READ ||
+                                 ret == MBEDTLS_ERR_SSL_WANT_WRITE );
+                    continue;
+                }
+
+                printf( "Client done with handshake\n" );
+                cli_handshake_done = 1;
+            }
+        }
+        else
+        {
+            /* Server's turn */
+            if( !srv_handshake_done )
+            {
+                if( ( ret = mbedtls_ssl_handshake( &ssl_srv ) ) != 0 )
+                {
+                    TEST_ASSERT( ret == MBEDTLS_ERR_SSL_WANT_READ ||
+                                 ret == MBEDTLS_ERR_SSL_WANT_WRITE );
+                    continue;
+                }
+
+                printf( "Server done with handshake\n" );
+                srv_handshake_done = 1;
+            }
+        }
+
+        if( srv_handshake_done == 1 &&
+            cli_handshake_done == 1 )
+        {
+            printf( "Server and client done with handshake\n" );
+            break;
+        }
+    }
+
+exit:
+
+    mbedtls_ssl_config_free( &conf_srv );
+    mbedtls_ssl_config_free( &conf_cli );
+    mbedtls_ssl_free( &ssl_srv );
+    mbedtls_ssl_free( &ssl_cli );
+    mbedtls_ctr_drbg_free( &ctr_drbg );
+    mbedtls_entropy_free( &entropy );
+
+}
+/* END_CASE */
 
 /* BEGIN_CASE depends_on:MBEDTLS_SSL_DTLS_ANTI_REPLAY */
 void ssl_dtls_replay( char *prevs, char *new, int ret )
@@ -35,6 +227,8 @@ void ssl_dtls_replay( char *prevs, char *new, int ret )
     /* Check new number */
     unhexify( ssl.in_ctr + 2, new );
     TEST_ASSERT( mbedtls_ssl_dtls_replay_check( &ssl ) == ret );
+
+exit:
 
     mbedtls_ssl_free( &ssl );
     mbedtls_ssl_config_free( &conf );
