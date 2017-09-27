@@ -1167,9 +1167,9 @@ int mbedtls_rsa_rsassa_pss_sign( mbedtls_rsa_context *ctx,
  *
  * Parameters:
  * - md_alg:  Identifies the hash algorithm used to generate the given hash;
- *            MBEDTLS_MD_NONE if raw data are signed.
+ *            MBEDTLS_MD_NONE if raw data is signed.
  * - hashlen: Length of hash in case hashlen is MBEDTLS_MD_NONE.
- * - hash:    Buffer containing the hashed message.
+ * - hash:    Buffer containing the hashed message or the raw data.
  * - sig_len: Length of the encoded message.
  * - dst:     Buffer to hold the encoded message.
  *
