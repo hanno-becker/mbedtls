@@ -1180,7 +1180,7 @@ int mbedtls_rsa_rsassa_pss_sign( mbedtls_rsa_context *ctx,
  *
  */
 static int rsa_rsassa_pkcs1_v15_encode( mbedtls_md_type_t md_alg,
-                                        unsigned int hashlen,
+                                        size_t hashlen,
                                         const unsigned char *hash,
                                         size_t sig_len,
                                         unsigned char *dst )
