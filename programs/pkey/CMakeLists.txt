@@ -25,6 +25,9 @@ target_link_libraries(key_app_writer mbedtls)
 add_executable(mpi_demo mpi_demo.c)
 target_link_libraries(mpi_demo mbedtls)
 
+add_executable(rfc3526_verify rfc3526_verify.c)
+target_link_libraries(rfc3526_verify mbedtls)
+
 add_executable(rsa_genkey rsa_genkey.c)
 target_link_libraries(rsa_genkey mbedtls)
 

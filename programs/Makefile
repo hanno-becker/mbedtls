@@ -53,6 +53,7 @@ APPS =	aes/aescrypt2$(EXEXT)		aes/crypt_and_hash$(EXEXT)	\
 	pkey/ecdsa$(EXEXT)		pkey/gen_key$(EXEXT)		\
 	pkey/key_app$(EXEXT)		pkey/key_app_writer$(EXEXT)	\
 	pkey/mpi_demo$(EXEXT)		pkey/pk_decrypt$(EXEXT)		\
+	pkey/rfc3526_verify$(EXEXT)					\
 	pkey/pk_encrypt$(EXEXT)		pkey/pk_sign$(EXEXT)		\
 	pkey/pk_verify$(EXEXT)		pkey/rsa_genkey$(EXEXT)		\
 	pkey/rsa_decrypt$(EXEXT)	pkey/rsa_encrypt$(EXEXT)	\
@@ -136,6 +137,10 @@ pkey/key_app_writer$(EXEXT): pkey/key_app_writer.c $(DEP)
 pkey/mpi_demo$(EXEXT): pkey/mpi_demo.c $(DEP)
 	echo "  CC    pkey/mpi_demo.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) pkey/mpi_demo.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+
+pkey/rfc3526_verify$(EXEXT): pkey/rfc3526_verify.c $(DEP)
+	echo "  CC    pkey/rfc3526_verify.c"
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) pkey/rfc3526_verify.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 pkey/pk_decrypt$(EXEXT): pkey/pk_decrypt.c $(DEP)
 	echo "  CC    pkey/pk_decrypt.c"
