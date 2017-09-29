@@ -562,7 +562,9 @@ int mbedtls_rsa_import( mbedtls_rsa_context *ctx,
     }
 
     if( N != NULL )
+    {
         ctx->len = mbedtls_mpi_size( &ctx->N );
+    }
 
     return( 0 );
 }
@@ -661,10 +663,15 @@ int mbedtls_rsa_complete( mbedtls_rsa_context *ctx,
 #endif /* MBEDTLS_GENPRIME */
 
         /* Compute N if missing. */
-        if( !have_N &&
-            ( ret = mbedtls_mpi_mul_mpi( &ctx->N, &ctx->P, &ctx->Q ) ) != 0 )
+        if( !have_N )
         {
-            return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA + ret );
+            if( ( ret = mbedtls_mpi_mul_mpi( &ctx->N, &ctx->P,
+                                             &ctx->Q ) ) != 0 )
+            {
+                return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA + ret );
+            }
+
+            ctx->len = mbedtls_mpi_size( &ctx->N );
         }
 
         /* Deduce private exponent. This includes double-checking of the result,
@@ -913,7 +920,7 @@ void mbedtls_rsa_set_padding( mbedtls_rsa_context *ctx, int padding, int hash_id
 
 size_t mbedtls_rsa_get_len( const mbedtls_rsa_context *ctx )
 {
-    return( mbedtls_mpi_size( &ctx->N ) );
+    return( ctx->len );
 }
 
 
@@ -933,8 +940,8 @@ int mbedtls_rsa_gen_key( mbedtls_rsa_context *ctx,
     if( f_rng == NULL || nbits < 128 || exponent < 3 )
         return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA );
 
-    if( nbits % 2 )
-        return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA );
+    /* if( nbits % 2 ) */
+    /*     return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA ); */
 
     mbedtls_mpi_init( &H );
     mbedtls_mpi_init( &G );
@@ -950,8 +957,9 @@ int mbedtls_rsa_gen_key( mbedtls_rsa_context *ctx,
         MBEDTLS_MPI_CHK( mbedtls_mpi_gen_prime( &ctx->P, nbits >> 1, 0,
                                                 f_rng, p_rng ) );
 
-        MBEDTLS_MPI_CHK( mbedtls_mpi_gen_prime( &ctx->Q, nbits >> 1, 0,
-                                                f_rng, p_rng ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_gen_prime( &ctx->Q,
+                                                ( nbits >> 1 ) + ( nbits & 1 ),
+                                                0, f_rng, p_rng ) );
 
         if( mbedtls_mpi_cmp_mpi( &ctx->P, &ctx->Q ) == 0 )
             continue;
@@ -1896,6 +1904,11 @@ int mbedtls_rsa_rsassa_pss_sign( mbedtls_rsa_context *ctx,
     hlen = mbedtls_md_get_size( md_info );
     slen = hlen;
 
+    printf( "olen: %d, hlen + slen + 2: %d\n",
+            olen, hlen + slen + 2 );
+
+    printf( "bitlen: %d\n", mbedtls_mpi_bitlen( &ctx-> N ) );
+
     if( olen < hlen + slen + 2 )
         return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA );
 
@@ -2204,6 +2217,7 @@ int mbedtls_rsa_rsassa_pss_verify_ext( mbedtls_rsa_context *ctx,
     if( p == buf + siglen ||
         *p++ != 0x01 )
     {
+        printf( "ERROR" );
         mbedtls_md_free( &md_ctx );
         return( MBEDTLS_ERR_RSA_INVALID_PADDING );
     }

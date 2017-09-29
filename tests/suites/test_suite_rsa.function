@@ -8,6 +8,7 @@
 #include "mbedtls/sha512.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+#include "mbedtls/error.h"
 /* END_HEADER */
 
 /* BEGIN_DEPENDENCIES
@@ -848,9 +849,24 @@ void mbedtls_rsa_import( int radix_N, char *input_N,
     mbedtls_mpi N, P, Q, D, E;
     mbedtls_rsa_context ctx;
 
+    int res;
+
+    /* Buffers used for encryption-decryption test */
+    unsigned char *buf_orig = NULL;
+    unsigned char *buf_enc  = NULL;
+    unsigned char *buf_dec  = NULL;
+
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
     const char *pers = "test_suite_rsa";
+
+    const int have_N = ( strlen( input_N ) > 0 );
+    const int have_P = ( strlen( input_P ) > 0 );
+    const int have_Q = ( strlen( input_Q ) > 0 );
+    const int have_D = ( strlen( input_D ) > 0 );
+    const int have_E = ( strlen( input_E ) > 0 );
+
+    const int is_priv = ( have_P && have_Q ) || have_D;
 
     mbedtls_ctr_drbg_init( &ctr_drbg );
 
@@ -864,19 +880,19 @@ void mbedtls_rsa_import( int radix_N, char *input_N,
     mbedtls_mpi_init( &P ); mbedtls_mpi_init( &Q );
     mbedtls_mpi_init( &D ); mbedtls_mpi_init( &E );
 
-    if( strlen( input_N ) )
+    if( have_N )
         TEST_ASSERT( mbedtls_mpi_read_string( &N, radix_N, input_N ) == 0 );
 
-    if( strlen( input_P ) )
+    if( have_P )
         TEST_ASSERT( mbedtls_mpi_read_string( &P, radix_P, input_P ) == 0 );
 
-    if( strlen( input_Q ) )
+    if( have_Q )
         TEST_ASSERT( mbedtls_mpi_read_string( &Q, radix_Q, input_Q ) == 0 );
 
-    if( strlen( input_D ) )
+    if( have_D )
         TEST_ASSERT( mbedtls_mpi_read_string( &D, radix_D, input_D ) == 0 );
 
-    if( strlen( input_E ) )
+    if( have_E )
         TEST_ASSERT( mbedtls_mpi_read_string( &E, radix_E, input_E ) == 0 );
 
     if( !successive )
@@ -921,7 +937,55 @@ void mbedtls_rsa_import( int radix_N, char *input_N,
                                        mbedtls_ctr_drbg_random,
                                        &ctr_drbg ) == result );
 
+    /* On expected success, perform some public and private
+     * key operations to check if the key is working properly. */
+    if( result == 0 )
+    {
+        TEST_ASSERT( mbedtls_rsa_check_pubkey( &ctx ) == 0 );
+
+        if( is_priv )
+        {
+            TEST_ASSERT( mbedtls_rsa_check_privkey( &ctx ) == 0 );
+        }
+
+        buf_orig = mbedtls_calloc( 1, mbedtls_rsa_get_len( &ctx ) );
+        buf_enc  = mbedtls_calloc( 1, mbedtls_rsa_get_len( &ctx ) );
+        buf_dec  = mbedtls_calloc( 1, mbedtls_rsa_get_len( &ctx ) );
+        if( buf_orig == NULL || buf_enc == NULL || buf_dec == NULL )
+            goto exit;
+
+        TEST_ASSERT( mbedtls_ctr_drbg_random( &ctr_drbg,
+                              buf_orig, mbedtls_rsa_get_len( &ctx ) ) == 0 );
+
+        /* Normally the order would be the other way around,
+         * but this way it's simpler here. */
+
+        res = mbedtls_rsa_public( &ctx, buf_orig, buf_enc );
+        if( res != 0 )
+        {
+            char err_str[100];
+            mbedtls_strerror( res, err_str, sizeof( err_str ) );
+            printf( "ERROR: %s\n", err_str );
+//            printf( "ctx length: %u\n", mbedtls_rsa_get_len( &ctx ) );
+            TEST_ASSERT( 0 );
+        }
+
+        /* if( is_priv ) */
+        /* { */
+        /*     TEST_ASSERT( mbedtls_rsa_private( &ctx, mbedtls_ctr_drbg_random, */
+        /*                                       &ctr_drbg, buf_orig, */
+        /*                                       buf_enc ) == 0 ); */
+
+        /*     TEST_ASSERT( memcmp( buf_orig, buf_enc, */
+        /*                          mbedtls_rsa_get_len( &ctx ) ) == 0 ); */
+        /* } */
+    }
+
 exit:
+
+    mbedtls_free( buf_orig );
+    mbedtls_free( buf_enc  );
+    mbedtls_free( buf_dec  );
 
     mbedtls_rsa_free( &ctx );
 
@@ -954,7 +1018,7 @@ void mbedtls_rsa_export( int radix_N, char *input_N,
     const int have_D = ( strlen( input_D ) > 0 );
     const int have_E = ( strlen( input_E ) > 0 );
 
-    const int is_priv = have_P || have_Q || have_D;
+    const int is_priv = ( have_P && have_Q ) || have_D;
 
     mbedtls_rsa_context ctx;
 
@@ -1154,7 +1218,7 @@ void mbedtls_rsa_export_raw( char *input_N, char *input_P,
     const int have_D = ( strlen( input_D ) > 0 );
     const int have_E = ( strlen( input_E ) > 0 );
 
-    const int is_priv = have_P || have_Q || have_D;
+    const int is_priv = ( have_P && have_Q ) || have_D;
 
     mbedtls_rsa_context ctx;
 
