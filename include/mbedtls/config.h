@@ -267,7 +267,7 @@
  *            avoid dependencies on them and alternative message digests resp.
  *            ciphers should be considered instead.
  *
- * \deprecated MD2 is deprecated and will likely be removed
+ * \deprecated MD2 and ARC4 are deprecated and will likely be removed
  *             in a future version of the library.
  *
  */
@@ -544,6 +544,10 @@
  * explicitly.
  *
  * Uncomment this macro to remove RC4 ciphersuites by default.
+ *
+ * \deprecated ARC4 is deprecated and will likely be removed
+ *             in a future version of the library.
+ *
  */
 #define MBEDTLS_REMOVE_ARC4_CIPHERSUITES
 
@@ -1619,6 +1623,9 @@
  *                 constitutes a security risk. If possible, it is
  *                 recommended to avoid dependencies on it and that
  *                 alternative ciphers should be considered instead.
+ *
+ * \deprecated     ARC4 is deprecated and will likely be removed
+ *                 in a future version of the library.
  *
  */
 #define MBEDTLS_ARC4_C
