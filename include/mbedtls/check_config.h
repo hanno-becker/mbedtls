@@ -61,6 +61,14 @@
 #error "MBEDTLS_DEPRECATED_WARNING only works with GCC and Clang"
 #endif
 
+#if defined(MBEDTLS_DEPRECATED_REMOVED) && defined(MBEDTLS_MD2_C)
+#error "MBEDTLS_DEPRECATED_REMOVED set but deprecated MD2 enabled"
+#endif
+
+#if defined(MBEDTLS_DEPRECATED_REMOVED) && defined(MBEDTLS_ARC4_C)
+#error "MBEDTLS_DEPRECATED_REMOVED set but deprecated ARC4 enabled"
+#endif
+
 #if defined(MBEDTLS_HAVE_TIME_DATE) && !defined(MBEDTLS_HAVE_TIME)
 #error "MBEDTLS_HAVE_TIME_DATE without MBEDTLS_HAVE_TIME does not make sense"
 #endif

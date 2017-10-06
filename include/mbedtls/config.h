@@ -217,6 +217,8 @@
  * major version by making sure your code is not using these functions.
  *
  * Uncomment to get errors on using deprecated functions.
+ *
+ * Requires !MBEDTLS_MD2_C, !MBEDTLS_RC4_C
  */
 //#define MBEDTLS_DEPRECATED_REMOVED
 
