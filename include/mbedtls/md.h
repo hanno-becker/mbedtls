@@ -36,6 +36,12 @@
 extern "C" {
 #endif
 
+#if defined(MBEDTLS_DEPRECATED_WARNING)
+#define MBEDTLS_DEPRECATED __attribute__((deprecated))
+#else
+#define MBEDTLS_DEPRECATED
+#endif
+
 /*
  * \brief     Enumeration of supported message digests
  *
@@ -43,10 +49,13 @@ extern "C" {
  *            and their use constitutes a security risk. It is recommended
  *            alternative message digests should be considered instead.
  *
+ * \deprecated MD2 is deprecated and will likely be removed in a future
+ *             version of the library.
  */
+
 typedef enum {
     MBEDTLS_MD_NONE=0,
-    MBEDTLS_MD_MD2,
+    MBEDTLS_MD_MD2 MBEDTLS_DEPRECATED,
     MBEDTLS_MD_MD4,
     MBEDTLS_MD_MD5,
     MBEDTLS_MD_SHA1,
