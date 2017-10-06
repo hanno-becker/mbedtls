@@ -66,6 +66,12 @@
 extern "C" {
 #endif
 
+#if defined(MBEDTLS_DEPRECATED_WARNING)
+#define MBEDTLS_DEPRECATED __attribute__((deprecated))
+#else
+#define MBEDTLS_DEPRECATED
+#endif
+
 /*
  * \brief     Enumeration of supported ciphers
  *
@@ -81,7 +87,7 @@ typedef enum {
     MBEDTLS_CIPHER_ID_3DES,
     MBEDTLS_CIPHER_ID_CAMELLIA,
     MBEDTLS_CIPHER_ID_BLOWFISH,
-    MBEDTLS_CIPHER_ID_ARC4,
+    MBEDTLS_CIPHER_ID_ARC4 MBEDTLS_DEPRECATED,
 } mbedtls_cipher_id_t;
 
 typedef enum {
@@ -127,7 +133,7 @@ typedef enum {
     MBEDTLS_CIPHER_BLOWFISH_CBC,
     MBEDTLS_CIPHER_BLOWFISH_CFB64,
     MBEDTLS_CIPHER_BLOWFISH_CTR,
-    MBEDTLS_CIPHER_ARC4_128,
+    MBEDTLS_CIPHER_ARC4_128 MBEDTLS_DEPRECATED,
     MBEDTLS_CIPHER_AES_128_CCM,
     MBEDTLS_CIPHER_AES_192_CCM,
     MBEDTLS_CIPHER_AES_256_CCM,
