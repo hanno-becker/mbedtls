@@ -264,8 +264,8 @@
  * Uncomment a macro to enable alternate implementation of the corresponding
  * module.
  *
- * \warning   MD2, MD4, MD5, ARC4 and SHA-1 are considered weak and their use
- *            constitutes a security risk. If possible, it is recommended to
+ * \warning   MD2, MD4, MD5, ARC4, DES and SHA-1 are considered weak and their
+ *            use constitutes a security risk. If possible, it is recommended to
  *            avoid dependencies on them and alternative message digests resp.
  *            ciphers should be considered instead.
  *
@@ -326,10 +326,10 @@
  * Uncomment a macro to enable alternate implementation of the corresponding
  * function.
  *
- * \warning   MD2, MD4, MD5 and SHA-1 are considered weak message digests
- *            and their use constitutes a security risk. If possible, it is
- *            recommended to avoid dependencies on them and alternative message
- *            digests should be considered instead.
+ * \warning   MD2, MD4, MD5, DES and SHA-1 are considered weak and their
+ *            use constitutes a security risk. If possible, it is recommended
+ *            to avoid dependencies on them and alternative message digests
+ *            resp. ciphers should be considered instead.
  *
  * \deprecated MD2 is deprecated and will likely be removed
  *             in a future version of the library.
@@ -533,6 +533,10 @@
  *      MBEDTLS_TLS_DHE_RSA_WITH_DES_CBC_SHA
  *
  * Uncomment this macro to enable weak ciphersuites
+ *
+ * \warning   DES is considered a weak cipher and its use
+ *            constitutes a security risk. It is recommended
+ *            alternative ciphers should be considered instead.
  */
 //#define MBEDTLS_ENABLE_WEAK_CIPHERSUITES
 
@@ -1854,6 +1858,10 @@
  *      MBEDTLS_TLS_PSK_WITH_3DES_EDE_CBC_SHA
  *
  * PEM_PARSE uses DES/3DES for decrypting encrypted keys.
+ *
+ * \warning   DES is considered a weak cipher and its use
+ *            constitutes a security risk. It is recommended
+ *            alternative ciphers should be considered instead.
  */
 #define MBEDTLS_DES_C
 
