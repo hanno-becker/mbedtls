@@ -256,8 +256,17 @@ while($test_cases =~ /\/\* BEGIN_CASE *([\w:]*) \*\/\n(.*?)\n\/\* END_CASE \*\//
 
     foreach my $req (split(/:/, $function_deps))
     {
-        $function_pre_code .= "#ifdef $req\n";
-        $function_post_code .= "#endif /* $req */\n";
+        if( substr($req, 0, 1) eq "!" )
+        {
+            my $req = substr($req,1);
+            $function_pre_code  .= "#if !defined($req)\n";
+            $function_post_code = "#endif /* !$req */\n" . $function_post_code;
+        }
+        else
+        {
+            $function_pre_code  .= "#if defined($req)\n";
+            $function_post_code = "#endif /* $req */\n" . $function_post_code;
+        }
     }
 
     foreach my $def (@var_def_arr)
@@ -290,14 +299,36 @@ while($test_cases =~ /\/\* BEGIN_CASE *([\w:]*) \*\/\n(.*?)\n\/\* END_CASE \*\//
     # Find non-integer values we should map for this function
     if( $mapping_count)
     {
-        my @res = $test_data =~ /^$mapping_regex/msg;
+        my @res = $test_data =~ /^((?:depends_on:[!\w:]+)?)\n?$mapping_regex/msg;
+        my $local_deps      = $function_deps;
+        my $local_pre_code  = $function_pre_code;
         foreach my $value (@res)
         {
+            # Check if we're at the beginning of a test case and
+            # need to update the local dependencies
+            if( $value =~ /^depends_on:/)
+            {
+                $local_pre_code  = $function_pre_code;
+                ( $local_deps ) = $value =~ /^depends_on:(.*)$/;
+                foreach my $req (split(/:/, $local_deps))
+                {
+                    if( substr($req, 0, 1) eq "!" )
+                    {
+                        my $req = substr($req, 1);
+                        $local_pre_code  .= "#if !defined($req)\n";
+                    }
+                    else
+                    {
+                        $local_pre_code  .= "#if defined($req)\n";
+                    }
+                }
+                next;
+            }
             next unless ($value !~ /^[+-]?\d*$/);
             if ( $mapping_values{$value} ) {
-                ${ $mapping_values{$value} }{$function_pre_code} = 1;
+                ${ $mapping_values{$value} }{$local_pre_code} = 1;
             } else {
-                $mapping_values{$value} = { $function_pre_code => 1 };
+                $mapping_values{$value} = { $local_pre_code => 1 };
             }
         }
     }
@@ -384,13 +415,16 @@ while( my ($key, $value) = each(%mapping_values) )
     }
 END
 
-    # handle depenencies, unless used at least one without depends
+    # Unless the identifier is used at least once without
+    # dependencies, add a mapping for each occurrence, guarded
+    # by the respective dependency.
     if ($value->{""}) {
         $mapping_code .= $key_mapping_code;
         next;
     }
     for my $ifdef ( keys %$value ) {
-        (my $endif = $ifdef) =~ s!ifdef!endif //!g;
+        (my $endif = $ifdef) =~ s/if ([!]?)defined\(([\w\d_]+)\)/endif \/\/ $1$2/g;
+        $endif = join("", reverse(split(/^/m, $endif)));
         $mapping_code .= $ifdef . $key_mapping_code . $endif;
     }
 }
