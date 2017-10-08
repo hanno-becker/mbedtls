@@ -78,6 +78,9 @@ extern "C" {
  * \warning   ARC4 is considered a weak cipher and its use
  *            constitutes a security risk. It is recommended
  *            alternative ciphers should be considered instead.
+ *
+ * \deprecated  ARC4 is deprecated and will likely be removed
+ *              in a future version of the library.
  */
 typedef enum {
     MBEDTLS_CIPHER_ID_NONE = 0,
@@ -90,6 +93,16 @@ typedef enum {
     MBEDTLS_CIPHER_ID_ARC4 MBEDTLS_DEPRECATED,
 } mbedtls_cipher_id_t;
 
+/*
+ * \brief     Enumeration of supported (cipher,mode) pairs
+ *
+ * \warning   ARC4 is considered a weak cipher and its use
+ *            constitutes a security risk. It is recommended
+ *            alternative ciphers should be considered instead.
+ *
+ * \deprecated  ARC4 is deprecated and will likely be removed
+ *              in a future version of the library.
+ */
 typedef enum {
     MBEDTLS_CIPHER_NONE = 0,
     MBEDTLS_CIPHER_NULL,
