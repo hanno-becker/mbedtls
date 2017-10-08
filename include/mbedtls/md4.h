@@ -20,13 +20,20 @@
  *
  *  This file is part of mbed TLS (https://tls.mbed.org)
  *
- * \warning        MD4 is considered a weak message digest and its use
- *                 constitutes a security risk. It is recommended alternative
- *                 message digests should be considered instead.
+ *  \deprecated   MD4 is deprecated and its use constitutes a security risk.
+ *                It is recommended alternative message digests should be
+ *                considered instead.
  *
  */
 #ifndef MBEDTLS_MD4_H
 #define MBEDTLS_MD4_H
+
+#if !defined(MBEDTLS_DEPRECATED_REMOVED)
+
+#if defined(MBEDTLS_DEPRECATED_WARNING)
+#warning MD4 is deprecated and its use constitutes a security risk.
+#warning It is recommended alternative message digests should be considered instead.
+#endif /* MBEDTLS_DEPRECATED_WARNING */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -52,6 +59,9 @@ extern "C" {
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 typedef struct
 {
@@ -70,6 +80,9 @@ mbedtls_md4_context;
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 void mbedtls_md4_init( mbedtls_md4_context *ctx );
 
@@ -81,6 +94,9 @@ void mbedtls_md4_init( mbedtls_md4_context *ctx );
  * \warning        MD4 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
+ *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
  *
  */
 void mbedtls_md4_free( mbedtls_md4_context *ctx );
@@ -95,6 +111,9 @@ void mbedtls_md4_free( mbedtls_md4_context *ctx );
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 void mbedtls_md4_clone( mbedtls_md4_context *dst,
                         const mbedtls_md4_context *src );
@@ -107,6 +126,9 @@ void mbedtls_md4_clone( mbedtls_md4_context *dst,
  * \warning        MD4 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
+ *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
  */
 void mbedtls_md4_starts( mbedtls_md4_context *ctx );
 
@@ -121,6 +143,9 @@ void mbedtls_md4_starts( mbedtls_md4_context *ctx );
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 void mbedtls_md4_update( mbedtls_md4_context *ctx, const unsigned char *input, size_t ilen );
 
@@ -133,6 +158,9 @@ void mbedtls_md4_update( mbedtls_md4_context *ctx, const unsigned char *input, s
  * \warning        MD4 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
+ *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
  *
  */
 void mbedtls_md4_finish( mbedtls_md4_context *ctx, unsigned char output[16] );
@@ -160,6 +188,9 @@ extern "C" {
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 void mbedtls_md4( const unsigned char *input, size_t ilen, unsigned char output[16] );
 
@@ -172,6 +203,9 @@ void mbedtls_md4( const unsigned char *input, size_t ilen, unsigned char output[
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
+ * \deprecated     MD4 is deprecated and will likely be removed
+ *                 in a future version of the library.
+ *
  */
 int mbedtls_md4_self_test( int verbose );
 
@@ -181,5 +215,7 @@ void mbedtls_md4_process( mbedtls_md4_context *ctx, const unsigned char data[64]
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* MBEDTLS_DEPRECATED_REMOVED */
 
 #endif /* mbedtls_md4.h */
