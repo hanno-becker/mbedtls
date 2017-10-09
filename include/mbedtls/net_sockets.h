@@ -141,21 +141,23 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
  *
  * \param ctx      Socket to check
  * \param rw       Bitflag composed of MBEDTLS_NET_POLL_READ and
- *                 MBEDTLS_NET_POLL_WRITE specifying the checks to
- *                 perform.
- *                 If MBEDTLS_NET_POLL_READ is set, the call checks
- *                 for data ready to be read from the context.
- *                 If MBEDTLS_NET_POLL_WRITE is set, the call checks
- *                 for the context to be ready for a write.
+ *                 MBEDTLS_NET_POLL_WRITE specifying the events
+ *                 to wait for:
+ *                 - If MBEDTLS_NET_POLL_READ is set, the function
+ *                   will return as soon as the net context is available
+ *                   for reading.
+ *                 - If MBEDTLS_NET_POLL_WRITE is set, the function
+ *                   will return as soon as the net context is available
+ *                   for writing.
  * \param timeout  Maximal amount of time to wait before returning,
  *                 in milliseconds. If \c timeout is zero, the
- *                 function returns immediately. A negative value
- *                 allows the function to block indefinitely.
+ *                 function returns immediately. If \c timeout is
+ *                 -1u, the function blocks potentially indefinitely.
  *
- * \return         0 if all checks are successful, 1 if not, or
- *                 MBEDTLS_ERR_NET_POLL_FAILED on failure.
+ * \return         Bitmask composed of MBEDTLS_NET_POLL_READ/WRITE
+ *                 on success or timeout, or a negative return code otherwise.
  */
-int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, int timeout );
+int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, uint32_t timeout );
 
 /**
  * \brief          Set the socket blocking

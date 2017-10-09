@@ -865,7 +865,8 @@ void idle( mbedtls_ssl_context *ssl,
         }
 #endif
 
-        if( poll_type != 0 && mbedtls_net_poll( fd, poll_type, 0 ) == 0 )
+        if( poll_type != 0 &&
+            mbedtls_net_poll( fd, poll_type, 0 ) == poll_type )
         {
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "[%lu ms] net_context signals data - "
                                         "continue", time_elapsed ) );
