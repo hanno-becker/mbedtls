@@ -16,20 +16,26 @@ PARAM_SEP="^(.*)--(.*)$"
 PROXY_PARAMS=$(echo $@ | sed -n -r "s/$PARAM_SEP/\1/p")
 SERVER_PARAMS=$(echo $@  | sed -n -r "s/$PARAM_SEP/\2/p")
 
-cleanup() {
+stop_proxy() {
+    test -n "${TPXY_PID:-}" &&
+        (
+            echo "\n  * Killing proxy (pid $TPXY_PID) ..."
+            kill $TPXY_PID
+        )
+}
+
+stop_server() {
     test -n "${SRV_PID:-}" &&
         (
             echo "\n  * Killing server (pid $SRV_PID) ..."
             kill $SRV_PID >/dev/null 2>/dev/null
         )
+}
 
-    test -n "${TPXY_PID:-}" &&
-        (
-            echo "\n  * Killing proxy (PID $TPXY_PID) ..."
-            kill $TPXY_PID
-        )
-
-    exit 1
+cleanup() {
+    stop_server
+    stop_proxy
+    return 1
 }
 
 trap cleanup INT TERM HUP
@@ -95,3 +101,6 @@ $SRV_CMD >&2 &
 SRV_PID=$!
 
 wait $SRV_PID
+
+stop_proxy
+return 0
