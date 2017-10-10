@@ -25,9 +25,14 @@ set -u
 export MBEDTLS_BASE_DIR=$MBEDTLS_BASE_DIR
 
 # default values, can be overriden by the environment
-: ${P_SRV:=$MBEDTLS_BASE_DIR/programs/ssl/ssl_server2}
-: ${P_CLI:=$MBEDTLS_BASE_DIR/programs/ssl/ssl_client2}
-: ${P_PXY:=$MBEDTLS_BASE_DIR/programs/test/udp_proxy}
+: ${P_SRV:=./programs/ssl/ssl_server2}
+: ${P_CLI:=./programs/ssl/ssl_client2}
+: ${P_PXY:=./programs/test/udp_proxy}
+
+P_SRV=$MBEDTLS_BASE_DIR/$P_SRV
+P_CLI=$MBEDTLS_BASE_DIR/$P_CLI
+P_PXY=$MBEDTLS_BASE_DIR/$P_PXY
+
 : ${OPENSSL_CMD:=openssl} # OPENSSL would conflict with the build system
 : ${GNUTLS_CLI:=gnutls-cli}
 : ${GNUTLS_SERV:=gnutls-serv}
