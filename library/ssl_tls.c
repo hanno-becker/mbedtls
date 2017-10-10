@@ -3542,8 +3542,15 @@ static int ssl_parse_record_header( mbedtls_ssl_context *ssl )
 
     /*
      * DTLS-related tests.
-     * Must be done before checking the bounds for the length
-     * field because the latter depends on the current epoch.
+     * Check epoch before checking length constraint because
+     * the latter varies with the epoch. E.g., if a ChangeCipherSpec
+     * message gets duplicated before the corresponding Finished message,
+     * the second ChangeCipherSpec should be discarded because it belongs
+     * to an old epoch, but not because its length is shorter than
+     * the minimum record length for packets using the new record transform.
+     * Note that these two kinds of failures are handled differently,
+     * as an unexpected record is silently skipped but an invalid
+     * record leads to the entire datagram being dropped.
      */
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM )
