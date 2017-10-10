@@ -4,10 +4,13 @@ set -u
 
 : ${MBEDTLS_BASE_DIR:="../.."}
 
-: ${TPXY_BIN:="$MBEDTLS_BASE_DIR/programs/test/udp_proxy"}
-: ${SRV_BIN:="$MBEDTLS_BASE_DIR/programs/ssl/ssl_server2"}
+: ${TPXY_BIN:="./programs/test/udp_proxy"}
+: ${SRV_BIN:="./programs/ssl/ssl_server2"}
 : ${VERBOSE:=0}
 VERBOSE=1
+
+TPXY_BIN=$MBEDTLS_BASE_DIR/$TPXY_BIN
+SRV_BIN=$MBEDTLS_BASE_DIR/$SRV_BIN
 
 PARAM_SEP="^(.*)--(.*)$"
 PROXY_PARAMS=$(echo $@ | sed -n -r "s/$PARAM_SEP/\1/p")
