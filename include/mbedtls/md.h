@@ -55,8 +55,8 @@ extern "C" {
 
 typedef enum {
     MBEDTLS_MD_NONE=0,
-    MBEDTLS_MD_MD2 MBEDTLS_DEPRECATED,
-    MBEDTLS_MD_MD4 MBEDTLS_DEPRECATED,
+    MBEDTLS_MD_MD2_DEPRECATED,
+    MBEDTLS_MD_MD4_DEPRECATED,
     MBEDTLS_MD_MD5,
     MBEDTLS_MD_SHA1,
     MBEDTLS_MD_SHA224,
@@ -65,6 +65,14 @@ typedef enum {
     MBEDTLS_MD_SHA512,
     MBEDTLS_MD_RIPEMD160,
 } mbedtls_md_type_t;
+
+#if !defined(MBEDTLS_DEPRECATED_REMOVED)
+typedef MBEDTLS_DEPRECATED mbedtls_md_type_t mbedtls_deprecated_md_type_t;
+#define MBEDTLS_MD_MD2 \
+    ( (mbedtls_deprecated_md_type_t) MBEDTLS_MD_MD2_DEPRECATED )
+#define MBEDTLS_MD_MD4 \
+    ( (mbedtls_deprecated_md_type_t) MBEDTLS_MD_MD4_DEPRECATED )
+#endif
 
 #if defined(MBEDTLS_SHA512_C)
 #define MBEDTLS_MD_MAX_SIZE         64  /* longest known is SHA512 */
