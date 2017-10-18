@@ -32,8 +32,8 @@
 #if !defined(MBEDTLS_DEPRECATED_REMOVED)
 
 #if defined(MBEDTLS_DEPRECATED_WARNING)
-#warning MD2 is deprecated and its use constitutes a security risk.
-#warning It is recommended alternative message digests should be considered instead.
+#warning MD2 is deprecated and its use constitutes a security risk. \
+    It is recommended alternative message digests should be considered instead.
 #endif /* MBEDTLS_DEPRECATED_WARNING */
 
 #if !defined(MBEDTLS_CONFIG_FILE)

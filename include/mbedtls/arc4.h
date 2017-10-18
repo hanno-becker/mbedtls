@@ -31,8 +31,8 @@
 #if !defined(MBEDTLS_DEPRECATED_REMOVED)
 
 #if defined(MBEDTLS_DEPRECATED_WARNING)
-#warning ARC4 is deprecated and its use constitutes a security risk.
-#warning It is recommended alternative ciphers should be considered instead.
+#warning ARC4 is deprecated and its use constitutes a security risk. \
+    It is recommended alternative ciphers should be considered instead.
 #endif /* MBEDTLS_DEPRECATED_WARNING */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
