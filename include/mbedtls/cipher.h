@@ -90,14 +90,8 @@ typedef enum {
     MBEDTLS_CIPHER_ID_3DES,
     MBEDTLS_CIPHER_ID_CAMELLIA,
     MBEDTLS_CIPHER_ID_BLOWFISH,
-    MBEDTLS_CIPHER_ID_ARC4_DEPRECATED,
+    MBEDTLS_CIPHER_ID_ARC4 MBEDTLS_DEPRECATED,
 } mbedtls_cipher_id_t;
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-typedef MBEDTLS_DEPRECATED mbedtls_cipher_id_t mbedtls_deprecated_cipher_id_t;
-#define MBEDTLS_CIPHER_ID_ARC4 \
-    ( (mbedtls_deprecated_cipher_id_t) MBEDTLS_CIPHER_ID_ARC4_DEPRECATED )
-#endif
 
 /*
  * \brief     Enumeration of supported (cipher,mode) pairs
@@ -152,7 +146,7 @@ typedef enum {
     MBEDTLS_CIPHER_BLOWFISH_CBC,
     MBEDTLS_CIPHER_BLOWFISH_CFB64,
     MBEDTLS_CIPHER_BLOWFISH_CTR,
-    MBEDTLS_CIPHER_ARC4_128_DEPRECATED,
+    MBEDTLS_CIPHER_ARC4_128 MBEDTLS_DEPRECATED,
     MBEDTLS_CIPHER_AES_128_CCM,
     MBEDTLS_CIPHER_AES_192_CCM,
     MBEDTLS_CIPHER_AES_256_CCM,
@@ -160,12 +154,6 @@ typedef enum {
     MBEDTLS_CIPHER_CAMELLIA_192_CCM,
     MBEDTLS_CIPHER_CAMELLIA_256_CCM,
 } mbedtls_cipher_type_t;
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-typedef MBEDTLS_DEPRECATED mbedtls_cipher_type_t mbedtls_deprecated_cipher_type_t;
-#define MBEDTLS_CIPHER_ARC4_128 \
-    ( (mbedtls_deprecated_cipher_type_t) MBEDTLS_CIPHER_ARC4_128_DEPRECATED )
-#endif
 
 typedef enum {
     MBEDTLS_MODE_NONE = 0,
