@@ -218,8 +218,7 @@
  *
  * Uncomment to get errors on using deprecated functions.
  *
- * Requires the following options to be disabled:
- *    MBEDTLS_MD2_C, MBEDTLS_MD4_C, MBEDTLS_RC4_C
+ * Requires !MBEDTLS_MD2_C, !MBEDTLS_MD4_C, !MBEDTLS_RC4_C
  */
 //#define MBEDTLS_DEPRECATED_REMOVED
 
@@ -2085,9 +2084,9 @@
  *          library/pem.c
  *          library/ssl_tls.c
  *
- * This module is required for SSL/TLS up to version 1.1, and it can be used in
- * TLS 1.2 through the choice on handshake parameters. Further, it is used for
- * checking MD5-signed certificates, and for PBKDF1 when decrypting PEM-encoded
+ * This module is required for SSL/TLS up to version 1.1, and for TLS 1.2
+ * depending on the handshake parameters. Further, it is used for checking
+ * MD5-signed certificates, and for PBKDF1 when decrypting PEM-encoded
  * encrypted keys.
  *
  * \warning MD5 is considered a weak message digest and its use
