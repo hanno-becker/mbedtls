@@ -269,7 +269,7 @@
  *            avoid dependencies on them and alternative message digests resp.
  *            ciphers should be considered instead.
  *
- * \deprecated MD2, MD4 and ARC4 are deprecated and will likely be removed
+ * \deprecated MD2 and ARC4 are deprecated and will likely be removed
  *             in a future version of the library.
  *
  */
@@ -331,7 +331,7 @@
  *            to avoid dependencies on them and alternative message digests
  *            resp. ciphers should be considered instead.
  *
- * \deprecated MD2 and MD4 are deprecated and will likely be removed
+ * \deprecated MD2 is deprecated and will likely be removed
  *             in a future version of the library.
  *
  */
@@ -2067,9 +2067,6 @@
  *          constitutes a security risk. If possible, it recommended
  *          to avoid dependencies on it and alternative message digests
  *          should be considered instead.
- *
- * \deprecated MD4 is deprecated and will likely be removed
- *             in a future version of the library.
  *
  */
 //#define MBEDTLS_MD4_C
