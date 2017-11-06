@@ -267,9 +267,6 @@
  *            avoid dependencies on them and alternative message digests resp.
  *            ciphers should be considered instead.
  *
- * \deprecated MD2 is deprecated and will likely be removed
- *             in a future version of the library.
- *
  */
 //#define MBEDTLS_AES_ALT
 //#define MBEDTLS_ARC4_ALT
@@ -328,9 +325,6 @@
  *            use constitutes a security risk. If possible, it is recommended
  *            to avoid dependencies on them and alternative message digests
  *            resp. ciphers should be considered instead.
- *
- * \deprecated MD2 is deprecated and will likely be removed
- *             in a future version of the library.
  *
  */
 //#define MBEDTLS_MD2_PROCESS_ALT
@@ -2037,9 +2031,6 @@
  *          constitutes a security risk. If possible, it recommended
  *          to avoid dependencies on it and alternative message digests
  *          should be considered instead.
- *
- * \deprecated MD2 is deprecated and will likely be removed
- *             in a future version of the library.
  *
  */
 //#define MBEDTLS_MD2_C
