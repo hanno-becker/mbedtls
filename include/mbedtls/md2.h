@@ -20,21 +20,13 @@
  *
  *  This file is part of mbed TLS (https://tls.mbed.org)
  *
- * \deprecated   MD2 is deprecated and its use constitutes a security risk.
- *               It is recommended alternative message digests should be
- *               considered instead.
+ * \warning        MD2 is considered a weak message digest and its use
+ *                 constitutes a security risk. It is recommended alternative
+ *                 message digests should be considered instead.
  *
  */
-
 #ifndef MBEDTLS_MD2_H
 #define MBEDTLS_MD2_H
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-
-#if defined(MBEDTLS_DEPRECATED_WARNING)
-#warning MD2 is deprecated and its use constitutes a security risk.
-#warning It is recommended alternative message digests should be considered instead.
-#endif /* MBEDTLS_DEPRECATED_WARNING */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -59,9 +51,6 @@ extern "C" {
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 typedef struct
 {
@@ -81,9 +70,6 @@ mbedtls_md2_context;
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 void mbedtls_md2_init( mbedtls_md2_context *ctx );
 
@@ -95,9 +81,6 @@ void mbedtls_md2_init( mbedtls_md2_context *ctx );
  * \warning        MD2 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
- *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 void mbedtls_md2_free( mbedtls_md2_context *ctx );
@@ -112,9 +95,6 @@ void mbedtls_md2_free( mbedtls_md2_context *ctx );
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 void mbedtls_md2_clone( mbedtls_md2_context *dst,
                         const mbedtls_md2_context *src );
@@ -127,9 +107,6 @@ void mbedtls_md2_clone( mbedtls_md2_context *dst,
  * \warning        MD2 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
- *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 void mbedtls_md2_starts( mbedtls_md2_context *ctx );
@@ -145,9 +122,6 @@ void mbedtls_md2_starts( mbedtls_md2_context *ctx );
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 void mbedtls_md2_update( mbedtls_md2_context *ctx,
                          const unsigned char *input,
@@ -162,9 +136,6 @@ void mbedtls_md2_update( mbedtls_md2_context *ctx,
  * \warning        MD2 is considered a weak message digest and its use
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
- *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 void mbedtls_md2_finish( mbedtls_md2_context *ctx, unsigned char output[16] );
@@ -192,9 +163,6 @@ extern "C" {
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 void mbedtls_md2( const unsigned char *input, size_t ilen, unsigned char output[16] );
 
@@ -207,9 +175,6 @@ void mbedtls_md2( const unsigned char *input, size_t ilen, unsigned char output[
  *                 constitutes a security risk. It is recommended alternative
  *                 message digests should be considered instead.
  *
- * \deprecated     MD2 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 int mbedtls_md2_self_test( int verbose );
 
@@ -219,7 +184,5 @@ void mbedtls_md2_process( mbedtls_md2_context *ctx );
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* !MBEDTLS_DEPRECATED_REMOVED */
 
 #endif /* mbedtls_md2.h */
