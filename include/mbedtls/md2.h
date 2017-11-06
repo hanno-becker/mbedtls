@@ -22,8 +22,7 @@
  *
  *  \deprecated   MD2 is deprecated and its use constitutes a security risk.
  *                It is recommended alternative message digests should be
- *                considered instead. MD2 will likely be removed in a future
- *                version of the library.
+ *                considered instead.
  *
  */
 

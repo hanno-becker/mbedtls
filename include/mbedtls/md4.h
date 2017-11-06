@@ -22,8 +22,7 @@
  *
  *  \deprecated   MD4 is deprecated and its use constitutes a security risk.
  *                It is recommended alternative message digests should be
- *                considered instead. MD4 will likely be removed in a future
- *                version of the library.
+ *                considered instead.
  *
  */
 #ifndef MBEDTLS_MD4_H

@@ -23,8 +23,6 @@
  * \deprecated   ARC4 is considered a weak cipher and its use
  *               constitutes a security risk. It is recommended
  *               alternative ciphers should be considered instead.
- *               ARC4 will likely be removed in a future version
- *               of the library.
  *
  */
 #ifndef MBEDTLS_ARC4_H
