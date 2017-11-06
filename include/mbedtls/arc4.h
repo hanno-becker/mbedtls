@@ -20,20 +20,13 @@
  *
  *  This file is part of mbed TLS (https://tls.mbed.org)
  *
- * \deprecated   ARC4 is considered a weak cipher and its use
- *               constitutes a security risk. It is recommended
- *               alternative ciphers should be considered instead.
+ * \warning   ARC4 is considered a weak cipher and its use
+ *            constitutes a security risk. It is recommended
+ *            alternative ciphers should be considered instead.
  *
  */
 #ifndef MBEDTLS_ARC4_H
 #define MBEDTLS_ARC4_H
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-
-#if defined(MBEDTLS_DEPRECATED_WARNING)
-#warning ARC4 is deprecated and its use constitutes a security risk.
-#warning It is recommended alternative ciphers should be considered instead.
-#endif /* MBEDTLS_DEPRECATED_WARNING */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -58,9 +51,6 @@ extern "C" {
  *            constitutes a security risk. It is recommended
  *            alternative ciphers should be considered instead.
  *
- * \deprecated  ARC4 is deprecated and will likely be removed
- *              in a future version of the library.
- *
  */
 typedef struct
 {
@@ -79,9 +69,6 @@ mbedtls_arc4_context;
  *                 constitutes a security risk. It is recommended
  *                 alternative ciphers should be considered instead.
  *
- * \deprecated     ARC4 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 void mbedtls_arc4_init( mbedtls_arc4_context *ctx );
 
@@ -93,9 +80,6 @@ void mbedtls_arc4_init( mbedtls_arc4_context *ctx );
  * \warning        ARC4 is considered a weak cipher and its use
  *                 constitutes a security risk. It is recommended
  *                 alternative ciphers should be considered instead.
- *
- * \deprecated     ARC4 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 void mbedtls_arc4_free( mbedtls_arc4_context *ctx );
@@ -110,9 +94,6 @@ void mbedtls_arc4_free( mbedtls_arc4_context *ctx );
  * \warning        ARC4 is considered a weak cipher and its use
  *                 constitutes a security risk. It is recommended
  *                 alternative ciphers should be considered instead.
- *
- * \deprecated     ARC4 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 void mbedtls_arc4_setup( mbedtls_arc4_context *ctx, const unsigned char *key,
@@ -131,9 +112,6 @@ void mbedtls_arc4_setup( mbedtls_arc4_context *ctx, const unsigned char *key,
  * \warning        ARC4 is considered a weak cipher and its use
  *                 constitutes a security risk. It is recommended
  *                 alternative ciphers should be considered instead.
- *
- * \deprecated     ARC4 is deprecated and will likely be removed
- *                 in a future version of the library.
  *
  */
 int mbedtls_arc4_crypt( mbedtls_arc4_context *ctx, size_t length, const unsigned char *input,
@@ -160,16 +138,11 @@ extern "C" {
  *                 constitutes a security risk. It is recommended
  *                 alternative ciphers should be considered instead.
  *
- * \deprecated     ARC4 is deprecated and will likely be removed
- *                 in a future version of the library.
- *
  */
 int mbedtls_arc4_self_test( int verbose );
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* MBEDTLS_DEPRECATED_REMOVED */
 
 #endif /* arc4.h */
