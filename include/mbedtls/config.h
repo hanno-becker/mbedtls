@@ -218,7 +218,7 @@
  *
  * Uncomment to get errors on using deprecated functions.
  *
- * Requires !MBEDTLS_MD2_C, !MBEDTLS_MD4_C, !MBEDTLS_RC4_C
+ * Requires !MBEDTLS_MD2_C, !MBEDTLS_RC4_C
  */
 //#define MBEDTLS_DEPRECATED_REMOVED
 

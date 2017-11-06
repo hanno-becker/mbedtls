@@ -65,10 +65,6 @@
 #error "MBEDTLS_DEPRECATED_REMOVED set but deprecated MD2 enabled"
 #endif
 
-#if defined(MBEDTLS_DEPRECATED_REMOVED) && defined(MBEDTLS_MD4_C)
-#error "MBEDTLS_DEPRECATED_REMOVED set but deprecated MD4 enabled"
-#endif
-
 #if defined(MBEDTLS_DEPRECATED_REMOVED) && defined(MBEDTLS_ARC4_C)
 #error "MBEDTLS_DEPRECATED_REMOVED set but deprecated ARC4 enabled"
 #endif
