@@ -34,7 +34,7 @@ extern "C" {
 #if defined(MBEDTLS_DEPRECATED_WARNING)
 
 #define MBEDTLS_DEPRECATED __attribute__((deprecated))
-typedef MBEDTLS_DEPRECATED int deprecated_ciphersuite_id_t;
+MBEDTLS_DEPRECATED typedef int deprecated_ciphersuite_id_t;
 #define MBEDTLS_DEPRECATED_CIPHERSUITE_ID( ID )        \
     ( (deprecated_ciphersuite_id_t) ( ID ) )
 
