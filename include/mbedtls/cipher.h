@@ -72,9 +72,6 @@ extern "C" {
  * \warning   ARC4 and DES are considered weak ciphers and their use
  *            constitutes a security risk. It is recommended
  *            alternative ciphers should be considered instead.
- *
- * \deprecated  ARC4 is deprecated and will likely be removed
- *              in a future version of the library.
  */
 typedef enum {
     MBEDTLS_CIPHER_ID_NONE = 0,
@@ -93,9 +90,6 @@ typedef enum {
  * \warning   ARC4 and DES are considered weak ciphers and their use
  *            constitutes a security risk. It is recommended
  *            alternative ciphers should be considered instead.
- *
- * \deprecated  ARC4 is deprecated and will likely be removed
- *              in a future version of the library.
  */
 typedef enum {
     MBEDTLS_CIPHER_NONE = 0,
