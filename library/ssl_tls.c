@@ -6746,6 +6746,20 @@ static int ssl_check_ctr_renegotiate( mbedtls_ssl_context *ssl )
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "record counter limit reached: renegotiate" ) );
     return( mbedtls_ssl_renegotiate( ssl ) );
 }
+
+int mbedtls_ssl_check_renego_not_honored( mbedtls_ssl_context *ssl )
+{
+    ssl->renego_records_seen++;
+
+    if( ssl->conf->renego_max_records >= 0 &&
+        ssl->renego_records_seen > ssl->conf->renego_max_records )
+    {
+        return( -1 );
+    }
+
+    return( 0 );
+}
+
 #endif /* MBEDTLS_SSL_RENEGOTIATION */
 
 /*
@@ -6990,14 +7004,11 @@ int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
         }
         else if( ssl->renego_status == MBEDTLS_SSL_RENEGOTIATION_PENDING )
         {
-            if( ssl->conf->renego_max_records >= 0 )
+            if( mbedtls_ssl_check_renego_not_honored( ssl ) != 0 )
             {
-                if( ++ssl->renego_records_seen > ssl->conf->renego_max_records )
-                {
-                    MBEDTLS_SSL_DEBUG_MSG( 1, ( "renegotiation requested, "
-                                        "but not honored by client" ) );
-                    return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
-                }
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "renegotiation requested, "
+                                            "but not honored by client" ) );
+                return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
             }
         }
 #endif /* MBEDTLS_SSL_RENEGOTIATION */
