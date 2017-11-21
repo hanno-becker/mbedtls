@@ -1112,6 +1112,11 @@ struct mbedtls_ssl_context
                                         *   within a single datagram.  */
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
 
+    unsigned char send_alert;   /*!< Request sending an alert?
+                                     MBEDTLS_SSL_ALERT_LEVEL_FATAL or
+                                     MBEDTLS_SSL_ALERT_LEVEL_WARNING  */
+    unsigned char alert_type;   /*!< Type of alert if send_alert != 0 */
+
     /*
      * Record layer (outgoing data)
      */
