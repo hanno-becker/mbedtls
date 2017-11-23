@@ -5378,7 +5378,7 @@ int mbedtls_ssl_write_finished( mbedtls_ssl_context *ssl )
 
 /*
  *
- * STATE HANDLING: ParseFinished
+ * STATE HANDLING: Incoming Finished
  *
  */
 
@@ -5389,12 +5389,21 @@ int mbedtls_ssl_write_finished( mbedtls_ssl_context *ssl )
 /* Main entry point: orchestrates the other functions */
 int mbedtls_ssl_process_finished( mbedtls_ssl_context *ssl );
 
+#if !defined(MBEDTLS_MPS)
 static int ssl_process_finished_preprocess ( mbedtls_ssl_context *ssl );
 static int ssl_process_finished_fetch      ( mbedtls_ssl_context *ssl );
 static int ssl_process_finished_postprocess( mbedtls_ssl_context *ssl );
 static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
                                        const unsigned char* buf,
                                        size_t buflen );
+#else /* MBEDTLS_MPS */
+static int ssl_process_finished_preprocess ( mbedtls_ssl_context *ssl );
+static int ssl_process_finished_fetch      ( mbedtls_ssl_context *ssl,
+                                             mbedtls_mps_handshake_in **msg );
+static int ssl_process_finished_postprocess( mbedtls_ssl_context *ssl );
+static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
+                                       mbedtls_mps_handshake_in *msg );
+#endif /* MBEDTLS_MPS */
 
 /*
  * Implementation
@@ -5419,6 +5428,7 @@ int mbedtls_ssl_handle_pending_alert( mbedtls_ssl_context *ssl )
     return( 0 );
 }
 
+#if !defined(MBEDTLS_MPS)
 int mbedtls_ssl_process_finished( mbedtls_ssl_context *ssl )
 {
     int ret = 0;
@@ -5426,6 +5436,10 @@ int mbedtls_ssl_process_finished( mbedtls_ssl_context *ssl )
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process finished" ) );
 
     /* Preprocessing step: Compute handshake digest */
+    /* Having a separate function here instead of calling calc_finished
+     * directly is overkill, but currently the purpose is to emphasize
+     * the overall structure of reading steps (also, the compiler
+     * will inline such small, static, single-use functions anyway). */
     SSL_PROC_CHK( ssl_process_finished_preprocess( ssl ) );
 
     /* Fetching step: No ambiguity in the expected record/handshake here. */
@@ -5454,6 +5468,47 @@ cleanup:
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= process finished" ) );
     return( ret );
 }
+#else /* MBEDTLS_MPS */
+int mbedtls_ssl_process_finished( mbedtls_ssl_context *ssl )
+{
+    int ret = 0;
+    mbedtls_mps_handshake_in *msg;
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process finished" ) );
+
+    /* Preprocessing step: Compute handshake digest */
+    /* Having a separate function here instead of calling calc_finished
+     * directly is overkill, but currently the purpose is to emphasize
+     * the overall structure of reading steps (also, the compiler
+     * will inline such small, static, single-use functions anyway). */
+    SSL_PROC_CHK( ssl_process_finished_preprocess( ssl ) );
+
+    /* Fetching step: No ambiguity in the expected record/handshake here. */
+    SSL_PROC_CHK( ssl_process_finished_fetch( ssl, &msg ) );
+
+    /* Parsing step */
+    SSL_PROC_CHK( ssl_process_finished_parse( ssl, msg ) );
+
+    /* Postprocessing step:
+     * - Close read-port
+     * - Update state machine,
+     * - Update retransmission state machine,
+     * - Remember digest
+     */
+    SSL_PROC_CHK( ssl_process_finished_postprocess( ssl ) );
+
+cleanup:
+
+    /* In the MPS one would close the read-port here to
+     * ensure there's no overlap of reading and writing. */
+
+    /* Ignore error code for now */
+    mbedtls_ssl_handle_pending_alert( ssl );
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= process finished" ) );
+    return( ret );
+}
+#endif /* MBEDTLS_MPS */
 
 static int ssl_process_finished_preprocess( mbedtls_ssl_context *ssl )
 {
@@ -5478,6 +5533,7 @@ static int ssl_process_finished_preprocess( mbedtls_ssl_context *ssl )
  * These minimal versions of `fetch/coordinate` functions
  * should be subsumed to reduce code-size.
  */
+#if !defined(MBEDTLS_MPS)
 static int ssl_process_finished_fetch( mbedtls_ssl_context *ssl )
 {
     int ret;
@@ -5503,7 +5559,57 @@ static int ssl_process_finished_fetch( mbedtls_ssl_context *ssl )
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= process finished - coordinate" ) );
     return( 0 );
 }
+#else /* MBEDTLS_MPS */
+static int ssl_process_finished_fetch( mbedtls_ssl_context *ssl,
+                                       mbedtls_mps_handshake_in **dst )
+{
+    int ret = 0;
+    mbedtls_mps_port_t port;
+    mbedtls_mps_handshake_in *msg;
 
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process finished - coordinate" ) );
+
+    *dst = NULL;
+
+    ret = mbedtls_mps_read_activate( ssl->mps );
+    if( ret < 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_mps_read_activate", ret );
+        return( ret );
+    }
+
+    port = (mbedtls_mps_port_t) ret;
+    if( port == MBEDTLS_MPS_PORT_HANDSHAKE )
+    {
+        mbedtls_mps_read_handshake( ssl->mps, &msg );
+    }
+    else
+    {
+        msg = NULL;
+    }
+
+    /* NOTE: It needs to be decided whether the MPS should somehow be made
+     *       insensitive to non-fatal alerts and ChangeCipherSpec messages here,
+     *       as the current message processing is. If not, these should not
+     *       lead to a fatal error here. */
+    if( msg == NULL || msg->type != MBEDTLS_SSL_HS_FINISHED )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad finished message" ) );
+
+        ssl->send_alert = MBEDTLS_SSL_ALERT_LEVEL_FATAL;
+        ssl->alert_type = MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE;
+
+        return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
+    }
+
+    *dst = msg;
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= process finished - coordinate" ) );
+    return( 0 );
+}
+#endif /* MBEDTLS_MPS */
+
+#if !defined(MBEDTLS_MPS)
 static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
                                        const unsigned char* buf,
                                        size_t buflen )
@@ -5526,6 +5632,10 @@ static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
         return( MBEDTLS_ERR_SSL_BAD_HS_FINISHED );
     }
 
+    /* Reassembly is done entirely in the message processing
+     * in the current code-base, so buf is guaranteed to point
+     * to the entire message of size handshake_digest_len. */
+
     /* Semantic validation */
     if( mbedtls_ssl_safer_memcmp( buf,
                                   ssl->handshake->handshake_digest,
@@ -5542,7 +5652,67 @@ static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= parse finished" ) );
     return( 0 );
 }
+#else /* MBEDTLS_MPS */
+static int ssl_process_finished_parse( mbedtls_ssl_context *ssl,
+                                       mbedtls_mps_handshake_in *msg )
+{
+    int ret;
+    unsigned char const *buf;
 
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse finished" ) );
+
+    /* Fetch content */
+    ret = mbedtls_mps_reader_get( msg->reader,
+                                  ssl->handshake->handshake_digest_len,
+                                  &buf, NULL /* No fragmentation */ );
+
+    /* This can fail in two ways:
+     * 1. The total message length is smaller than handshake_digest_len.
+     *    That's just an instance of invalid structure, so it's the peer's fault.
+     * 2. The total message length is greater or equal to handshake_digest_len,
+     *    but only a very small message fragment has been received and the MPS
+     *    hasn't waited for further fragments. This should be considered a
+     *    misconfiguration of the MPS, because even for constrained systems
+     *    the MPS should collect and merge message fragments until some
+     *    configurable amount of data is available, and this configured
+     *    threshold should be at least handshake->handshake_digest_len for
+     *    the present code to work.
+     */
+    if( ret != 0 )
+    {
+        ssl->send_alert = MBEDTLS_SSL_ALERT_LEVEL_FATAL;
+        ssl->alert_type = MBEDTLS_SSL_ALERT_MSG_DECODE_ERROR;
+
+        return( MBEDTLS_ERR_SSL_BAD_HS_FINISHED );
+    }
+
+    /* Semantic validation */
+    if( mbedtls_ssl_safer_memcmp( buf, ssl->handshake->handshake_digest,
+                                  ssl->handshake->handshake_digest_len ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad finished message" ) );
+
+        ssl->send_alert = MBEDTLS_SSL_ALERT_LEVEL_FATAL;
+        ssl->alert_type = MBEDTLS_SSL_ALERT_MSG_DECODE_ERROR;
+
+        return( MBEDTLS_ERR_SSL_BAD_HS_FINISHED );
+    }
+
+    mbedtls_mps_reader_commit( msg->reader,
+                               ssl->handshake->handshake_digest_len,
+                               0 /* State irrelevant, not re-entrant */ );
+
+    /* At this point, we haven't validated that the message doesn't contain
+     * any further data beyond the handshake digest. This can be omitted here
+     * because the default behavior of the MPS is to fail on message consumption
+     * if parts of the message haven't been fetched. */
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= parse finished" ) );
+    return( MBEDTLS_MPS_HANDSHAKE_DONE );
+}
+#endif
+
+#if !defined(MBEDTLS_MPS)
 static int ssl_process_finished_postprocess( mbedtls_ssl_context* ssl )
 {
     /* Remember digest for secure renegotiation */
@@ -5581,6 +5751,67 @@ static int ssl_process_finished_postprocess( mbedtls_ssl_context* ssl )
 
     return( 0 );
 }
+#else /* MBEDTLS_MPS */
+static int ssl_process_finished_postprocess( mbedtls_ssl_context* ssl )
+{
+    /* Determine the new state; that involves some case distinction
+     * because the finished message is sent in different places depending
+     * on whether the session is freshly negotiated or being resumed. */
+    int completes_handshake = 0;
+
+#if defined(MBEDTLS_SSL_CLI_C)
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_CLIENT )
+    {
+        if( ssl->handshake->resume != 0 )
+            ssl->state = MBEDTLS_SSL_CLIENT_CHANGE_CIPHER_SPEC;
+        else
+        {
+            ssl->state = MBEDTLS_SSL_FLUSH_BUFFERS;
+            completes_handshake = 1;
+        }
+    }
+#endif /* MBEDTLS_SSL_CLI_C */
+#if defined(MBEDTLS_SSL_SRV_C)
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_SERVER )
+    {
+        if( ssl->handshake->resume != 0 )
+        {
+            ssl->state = MBEDTLS_SSL_HANDSHAKE_WRAPUP;
+            completes_handshake = 1;
+        }
+        else
+            ssl->state = MBEDTLS_SSL_SERVER_CHANGE_CIPHER_SPEC;
+    }
+#endif /* MBEDTLS_SSL_SRV_C */
+
+    /* The previous code always goes into FINISHED state
+     * when receiving the finished message, which is not
+     * a faithful implementation of the retransmission
+     * state machine. In full initial handshake, the server
+     * should go into PREPARING its Finished after receiving the
+     * client's Finished. In a resumed session, the client should
+     * go into PREPARING its Finished after receiving the server's
+     * Finished message (immediately following the ServerHello). */
+
+    mbedtls_mps_read_set_flags( ssl->mps,
+                    MBEDTLS_MPS_CHECKSUM_ADD
+                    | ( !completes_handshake * MBEDTLS_MPS_FLIGHT_END      )
+                    | (  completes_handshake * MBEDTLS_MPS_FLIGHT_FINISHED ) );
+
+    /* Close read-port */
+    mbedtls_mps_read_consume( ssl->mps );
+
+    /* Remember digest for secure renegotiation */
+#if defined(MBEDTLS_SSL_RENEGOTIATION)
+    ssl->verify_data_len = ssl->handshake->handshake_digest_len;
+    memcpy( ssl->peer_verify_data,
+            ssl->handshake->handshake_digest,
+            ssl->handshake->handshake_digest_len );
+#endif
+
+    return( 0 );
+}
+#endif
 
 static void ssl_handshake_params_init( mbedtls_ssl_handshake_params *handshake )
 {
