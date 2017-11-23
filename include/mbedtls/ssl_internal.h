@@ -26,6 +26,7 @@
 
 #include "ssl.h"
 #include "cipher.h"
+#include "mps.h"
 
 #if defined(MBEDTLS_MD5_C)
 #include "md5.h"

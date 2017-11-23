@@ -553,6 +553,9 @@ typedef struct mbedtls_ssl_key_cert mbedtls_ssl_key_cert;
 typedef struct mbedtls_ssl_flight_item mbedtls_ssl_flight_item;
 #endif
 
+/* Defined in mps.h */
+typedef struct mbedtls_mps mbedtls_mps;
+
 /*
  * This structure is used for storing current session data.
  */
@@ -893,6 +896,12 @@ struct mbedtls_ssl_context
 #if defined(MBEDTLS_SSL_CBC_RECORD_SPLITTING)
     signed char split_done;     /*!< current record already splitted? */
 #endif
+
+    /*
+     * Message processing stack
+     */
+
+    mbedtls_mps *mps;
 
     /*
      * PKI layer
