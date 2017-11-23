@@ -4168,9 +4168,10 @@ int mbedtls_ssl_send_fatal_handshake_failure( mbedtls_ssl_context *ssl )
     return( 0 );
 }
 
+#if !defined(MBEDTLS_MPS)
 int mbedtls_ssl_send_alert_message( mbedtls_ssl_context *ssl,
-                            unsigned char level,
-                            unsigned char message )
+                                    unsigned char level,
+                                    unsigned char message )
 {
     int ret;
 
@@ -4194,6 +4195,37 @@ int mbedtls_ssl_send_alert_message( mbedtls_ssl_context *ssl,
 
     return( 0 );
 }
+#else /* MBEDTLS_MPS */
+int mbedtls_ssl_send_alert_message( mbedtls_ssl_context *ssl,
+                                    unsigned char level,
+                                    unsigned char message )
+{
+    /* TODO: No return value checks in this exemplifying version so far */
+
+    int ret = 0;
+
+    /* Distinguish between a fatal and a non-fatal alert */
+    switch( level )
+    {
+        case MBEDTLS_SSL_ALERT_LEVEL_FATAL:
+            mbedtls_mps_send_fatal( ssl->mps, (mbedtls_mps_alert_t) message );
+            break;
+
+        case MBEDTLS_SSL_ALERT_LEVEL_WARNING:
+
+            mbedtls_mps_write( ssl->mps, MBEDTLS_MPS_PORT_ALERT );
+            mbedtls_mps_write_alert( ssl->mps, message );
+            mbedtls_mps_write_dispatch( ssl->mps );
+
+            break;
+
+        default:
+            break;
+    }
+
+    return( ret );
+}
+#endif /* MBEDTLS_MPS */
 
 /*
  * Handshake functions
