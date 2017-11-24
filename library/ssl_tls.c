@@ -5098,6 +5098,8 @@ static void ssl_update_checksum_sha384( mbedtls_ssl_context *ssl,
 #endif /* ! MBEDTLS_MPS */
 
 #if defined(MBEDTLS_SSL_PROTO_SSL3)
+
+#if !defined(MBEDTLS_MPS)
 static void ssl_calc_finished_ssl(
                 mbedtls_ssl_context *ssl, unsigned char *buf, int from )
 {
@@ -5180,9 +5182,22 @@ static void ssl_calc_finished_ssl(
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= calc  finished" ) );
 }
+
+#else /* MBEDTLS_MPS */
+
+static void ssl_calc_finished_ssl(
+                mbedtls_ssl_context *ssl, unsigned char *buf, int from )
+{
+    /* TODO: Implement this */
+}
+
+#endif /* MBEDTLS_MPS */
 #endif /* MBEDTLS_SSL_PROTO_SSL3 */
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1) || defined(MBEDTLS_SSL_PROTO_TLS1_1)
+
+#if !defined(MBEDTLS_MPS)
+
 static void ssl_calc_finished_tls(
                 mbedtls_ssl_context *ssl, unsigned char *buf, int from )
 {
@@ -5239,10 +5254,79 @@ static void ssl_calc_finished_tls(
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= calc  finished" ) );
 }
+
+#else /* MBEDTLS_MPS */
+
+static void ssl_calc_finished_mps( mbedtls_ssl_context *ssl,
+                                   mbedtls_md_type_t const digests[],
+                                   unsigned char *buf, int from )
+{
+    int len = 12;
+
+    const char *label =
+        ( from == MBEDTLS_SSL_IS_CLIENT )
+             ? "client finished"
+             : "server finished";
+
+    unsigned char padbuf[2 * MBEDTLS_MD_MAX_SIZE];
+    size_t padbuf_pos = 0;
+
+    mbedtls_md_type_t md_type;
+    mbedtls_md_context_t md;
+    mbedtls_ssl_session *session = ssl->session_negotiate;
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> calc  finished tls" ) );
+
+    if( !session )
+        session = ssl->session;
+
+    mbedtls_md_init( &md );
+
+    while( ( md_type = *digests++ ) != MBEDTLS_MD_NONE )
+    {
+        size_t md_size;
+
+        mbedtls_mps_checksum_state( ssl->mps, &md, md_type );
+        md_size = mbedtls_md_get_type( md.md_info );
+
+        if( sizeof( padbuf ) - padbuf_pos < md_size )
+        {
+            /* TODO: Somehow error out */
+            return;
+        }
+
+        mbedtls_md_finish( &md, padbuf + padbuf_pos );
+        padbuf_pos += md_size;
+    }
+
+    ssl->handshake->tls_prf( session->master, 48, label,
+                             padbuf, padbuf_pos, buf, len );
+
+    MBEDTLS_SSL_DEBUG_BUF( 3, "calc finished result", buf, len );
+
+    mbedtls_md_free( &md );
+    mbedtls_zeroize( padbuf, sizeof(  padbuf ) );
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= calc  finished" ) );
+}
+
+static void ssl_calc_finished_tls(
+                mbedtls_ssl_context *ssl, unsigned char *buf, int from )
+{
+    static const mbedtls_md_type_t mds[] = { MBEDTLS_MD_MD5,
+                                             MBEDTLS_MD_SHA1,
+                                             MBEDTLS_MD_NONE };
+    ssl_calc_finished_mps( ssl, mds, buf, from );
+}
+
+#endif /* MBEDTLS_MPS */
 #endif /* MBEDTLS_SSL_PROTO_TLS1 || MBEDTLS_SSL_PROTO_TLS1_1 */
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_2)
 #if defined(MBEDTLS_SHA256_C)
+
+#if !defined(MBEDTLS_MPS)
+
 static void ssl_calc_finished_tls_sha256(
                 mbedtls_ssl_context *ssl, unsigned char *buf, int from )
 {
@@ -5289,9 +5373,24 @@ static void ssl_calc_finished_tls_sha256(
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= calc  finished" ) );
 }
+
+#else /* MBEDTLS_MPS */
+
+static void ssl_calc_finished_tls_sha256(
+                mbedtls_ssl_context *ssl, unsigned char *buf, int from )
+{
+    static const mbedtls_md_type_t mds[] = { MBEDTLS_MD_SHA256,
+                                             MBEDTLS_MD_NONE };
+    ssl_calc_finished_mps( ssl, mds, buf, from );
+}
+
+#endif /* MBEDTLS_MPS */
+
 #endif /* MBEDTLS_SHA256_C */
 
 #if defined(MBEDTLS_SHA512_C)
+
+#if !defined(MBEDTLS_MPS)
 static void ssl_calc_finished_tls_sha384(
                 mbedtls_ssl_context *ssl, unsigned char *buf, int from )
 {
@@ -5338,6 +5437,19 @@ static void ssl_calc_finished_tls_sha384(
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= calc  finished" ) );
 }
+
+#else /* MBEDTLS_MPS */
+
+static void ssl_calc_finished_tls_sha384(
+                mbedtls_ssl_context *ssl, unsigned char *buf, int from )
+{
+    static const mbedtls_md_type_t mds[] = { MBEDTLS_MD_SHA384,
+                                             MBEDTLS_MD_NONE };
+    ssl_calc_finished_mps( ssl, mds, buf, from );
+}
+
+#endif /* MBEDTLS_MPS */
+
 #endif /* MBEDTLS_SHA512_C */
 #endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
 
