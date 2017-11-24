@@ -5002,6 +5002,7 @@ void mbedtls_ssl_reset_checksum( mbedtls_ssl_context *ssl )
 }
 #endif /* MBEDTLS_MPS */
 
+#if !defined(MBEDTLS_MPS)
 
 static void ssl_update_checksum_start( mbedtls_ssl_context *ssl,
                                        const unsigned char *buf, size_t len )
@@ -5048,6 +5049,53 @@ static void ssl_update_checksum_sha384( mbedtls_ssl_context *ssl,
 }
 #endif
 #endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
+
+/* For the MPS, the update is handled internally */
+#else /* MBEDTLS_MPS */
+
+static void ssl_update_checksum_start( mbedtls_ssl_context *ssl,
+                                       const unsigned char *buf, size_t len )
+{
+    ((void) ssl);
+    ((void) buf);
+    ((void) len);
+}
+
+#if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1) || \
+    defined(MBEDTLS_SSL_PROTO_TLS1_1)
+static void ssl_update_checksum_md5sha1( mbedtls_ssl_context *ssl,
+                                         const unsigned char *buf, size_t len )
+{
+    ((void) ssl);
+    ((void) buf);
+    ((void) len);
+}
+#endif
+
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2)
+#if defined(MBEDTLS_SHA256_C)
+static void ssl_update_checksum_sha256( mbedtls_ssl_context *ssl,
+                                        const unsigned char *buf, size_t len )
+{
+    ((void) ssl);
+    ((void) buf);
+    ((void) len);
+}
+#endif
+
+#if defined(MBEDTLS_SHA512_C)
+static void ssl_update_checksum_sha384( mbedtls_ssl_context *ssl,
+                                        const unsigned char *buf, size_t len )
+{
+    ((void) ssl);
+    ((void) buf);
+    ((void) len);
+}
+#endif
+
+#endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
+
+#endif /* ! MBEDTLS_MPS */
 
 #if defined(MBEDTLS_SSL_PROTO_SSL3)
 static void ssl_calc_finished_ssl(
