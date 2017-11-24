@@ -4908,6 +4908,7 @@ void mbedtls_ssl_optimize_checksum( mbedtls_ssl_context *ssl,
     }
 }
 #endif /* MBEDTLS_MPS */
+#if !defined(MBEDTLS_MPS)
 void mbedtls_ssl_reset_checksum( mbedtls_ssl_context *ssl )
 {
 #if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1) || \
@@ -4924,6 +4925,27 @@ void mbedtls_ssl_reset_checksum( mbedtls_ssl_context *ssl )
 #endif
 #endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
 }
+#else /* MBEDTLS_MPS */
+void mbedtls_ssl_reset_checksum( mbedtls_ssl_context *ssl )
+{
+    mbedtls_mps_checksum_reset( ssl->mps );
+
+#if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1) || \
+    defined(MBEDTLS_SSL_PROTO_TLS1_1)
+    mbedtls_mps_checksum_add( ssl->mps, MBEDTLS_MD_MD5  );
+    mbedtls_mps_checksum_add( ssl->mps, MBEDTLS_MD_SHA1 );
+#endif
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2)
+#if defined(MBEDTLS_SHA256_C)
+    mbedtls_mps_checksum_add( ssl->mps, MBEDTLS_MD_SHA256 );
+#endif
+#if defined(MBEDTLS_SHA512_C)
+    mbedtls_mps_checksum_add( ssl->mps, MBEDTLS_MD_SHA384 );
+#endif
+#endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
+}
+#endif /* MBEDTLS_MPS */
+
 
 static void ssl_update_checksum_start( mbedtls_ssl_context *ssl,
                                        const unsigned char *buf, size_t len )
