@@ -4835,6 +4835,7 @@ int mbedtls_ssl_parse_change_cipher_spec( mbedtls_ssl_context *ssl )
     return( 0 );
 }
 
+#if !defined(MBEDTLS_MPS)
 void mbedtls_ssl_optimize_checksum( mbedtls_ssl_context *ssl,
                             const mbedtls_ssl_ciphersuite_t *ciphersuite_info )
 {
@@ -4863,7 +4864,50 @@ void mbedtls_ssl_optimize_checksum( mbedtls_ssl_context *ssl,
         return;
     }
 }
+#else /* MBEDTLS_MPS */
+void mbedtls_ssl_optimize_checksum( mbedtls_ssl_context *ssl,
+                            const mbedtls_ssl_ciphersuite_t *ciphersuite_info )
+{
+    ((void) ciphersuite_info);
 
+#if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1) || \
+    defined(MBEDTLS_SSL_PROTO_TLS1_1)
+    if( ssl->minor_ver < MBEDTLS_SSL_MINOR_VERSION_3 )
+    {
+        /* Only need MD5 and SHA1 */
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA256 );
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA384 );
+    }
+    else
+#endif
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2)
+#if defined(MBEDTLS_SHA512_C)
+    if( ciphersuite_info->mac == MBEDTLS_MD_SHA384 )
+    {
+        /* Only need SHA384 */
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_MD5    );
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA1   );
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA256 );
+    }
+    else
+#endif
+#if defined(MBEDTLS_SHA256_C)
+    if( ciphersuite_info->mac != MBEDTLS_MD_SHA384 )
+    {
+        /* Only need SHA256 */
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_MD5    );
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA1   );
+        mbedtls_mps_checksum_remove( ssl->mps, MBEDTLS_MD_SHA384 );
+    }
+    else
+#endif
+#endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "should never happen" ) );
+        return;
+    }
+}
+#endif /* MBEDTLS_MPS */
 void mbedtls_ssl_reset_checksum( mbedtls_ssl_context *ssl )
 {
 #if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1) || \
