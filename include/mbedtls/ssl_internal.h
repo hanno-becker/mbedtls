@@ -523,7 +523,7 @@ int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl );
 int mbedtls_ssl_parse_change_cipher_spec( mbedtls_ssl_context *ssl );
 int mbedtls_ssl_write_change_cipher_spec( mbedtls_ssl_context *ssl );
 
-int mbedtls_ssl_parse_finished( mbedtls_ssl_context *ssl );
+int mbedtls_ssl_process_finished( mbedtls_ssl_context *ssl );
 int mbedtls_ssl_write_finished( mbedtls_ssl_context *ssl );
 
 void mbedtls_ssl_optimize_checksum( mbedtls_ssl_context *ssl,
