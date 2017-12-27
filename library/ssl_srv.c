@@ -1441,7 +1441,7 @@ have_ciphersuite_v2:
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "selected ciphersuite: %s", ciphersuite_info->name ) );
 
     ssl->session_negotiate->ciphersuite = ciphersuites[i];
-    ssl->transform_negotiate->ciphersuite_info = ciphersuite_info;
+    ssl->handshake->ciphersuite_info = ciphersuite_info;
 
     /*
      * SSLv2 Client Hello relevant renegotiation security checks
@@ -2054,7 +2054,7 @@ static int ssl_client_hello_v3_parse( mbedtls_ssl_context *ssl,
 have_ciphersuite:
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "selected ciphersuite: %s", ciphersuite_info->name ) );
     ssl->session_negotiate->ciphersuite = ciphersuites[i];
-    ssl->transform_negotiate->ciphersuite_info = ciphersuite_info;
+    ssl->handshake->ciphersuite_info = ciphersuite_info;
 
     /* Debugging-only output for testsuite */
 #if defined(MBEDTLS_DEBUG_C)                         && \
@@ -2364,7 +2364,7 @@ static void ssl_write_ecjpake_kkpp_ext( mbedtls_ssl_context *ssl,
     *olen = 0;
 
     /* Skip costly computation if not needed */
-    if( ssl->transform_negotiate->ciphersuite_info->key_exchange !=
+    if( ssl->handshake->ciphersuite_info->key_exchange !=
         MBEDTLS_KEY_EXCHANGE_ECJPAKE )
         return;
 
@@ -3023,7 +3023,7 @@ static int ssl_certificate_request_coordinate( mbedtls_ssl_context *ssl )
 {
     int authmode;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate request" ) );
 
@@ -3280,8 +3280,10 @@ static int ssl_server_key_exchange_postprocess( mbedtls_ssl_context *ssl );
 
 static int ssl_process_server_key_exchange( mbedtls_ssl_context *ssl )
 {
-    int ret = 0;
+    int ret;
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process server key exchange" ) );
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+                            ssl->handshake->ciphersuite_info;
 
     if( ssl->handshake->state_local.cli_key_exch_in.preparation_done == 0 )
     {
@@ -4051,6 +4053,9 @@ static int ssl_process_client_key_exchange( mbedtls_ssl_context *ssl )
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process client key exchange" ) );
 
     /* The ClientKeyExchange message is never skipped. */
+    ciphersuite_info = ssl->handshake->ciphersuite_info;
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse client key exchange" ) );
 
     /* Reading step */
     if( ( ret = mbedtls_ssl_read_record( ssl ) ) != 0 )

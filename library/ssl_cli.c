@@ -1538,7 +1538,7 @@ static int ssl_parse_ecjpake_kkpp( mbedtls_ssl_context *ssl,
 {
     int ret;
 
-    if( ssl->transform_negotiate->ciphersuite_info->key_exchange !=
+    if( ssl->handshake->ciphersuite_info->key_exchange !=
         MBEDTLS_KEY_EXCHANGE_ECJPAKE )
     {
         MBEDTLS_SSL_DEBUG_MSG( 3, ( "skip ecjpake kkpp extension" ) );
@@ -2038,9 +2038,8 @@ static int ssl_process_server_hello_parse( mbedtls_ssl_context *ssl,
     /*
      * Initialize update checksum functions
      */
-    ssl->transform_negotiate->ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( i );
-
-    if( ssl->transform_negotiate->ciphersuite_info == NULL )
+    ssl->handshake->ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( i );
+    if( ssl->handshake->ciphersuite_info == NULL )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "ciphersuite info for %04x not found", i ) );
 
@@ -2050,7 +2049,7 @@ static int ssl_process_server_hello_parse( mbedtls_ssl_context *ssl,
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
 
-    mbedtls_ssl_optimize_checksum( ssl, ssl->transform_negotiate->ciphersuite_info );
+    mbedtls_ssl_optimize_checksum( ssl, ssl->handshake->ciphersuite_info );
 
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, session id len.: %d", n ) );
     MBEDTLS_SSL_DEBUG_BUF( 3,   "server hello, session id", buf + 35, n );
@@ -2762,6 +2761,10 @@ static int ssl_server_key_exchange_postprocess( mbedtls_ssl_context *ssl );
 static int ssl_process_server_key_exchange( mbedtls_ssl_context *ssl )
 {
     int ret;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
+    unsigned char *p = NULL, *end = NULL;
+
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse server key exchange" ) );
 
     /* Preparation:
@@ -3199,7 +3202,12 @@ static int ssl_certificate_request_postprocess( mbedtls_ssl_context *ssl );
 /* Main entry point; orchestrates the other functions */
 static int ssl_process_certificate_request( mbedtls_ssl_context *ssl )
 {
-    int ret = 0;
+    int ret;
+    unsigned char *buf;
+    size_t n = 0;
+    size_t cert_type_len = 0, dn_len = 0;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process certificate request" ) );
 
@@ -3615,7 +3623,7 @@ static int ssl_client_key_exchange_write( mbedtls_ssl_context *ssl,
     unsigned char *p, *end;
     size_t n;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     size_t const tls_hs_hdr_len = 4;
 
@@ -4002,8 +4010,22 @@ cleanup:
 
 static int ssl_certificate_verify_coordinate( mbedtls_ssl_context *ssl )
 {
-    const mbedtls_ssl_ciphersuite_t *info =
-        ssl->transform_negotiate->ciphersuite_info;
+    int ret = MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
+    size_t n = 0, offset = 0;
+    unsigned char hash[48];
+    unsigned char *hash_start = hash;
+    mbedtls_md_type_t md_alg = MBEDTLS_MD_NONE;
+    unsigned int hashlen;
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate verify" ) );
+
+    if( ( ret = mbedtls_ssl_derive_keys( ssl ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_derive_keys", ret );
+        return( ret );
+    }
 
     if( !mbedtls_ssl_ciphersuite_cert_req_allowed( info ) )
     {
@@ -4106,8 +4128,7 @@ static int ssl_certificate_verify_write( mbedtls_ssl_context *ssl,
          * Reason: Otherwise we should have running hashes for SHA512 and SHA224
          *         in order to satisfy 'weird' needs from the server side.
          */
-        if( ssl->transform_negotiate->ciphersuite_info->mac ==
-            MBEDTLS_MD_SHA384 )
+        if( ssl->handshake->ciphersuite_info->mac == MBEDTLS_MD_SHA384 )
         {
             md_alg = MBEDTLS_MD_SHA384;
             buf[4] = MBEDTLS_SSL_HASH_SHA384;
