@@ -291,6 +291,20 @@ struct mbedtls_ssl_handshake_params
 #if defined(MBEDTLS_SSL_EXTENDED_MASTER_SECRET)
     int extended_ms;                    /*!< use Extended Master Secret? */
 #endif
+
+#if defined(MBEDTLS_MPS)
+    int substate;
+
+    union
+    {
+        struct
+        {
+#if defined(MBEDTLS_SSL_RENEGOTIATION)
+            int renego_info_seen;
+#endif /* MBEDTLS_SSL_RENEGOTIATION */
+        } server_hello;
+    } tmps;
+#endif /* MBEDTLS_MPS */
 };
 
 /*

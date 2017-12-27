@@ -2789,7 +2789,8 @@ static int ssl_process_server_hello_write( mbedtls_ssl_context const *ssl,
 #endif
 
 #if defined(MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED)
-        ssl_write_ecjpake_kkpp_ext( ssl, p + 2 + ext_len_total, end, &ext_len );
+        ssl_write_ecjpake_kkpp_ext( (mbedtls_ssl_context*) ssl,
+                                    p + 2 + ext_len_total, end, &ext_len );
         ext_len_total += ext_len;
 #endif
 
