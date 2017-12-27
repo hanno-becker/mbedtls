@@ -506,6 +506,12 @@ struct mbedtls_ssl_transform
     mbedtls_cipher_context_t cipher_ctx_enc;    /*!<  encryption context      */
     mbedtls_cipher_context_t cipher_ctx_dec;    /*!<  decryption context      */
 
+#if defined(MBEDTLS_SSL_ENCRYPT_THEN_MAC)
+    int encrypt_then_mac;       /*!< flag for EtM activation                */
+#endif
+
+    int minor_ver;
+
     /*
      * Session specific compression layer
      */
