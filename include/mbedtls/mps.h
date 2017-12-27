@@ -177,7 +177,7 @@ struct mbedtls_ssl_transform;
 typedef struct mbedtls_ssl_transform mbedtls_ssl_transform;
 
 /*
- * Internal representation of record frames
+ * Representation of record frames
  *
  * The header layout is chosen to facilitate the computation of
  * authentication tags which often use the header bytes laid out
@@ -190,6 +190,10 @@ typedef struct mbedtls_ssl_transform mbedtls_ssl_transform;
  * (2) Unencrypted
  *     These have data_offset set to the length of the
  *     fixed part of the IV used for encryption.
+ *
+ * Instances are supposed to be manipulated exclusively through
+ * functions of type mbedtls_transform_record_t defined below;
+ * these are outside the scope of the MPS.
  *
  * The reason for the data_offset in the unencrypted case
  * is to allow for in-place conversion of an unencrypted to
@@ -205,7 +209,7 @@ typedef struct
     uint8_t ver[2];         /*< SSL/TLS version               */
     uint8_t len[2];         /*< Content length, little endian */
 
-    unsigned char *buf;     /*< Memory buffer enclosing the record content */
+    unsigned char *buf;     /*< Buffer enclosing record content */
     size_t buf_len;         /*< Buffer length */
     size_t data_offset;     /*< Offset of record content */
     size_t data_len;        /*< Length of record content */
