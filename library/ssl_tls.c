@@ -491,6 +491,7 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
     unsigned char *mac_enc;
     unsigned char *mac_dec;
     size_t iv_copy_len, keylen;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
     const mbedtls_cipher_info_t *cipher_info;
     const mbedtls_md_info_t *md_info;
 
@@ -500,19 +501,21 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> derive keys" ) );
 
-    cipher_info = mbedtls_cipher_info_from_type( transform->ciphersuite_info->cipher );
+
+    ciphersuite_info = handshake->ciphersuite_info;
+    cipher_info = mbedtls_cipher_info_from_type( ciphersuite_info->cipher );
     if( cipher_info == NULL )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "cipher info for %d not found",
-                            transform->ciphersuite_info->cipher ) );
+                                    ciphersuite_info->cipher ) );
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
 
-    md_info = mbedtls_md_info_from_type( transform->ciphersuite_info->mac );
+    md_info = mbedtls_md_info_from_type( ciphersuite_info->mac );
     if( md_info == NULL )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_md info for %d not found",
-                            transform->ciphersuite_info->mac ) );
+                            ciphersuite_info->mac ) );
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
 
@@ -540,7 +543,7 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
 #if defined(MBEDTLS_SSL_PROTO_TLS1_2)
 #if defined(MBEDTLS_SHA512_C)
     if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_3 &&
-        transform->ciphersuite_info->mac == MBEDTLS_MD_SHA384 )
+        ciphersuite_info->mac == MBEDTLS_MD_SHA384 )
     {
         handshake->tls_prf = tls_prf_sha384;
         handshake->calc_verify = ssl_calc_verify_tls_sha384;
@@ -592,8 +595,7 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
             if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_3 )
             {
 #if defined(MBEDTLS_SHA512_C)
-                if( ssl->transform_negotiate->ciphersuite_info->mac ==
-                    MBEDTLS_MD_SHA384 )
+                if( ciphersuite_info->mac == MBEDTLS_MD_SHA384 )
                 {
                     hash_len = 48;
                 }
@@ -681,14 +683,15 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
         cipher_info->mode == MBEDTLS_MODE_CCM )
     {
         transform->maclen = 0;
+        transform->taglen =
+            ciphersuite_info->flags & MBEDTLS_CIPHERSUITE_SHORT_TAG ? 8 : 16;
 
         transform->ivlen = 12;
         transform->fixed_ivlen = 4;
 
         /* Minimum length is expicit IV + tag */
         transform->minlen = transform->ivlen - transform->fixed_ivlen
-                            + ( transform->ciphersuite_info->flags &
-                                MBEDTLS_CIPHERSUITE_SHORT_TAG ? 8 : 16 );
+                            + transform->taglen;
     }
     else
     {
@@ -1357,8 +1360,6 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl )
         size_t enc_msglen, olen;
         unsigned char *enc_msg;
         unsigned char add_data[13];
-        unsigned char taglen = ssl->transform_out->ciphersuite_info->flags &
-                               MBEDTLS_CIPHERSUITE_SHORT_TAG ? 8 : 16;
 
         memcpy( add_data, ssl->out_ctr, 8 );
         add_data[8]  = ssl->out_msgtype;
@@ -1408,7 +1409,8 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl )
                                          add_data, 13,
                                          enc_msg, enc_msglen,
                                          enc_msg, &olen,
-                                         enc_msg + enc_msglen, taglen ) ) != 0 )
+                                         enc_msg + enc_msglen,
+                                         ssl->transform_out->taglen ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_cipher_auth_encrypt", ret );
             return( ret );
@@ -1420,10 +1422,11 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl )
             return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
         }
 
-        ssl->out_msglen += taglen;
+        ssl->out_msglen += ssl->transform_out->taglen;
         auth_done++;
 
-        MBEDTLS_SSL_DEBUG_BUF( 4, "after encrypt: tag", enc_msg + enc_msglen, taglen );
+        MBEDTLS_SSL_DEBUG_BUF( 4, "after encrypt: tag", enc_msg + enc_msglen,
+                               ssl->transform_out->taglen );
     }
     else
 #endif /* MBEDTLS_GCM_C || MBEDTLS_CCM_C */
@@ -1625,19 +1628,18 @@ static int ssl_decrypt_buf( mbedtls_ssl_context *ssl )
         unsigned char *dec_msg;
         unsigned char *dec_msg_result;
         unsigned char add_data[13];
-        unsigned char taglen = ssl->transform_in->ciphersuite_info->flags &
-                               MBEDTLS_CIPHERSUITE_SHORT_TAG ? 8 : 16;
         size_t explicit_iv_len = ssl->transform_in->ivlen -
                                  ssl->transform_in->fixed_ivlen;
 
-        if( ssl->in_msglen < explicit_iv_len + taglen )
+        if( ssl->in_msglen < explicit_iv_len + ssl->transform_in->taglen )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < explicit_iv_len (%d) "
                                 "+ taglen (%d)", ssl->in_msglen,
-                                explicit_iv_len, taglen ) );
+                                explicit_iv_len, ssl->transform_in->taglen ) );
             return( MBEDTLS_ERR_SSL_INVALID_MAC );
         }
-        dec_msglen = ssl->in_msglen - explicit_iv_len - taglen;
+        dec_msglen = ssl->in_msglen - explicit_iv_len -
+            ssl->transform_in->taglen;
 
         dec_msg = ssl->in_msg;
         dec_msg_result = ssl->in_msg;
@@ -1659,7 +1661,8 @@ static int ssl_decrypt_buf( mbedtls_ssl_context *ssl )
 
         MBEDTLS_SSL_DEBUG_BUF( 4, "IV used", ssl->transform_in->iv_dec,
                                      ssl->transform_in->ivlen );
-        MBEDTLS_SSL_DEBUG_BUF( 4, "TAG used", dec_msg + dec_msglen, taglen );
+        MBEDTLS_SSL_DEBUG_BUF( 4, "TAG used", dec_msg + dec_msglen,
+                               ssl->transform_in->taglen );
 
         /*
          * Decrypt and authenticate
@@ -1670,7 +1673,8 @@ static int ssl_decrypt_buf( mbedtls_ssl_context *ssl )
                                          add_data, 13,
                                          dec_msg, dec_msglen,
                                          dec_msg_result, &olen,
-                                         dec_msg + dec_msglen, taglen ) ) != 0 )
+                                         dec_msg + dec_msglen,
+                                         ssl->transform_in->taglen ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_cipher_auth_decrypt", ret );
 
@@ -4184,7 +4188,8 @@ int mbedtls_ssl_send_alert_message( mbedtls_ssl_context *ssl,
 /* No certificate support -> dummy functions */
 int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl )
 {
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate" ) );
 
@@ -4204,7 +4209,8 @@ int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl )
 
 int mbedtls_ssl_parse_certificate( mbedtls_ssl_context *ssl )
 {
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse certificate" ) );
 
@@ -4230,7 +4236,8 @@ int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl )
     int ret = MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
     size_t i, n;
     const mbedtls_x509_crt *crt;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate" ) );
 
@@ -4345,7 +4352,8 @@ int mbedtls_ssl_parse_certificate( mbedtls_ssl_context *ssl )
 {
     int ret = MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
     size_t i, n;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info = ssl->transform_negotiate->ciphersuite_info;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
+        ssl->handshake->ciphersuite_info;
     int authmode = ssl->conf->authmode;
     uint8_t alert;
 
