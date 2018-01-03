@@ -1356,11 +1356,11 @@ static void ssl_extract_add_data_from_record( unsigned char* add_data,
     add_data[12] = rec->data_len & 0xFF;
 }
 
-static int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
-                            mbedtls_ssl_transform *transform,
-                            mbedtls_record *rec,
-                            int (*f_rng)(void *, unsigned char *, size_t),
-                            void *p_rng )
+int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
+                             mbedtls_ssl_transform *transform,
+                             mbedtls_record *rec,
+                             int (*f_rng)(void *, unsigned char *, size_t),
+                             void *p_rng )
 {
     mbedtls_cipher_mode_t mode;
     int auth_done = 0;
@@ -1369,7 +1369,7 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     size_t post_avail;
 
     /* The SSL context is only used for debugging purposes! */
-#if !defined(MBEDTLS_SSL_DEBUG_C)
+#if !defined(MBEDTLS_DEBUG_C)
     ((void) ssl);
 #endif
 
@@ -1747,9 +1747,9 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     return( 0 );
 }
 
-static int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
-                            mbedtls_ssl_transform *transform,
-                            mbedtls_record *rec )
+int mbedtls_ssl_decrypt_buf( mbedtls_ssl_context *ssl,
+                             mbedtls_ssl_transform *transform,
+                             mbedtls_record *rec )
 {
     size_t olen;
     mbedtls_cipher_mode_t mode;
@@ -1760,7 +1760,7 @@ static int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
     unsigned char* data;
     unsigned char add_data[13];
 
-#if !defined(MBEDTLS_SSL_DEBUG_C)
+#if !defined(MBEDTLS_DEBUG_C)
     ((void) ssl);
 #endif
 
@@ -3129,7 +3129,7 @@ int mbedtls_ssl_write_record( mbedtls_ssl_context *ssl )
                                        ssl->conf->transport, rec.ver );
             rec.type = ssl->out_msgtype;
 
-            if( ( ret = ssl_encrypt_buf( ssl, ssl->transform_out, &rec,
+            if( ( ret = mbedtls_ssl_encrypt_buf( ssl, ssl->transform_out, &rec,
                                          ssl->conf->f_rng, ssl->conf->p_rng ) ) != 0 )
             {
                 MBEDTLS_SSL_DEBUG_RET( 1, "ssl_encrypt_buf", ret );
@@ -4012,7 +4012,8 @@ static int ssl_prepare_record_content( mbedtls_ssl_context *ssl )
         mbedtls_ssl_write_version( ssl->major_ver, ssl->minor_ver,
                                    ssl->conf->transport, rec.ver );
         rec.type = ssl->in_msgtype;
-        if( ( ret = ssl_decrypt_buf( ssl, ssl->transform_in, &rec ) ) != 0 )
+        if( ( ret = mbedtls_ssl_decrypt_buf( ssl, ssl->transform_in,
+                                             &rec ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "ssl_decrypt_buf", ret );
             return( ret );
@@ -5864,7 +5865,7 @@ static void ssl_handshake_params_init( mbedtls_ssl_handshake_params *handshake )
 #endif
 }
 
-static void ssl_transform_init( mbedtls_ssl_transform *transform )
+void mbedtls_ssl_transform_init( mbedtls_ssl_transform *transform )
 {
     memset( transform, 0, sizeof(mbedtls_ssl_transform) );
 
@@ -5931,7 +5932,7 @@ static int ssl_handshake_init( mbedtls_ssl_context *ssl )
 
     /* Initialize structures */
     mbedtls_ssl_session_init( ssl->session_negotiate );
-    ssl_transform_init( ssl->transform_negotiate );
+    mbedtls_ssl_transform_init( ssl->transform_negotiate );
     ssl_handshake_params_init( ssl->handshake );
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
