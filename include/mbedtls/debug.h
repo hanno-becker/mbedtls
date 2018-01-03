@@ -36,6 +36,28 @@
 #include "ecp.h"
 #endif
 
+/* TODO: Discuss how to test static functions!
+ * We need to have some static functions available
+ * in the test suites, and one way to deal with this
+ * would be to remove the static qualification by
+ * using a STATIC macro defined e.g. through
+ *
+ * #if defined(TEST_BUILD)
+ *  #define STATIC
+ *  #else
+ * #define STATIC static
+ * #endif
+ *
+ * We can't do this with TEST_BUILD == DEBUG_C
+ * at the moment, though, because there's a dependency
+ * of test_suite_mps on !DEBUG_C, as the printing
+ * routines in DEBUG_C need a valid SSL context, which
+ * the MPS test suite does not (and should not) provide.
+ *
+ * For now, just have the functions global all the time.
+ */
+#define STATIC
+
 #if defined(MBEDTLS_DEBUG_C)
 
 #define MBEDTLS_DEBUG_STRIP_PARENS( ... )   __VA_ARGS__
@@ -226,4 +248,3 @@ void mbedtls_debug_print_crt( const mbedtls_ssl_context *ssl, int level,
 #endif
 
 #endif /* debug.h */
-
