@@ -1297,7 +1297,7 @@ static void ssl_mac( mbedtls_md_context_t *md_ctx,
 /*
  * Encryption/decryption functions
  */
-static int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
+STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
                             mbedtls_ssl_transform *transform,
                             mbedtls_record *rec,
                             int (*f_rng)(void *, unsigned char *, size_t),
@@ -1649,7 +1649,7 @@ static int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     return( 0 );
 }
 
-static int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
+STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
                             mbedtls_ssl_transform *transform,
                             mbedtls_record *rec )
 {
@@ -5589,7 +5589,7 @@ static void ssl_handshake_params_init( mbedtls_ssl_handshake_params *handshake )
 #endif
 }
 
-static void ssl_transform_init( mbedtls_ssl_transform *transform )
+STATIC void ssl_transform_init( mbedtls_ssl_transform *transform )
 {
     memset( transform, 0, sizeof(mbedtls_ssl_transform) );
 
