@@ -64,7 +64,11 @@
     mbedtls_debug_print_crt( ssl, level, __FILE__, __LINE__, text, crt )
 #endif
 
+#define STATIC
+
 #else /* MBEDTLS_DEBUG_C */
+
+#define STATIC static
 
 #define MBEDTLS_SSL_DEBUG_MSG( level, args )            do { } while( 0 )
 #define MBEDTLS_SSL_DEBUG_RET( level, text, ret )       do { } while( 0 )

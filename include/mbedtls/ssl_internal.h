@@ -739,4 +739,14 @@ static inline int mbedtls_ssl_safer_memcmp( const void *a, const void *b, size_t
 }
 #endif
 
+void ssl_transform_init( mbedtls_ssl_transform *transform );
+int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
+                     mbedtls_ssl_transform *transform,
+                     mbedtls_mps_record *rec,
+                     int (*f_rng)(void *, unsigned char *, size_t),
+                     void *p_rng );
+int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
+                     mbedtls_ssl_transform *transform,
+                     mbedtls_mps_record *rec );
+
 #endif /* ssl_internal.h */
