@@ -1428,7 +1428,7 @@ int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     {
         if( post_avail < transform->maclen )
         {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Buffer provided for encrypted record not large enough" ) );
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Record provided for encrypted record not large enough" ) );
             return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         }
 
@@ -1521,7 +1521,7 @@ int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             rec->data_offset < explicit_iv_len )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "Buffer provided for encrypted record not large enough" ) );
-            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+            return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         }
 
         /*
@@ -1607,7 +1607,7 @@ int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         if( post_avail < padlen + 1 )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "Buffer provided for encrypted record not large enough" ) );
-            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+            return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         }
 
         for( i = 0; i <= padlen; i++ )
@@ -1632,7 +1632,7 @@ int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             if( rec->data_offset < transform->ivlen )
             {
                 MBEDTLS_SSL_DEBUG_MSG( 1, ( "Record provided for encrypted record not large enough" ) );
-                return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+                return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
             }
 
             /*
@@ -1703,7 +1703,7 @@ int mbedtls_ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             if( post_avail < transform->maclen)
             {
                 MBEDTLS_SSL_DEBUG_MSG( 1, ( "Record provided for encrypted record not large enough" ) );
-                return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+                return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
             }
 
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "using encrypt then mac" ) );
