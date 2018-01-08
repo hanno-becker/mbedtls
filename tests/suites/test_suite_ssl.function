@@ -268,21 +268,34 @@ void ssl_crypt_record( int cipher_type, int hash_id,
     int num_records = 16;
     mbedtls_ssl_context ssl; /* ONLY for debugging */
 
-    mbedtls_ssl_transform t_in, t_out;
+    mbedtls_ssl_transform t0, t1;
     unsigned char *buf;
     size_t const buflen = 512;
     mbedtls_record rec, rec_backup;
 
     mbedtls_ssl_init( &ssl );
-    ssl_transform_init( &t_in );
-    ssl_transform_init( &t_out );
-    TEST_ASSERT( build_transforms( &t_in, &t_out, cipher_type, hash_id,
+    ssl_transform_init( &t0 );
+    ssl_transform_init( &t1 );
+    TEST_ASSERT( build_transforms( &t0, &t1, cipher_type, hash_id,
                                    etm, tag_mode, ver ) == 0 );
 
     TEST_ASSERT( ( buf = malloc( buflen ) ) != NULL );
 
     while( num_records-- > 0 )
     {
+        mbedtls_ssl_transform *t_dec, *t_enc;
+        /* Take turns in who's sending and who's receiving. */
+        if( num_records % 3 == 0 )
+        {
+            t_dec = &t0;
+            t_enc = &t1;
+        }
+        else
+        {
+            t_dec = &t1;
+            t_enc = &t0;
+        }
+
         /*
          * The record header affects the transformation in two ways:
          * 1) It determines the AEAD additional data
@@ -315,7 +328,7 @@ void ssl_crypt_record( int cipher_type, int hash_id,
         rec_backup = rec;
 
         /* Encrypt record */
-        ret = ssl_encrypt_buf( &ssl, &t_out, &rec,
+        ret = ssl_encrypt_buf( &ssl, t_enc, &rec,
                                rnd_std_rand, NULL );
         TEST_ASSERT( ret == 0 || ret == MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         if( ret != 0 )
@@ -324,7 +337,7 @@ void ssl_crypt_record( int cipher_type, int hash_id,
         }
 
         /* Decrypt record with t_in */
-        TEST_ASSERT( ssl_decrypt_buf( &ssl, &t_in, &rec ) == 0 );
+        TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
         /* Compare results */
         TEST_ASSERT( rec.type == rec_backup.type );
@@ -340,8 +353,8 @@ void ssl_crypt_record( int cipher_type, int hash_id,
 
     /* Cleanup */
     mbedtls_ssl_free( &ssl );
-    mbedtls_ssl_transform_free( &t_in );
-    mbedtls_ssl_transform_free( &t_out );
+    mbedtls_ssl_transform_free( &t0 );
+    mbedtls_ssl_transform_free( &t1 );
 
     free( buf );
 }
@@ -373,7 +386,7 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
 
     mbedtls_ssl_context ssl; /* ONLY for debugging */
 
-    mbedtls_ssl_transform t_in, t_out;
+    mbedtls_ssl_transform t0, t1;
     unsigned char *buf;
     size_t const buflen = 150;
     mbedtls_record rec, rec_backup;
@@ -390,9 +403,9 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
                        * already seen a successful test. */
 
     mbedtls_ssl_init( &ssl );
-    ssl_transform_init( &t_in );
-    ssl_transform_init( &t_out );
-    TEST_ASSERT( build_transforms( &t_in, &t_out, cipher_type, hash_id,
+    ssl_transform_init( &t0 );
+    ssl_transform_init( &t1 );
+    TEST_ASSERT( build_transforms( &t0, &t1, cipher_type, hash_id,
                                    etm, tag_mode, ver ) == 0 );
 
     TEST_ASSERT( ( buf = malloc( buflen ) ) != NULL );
@@ -402,6 +415,19 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
         seen_success = 0;
         for( offset=0; offset <= threshold; offset++ )
         {
+            mbedtls_ssl_transform *t_dec, *t_enc;
+            /* Take turns in who's sending and who's receiving. */
+            if( offset % 3 == 0 )
+            {
+                t_dec = &t0;
+                t_enc = &t1;
+            }
+            else
+            {
+                t_dec = &t1;
+                t_enc = &t0;
+            }
+
             memset( rec.ctr, offset, sizeof( rec.ctr ) );
             rec.type    = 42;
             rec.ver[0]  = offset;
@@ -439,8 +465,8 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
             /* Make a copy for later comparison */
             rec_backup = rec;
 
-            /* Encrypt record with t_out */
-            ret = ssl_encrypt_buf( &ssl, &t_out, &rec, rnd_std_rand, NULL );
+            /* Encrypt record */
+            ret = ssl_encrypt_buf( &ssl, t_enc, &rec, rnd_std_rand, NULL );
 
             if( ( mode == 1 || mode == 2 ) && seen_success )
             {
@@ -457,7 +483,7 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
                 continue;
 
             /* Decrypt record with t_in */
-            TEST_ASSERT( ssl_decrypt_buf( &ssl, &t_in, &rec ) == 0 );
+            TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
             /* Compare results */
             TEST_ASSERT( rec.type == rec_backup.type );
@@ -476,8 +502,8 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
 
     /* Cleanup */
     mbedtls_ssl_free( &ssl );
-    mbedtls_ssl_transform_free( &t_in );
-    mbedtls_ssl_transform_free( &t_out );
+    mbedtls_ssl_transform_free( &t0 );
+    mbedtls_ssl_transform_free( &t1 );
 
     free( buf );
 }
