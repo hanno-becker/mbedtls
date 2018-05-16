@@ -62,6 +62,7 @@ set(src_crypto
     mps/trace.c
     mps/layer1.c
     mps/layer2.c
+    mps/layer3.c
     mps/reader.c
     mps/writer.c
 )
