@@ -59,6 +59,7 @@ set(src_crypto
     version_features.c
     xtea.c
     mps/trace.c
+    mps/layer1.c
     mps/reader.c
     mps/writer.c
 )
