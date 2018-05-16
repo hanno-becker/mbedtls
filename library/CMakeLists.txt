@@ -60,6 +60,7 @@ set(src_crypto
     xtea.c
     mps/trace.c
     mps/layer1.c
+    mps/layer2.c
     mps/reader.c
     mps/writer.c
 )
