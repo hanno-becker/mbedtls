@@ -2111,7 +2111,7 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
              * correctly. (We round down instead of up, so -56 is the correct
              * value for our calculations instead of -55)
              */
-            size_t j, extra_run = 0;
+            size_t /*j,*/ extra_run = 0;
             extra_run = ( 13 + rec->data_len + padlen + 8 ) / 64 -
                         ( 13 + rec->data_len          + 8 ) / 64;
 
@@ -2122,8 +2122,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
                                     rec->data_len );
             mbedtls_md_hmac_finish( &transform->md_ctx_dec, mac_expect );
             /* Call mbedtls_md_process at least once due to cache attacks */
-            for( j = 0; j < extra_run + 1; j++ )
-                mbedtls_md_process( &transform->md_ctx_dec, data );
+            //for( j = 0; j < extra_run + 1; j++ )
+            //   mbedtls_md_process( &transform->md_ctx_dec, data );
 
             mbedtls_md_hmac_reset( &transform->md_ctx_dec );
         }
