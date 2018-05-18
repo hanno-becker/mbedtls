@@ -2625,7 +2625,7 @@ run_test    "Authentication: client badcert, server none" \
              key_file=data_files/server5.key" \
             0 \
             -s "skip write certificate request" \
-            -C "skip parse certificate request" \
+            -C "ciphersuite doesn't allow certificate request" \
             -c "got no certificate request" \
             -c "skip write certificate" \
             -c "skip write certificate verify" \
@@ -2942,7 +2942,7 @@ run_test    "SNI: client auth override: optional -> none" \
             "$P_CLI debug_level=3 server_name=localhost" \
             0 \
             -s "skip write certificate request" \
-            -C "skip parse certificate request" \
+            -C "ciphersuite doesn't allow certificate request" \
             -c "got no certificate request" \
             -c "skip write certificate" \
             -c "skip write certificate verify" \
@@ -3078,7 +3078,7 @@ run_test    "SNI: DTLS, client auth override: optional -> none" \
             "$P_CLI debug_level=3 server_name=localhost dtls=1" \
             0 \
             -s "skip write certificate request" \
-            -C "skip parse certificate request" \
+            -C "ciphersuite doesn't allow certificate request" \
             -c "got no certificate request" \
             -c "skip write certificate" \
             -c "skip write certificate verify" \
