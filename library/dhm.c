@@ -268,7 +268,7 @@ int mbedtls_dhm_make_public( mbedtls_dhm_context *ctx, int x_size,
 {
     int ret, count = 0;
 
-    if( ctx == NULL || olen < 1 || olen > ctx->len )
+    if( ctx == NULL )
         return( MBEDTLS_ERR_DHM_BAD_INPUT_DATA );
 
     if( mbedtls_mpi_cmp_int( &ctx->P, 0 ) == 0 )
@@ -290,10 +290,32 @@ int mbedtls_dhm_make_public( mbedtls_dhm_context *ctx, int x_size,
     while( dhm_check_range( &ctx->X, &ctx->P ) != 0 );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &ctx->GX, &ctx->G, &ctx->X,
-                          &ctx->P , &ctx->RP ) );
+                                          &ctx->P , &ctx->RP ) );
 
     if( ( ret = dhm_check_range( &ctx->GX, &ctx->P ) ) != 0 )
         return( ret );
+
+    if( output != NULL )
+        MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( &ctx->GX, output, olen ) );
+
+cleanup:
+
+    if( ret != 0 )
+        return( MBEDTLS_ERR_DHM_MAKE_PUBLIC_FAILED + ret );
+
+    return( 0 );
+}
+
+/*
+ * Create own private value X and export G^X
+ */
+int mbedtls_dhm_export_public( mbedtls_dhm_context *ctx,
+                               unsigned char *output, size_t olen )
+{
+    int ret;
+
+    if( ctx == NULL || olen < 1 || olen > ctx->len )
+        return( MBEDTLS_ERR_DHM_BAD_INPUT_DATA );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( &ctx->GX, output, olen ) );
 

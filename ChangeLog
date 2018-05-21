@@ -12,6 +12,13 @@ API Changes
      output binary as part of redundant code elimination optimizations.
      Therefore, mbedtls_platform_zeroize() is moved to the platform module to
      facilitate testing and maintenance.
+   * Add API calls mbedtls_dhm_export_public() and mbedtls_ecdh_export_public()
+     allowing to export a (EC)DH public key after it has been generated
+     by mbedtls_dhm_make_public() or mbedtls_ecdh_make_public(), respectively.
+     Further, mbedtls_dhm_make_public() or mbedtls_ecdh_make_public() now accept
+     the output buffer to be unset, in which case they perform the choice of
+     private key and computation of the corresponding public key only, without
+     exporting it. This allows to split public key generation from exporting.
 
 = mbed TLS 2.9.0 branch released 2018-04-30
 

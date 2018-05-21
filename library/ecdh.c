@@ -214,8 +214,20 @@ int mbedtls_ecdh_make_public( mbedtls_ecdh_context *ctx, size_t *olen,
                 != 0 )
         return( ret );
 
+    return( mbedtls_ecdh_export_public( ctx, olen, buf, blen ) );
+}
+
+/*
+ * Export the client public value
+ */
+int mbedtls_ecdh_export_public( mbedtls_ecdh_context const *ctx, size_t *olen,
+                                unsigned char *buf, size_t blen )
+{
+    if( ctx == NULL )
+        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
+
     return mbedtls_ecp_tls_write_point( &ctx->grp, &ctx->Q, ctx->point_format,
-                                olen, buf, blen );
+                                        olen, buf, blen );
 }
 
 /*

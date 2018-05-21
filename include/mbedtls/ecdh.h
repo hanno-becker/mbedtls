@@ -214,7 +214,8 @@ int mbedtls_ecdh_get_params( mbedtls_ecdh_context *ctx, const mbedtls_ecp_keypai
  *
  * \param ctx       The ECDH context.
  * \param olen      The number of Bytes written.
- * \param buf       The destination buffer.
+ * \param buf       The destination buffer. May be \c NULL to omit
+ *                  exporting the public key at this stage.
  * \param blen      The size of the destination buffer.
  * \param f_rng     The RNG function.
  * \param p_rng     The RNG context.
@@ -226,6 +227,27 @@ int mbedtls_ecdh_make_public( mbedtls_ecdh_context *ctx, size_t *olen,
                       unsigned char *buf, size_t blen,
                       int (*f_rng)(void *, unsigned char *, size_t),
                       void *p_rng );
+
+/**
+ * \brief           This function exports the public key after it has
+ *                  been generated via mbedtls_ecdh_make_public().
+ *                  The export format is that of the TLS ClientKeyExchange
+ *                  payload.
+ *
+ * \see             ecp.h
+ *
+ * \param ctx       The ECDH context.
+ * \param olen      The number of Bytes written.
+ * \param buf       The destination buffer.
+ * \param blen      The size of the destination buffer.
+ * \param f_rng     The RNG function.
+ * \param p_rng     The RNG context.
+ *
+ * \return          \c 0 on success.
+ * \return          An \c MBEDTLS_ERR_ECP_XXX error code on failure.
+ */
+int mbedtls_ecdh_export_public( mbedtls_ecdh_context const *ctx, size_t *olen,
+                                unsigned char *buf, size_t blen );
 
 /**
  * \brief       This function parses and processes a TLS ClientKeyExchange

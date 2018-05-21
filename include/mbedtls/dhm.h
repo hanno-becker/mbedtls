@@ -208,16 +208,18 @@ int mbedtls_dhm_read_public( mbedtls_dhm_context *ctx,
  * \brief          This function creates its own private key, \c X, and
  *                 exports \c G^X.
  *
- * \note           The destination buffer is always fully written
+ * \note           If provided, the destination buffer is always fully written
  *                 so as to contain a big-endian representation of G^X mod P.
  *                 If it is larger than ctx->len, it is padded accordingly
  *                 with zero-bytes at the beginning.
  *
  * \param ctx      The DHM context.
  * \param x_size   The private key size in Bytes.
- * \param output   The destination buffer.
- * \param olen     The length of the destination buffer. Must be at least
- *                  equal to ctx->len (the size of \c P).
+ * \param output   The destination buffer. May be \c NULL to omit exporting
+ *                 the public key at this stage.
+ * \param olen     The length of the destination buffer. If \p outout
+ *                 is not \c NULL, this must be at least
+ *                 equal to ctx->len (the size of \c P).
  * \param f_rng    The RNG function.
  * \param p_rng    The RNG context.
  *
@@ -228,6 +230,28 @@ int mbedtls_dhm_make_public( mbedtls_dhm_context *ctx, int x_size,
                      unsigned char *output, size_t olen,
                      int (*f_rng)(void *, unsigned char *, size_t),
                      void *p_rng );
+
+/**
+ * \brief          This functions exports the public key after it has
+ *                 been generated via mbedtls_dhm_make_public().
+ *
+ * \note           The destination buffer is always fully written
+ *                 so as to contain a big-endian representation of G^X mod P.
+ *                 If it is larger than ctx->len, it is padded accordingly
+ *                 with zero-bytes at the beginning.
+ *
+ * \param ctx      The DHM context.
+ * \param output   The destination buffer. May be \c NULL to omit exporting
+ *                 the public key at this stage.
+ * \param olen     The length of the destination buffer. If \p outout
+ *                 is not \c NULL, this must be at least
+ *                 equal to ctx->len (the size of \c P).
+ *
+ * \return         \c 0 on success.
+ * \return         An \c MBEDTLS_ERR_DHM_XXX error code on failure.
+ */
+int mbedtls_dhm_export_public( mbedtls_dhm_context *ctx,
+                               unsigned char *output, size_t olen );
 
 /**
  * \brief               This function derives and exports the shared secret
