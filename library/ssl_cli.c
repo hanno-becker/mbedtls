@@ -2518,7 +2518,7 @@ static int ssl_process_server_key_exchange( mbedtls_ssl_context *ssl )
     if( ret == SSL_SRV_KEY_EXCHANGE_EXPECTED )
     {
         /* Reading step */
-        if( ( ret = mbedtls_ssl_read_record( ssl ) ) != 0 )
+        if( ( ret = mbedtls_ssl_read_record( ssl, 1 ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret );
             return( ret );
@@ -2592,6 +2592,13 @@ static int ssl_server_key_exchange_coordinate( mbedtls_ssl_context *ssl )
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
         ssl->transform_negotiate->ciphersuite_info;
 
+    /* The ServerKeyExchange message is not used for
+     * - RSA or
+     * - static ECDH
+     * ciphersuites.
+     * It MAY be used in PSK or RSA-PSK.
+     */
+
 #if defined(MBEDTLS_KEY_EXCHANGE_RSA_ENABLED)
     if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_RSA )
     {
@@ -2609,6 +2616,32 @@ static int ssl_server_key_exchange_coordinate( mbedtls_ssl_context *ssl )
 #endif /* MBEDTLS_KEY_EXCHANGE_ECDH_RSA_ENABLED ||
           MBEDTLS_KEY_EXCHANGE_ECDH_ECDSA_ENABLED */
 
+    /*
+     * ServerKeyExchange may be skipped with PSK and RSA-PSK when the server
+     * doesn't use a psk_identity_hint. Peek at next message to decide whether
+     * the ServerKeyExchange is being skipped or not.
+     */
+
+    /* Reading step */
+    if( ( ret = mbedtls_ssl_read_record( ssl, 1 ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret );
+        return( ret );
+    }
+
+    if( ssl->in_msg[0] != MBEDTLS_SSL_HS_SERVER_KEY_EXCHANGE )
+    {
+        if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_PSK ||
+            ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_RSA_PSK )
+        {
+            /* Current message is probably either
+             * CertificateRequest or ServerHelloDone */
+            ssl->keep_current_message = 1;
+            return( SSL_SRV_KEY_EXCHANGE_SKIP );
+        }
+    }
+
+    ssl->keep_current_message = 1;
     return( SSL_SRV_KEY_EXCHANGE_EXPECTED );
 }
 
@@ -2673,42 +2706,42 @@ static int ssl_parse_server_key_exchange( mbedtls_ssl_context *ssl )
 /* #endif /\* MBEDTLS_KEY_EXCHANGE_ECDH_RSA_ENABLED || */
 /*           MBEDTLS_KEY_EXCHANGE_ECDH_ECDSA_ENABLED *\/ */
 
-    if( ( ret = mbedtls_ssl_read_record( ssl, 1 ) ) != 0 )
-    {
-        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret );
-        return( ret );
-    }
+    /* if( ( ret = mbedtls_ssl_read_record( ssl, 1 ) ) != 0 ) */
+    /* { */
+    /*     MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_read_record", ret ); */
+    /*     return( ret ); */
+    /* } */
 
-    if( ssl->in_msgtype != MBEDTLS_SSL_MSG_HANDSHAKE )
-    {
-        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server key exchange message" ) );
-        mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
-                                        MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE );
-        return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
-    }
+    /* if( ssl->in_msgtype != MBEDTLS_SSL_MSG_HANDSHAKE ) */
+    /* { */
+    /*     MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server key exchange message" ) ); */
+    /*     mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL, */
+    /*                                     MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE ); */
+    /*     return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE ); */
+    /* } */
 
-    /*
-     * ServerKeyExchange may be skipped with PSK and RSA-PSK when the server
-     * doesn't use a psk_identity_hint
-     */
-    if( ssl->in_msg[0] != MBEDTLS_SSL_HS_SERVER_KEY_EXCHANGE )
-    {
-        if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_PSK ||
-            ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_RSA_PSK )
-        {
-            /* Current message is probably either
-             * CertificateRequest or ServerHelloDone */
-            ssl->keep_current_message = 1;
-            goto exit;
-        }
+    /* /\* */
+    /*  * ServerKeyExchange may be skipped with PSK and RSA-PSK when the server */
+    /*  * doesn't use a psk_identity_hint */
+    /*  *\/ */
+    /* if( ssl->in_msg[0] != MBEDTLS_SSL_HS_SERVER_KEY_EXCHANGE ) */
+    /* { */
+    /*     if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_PSK || */
+    /*         ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_RSA_PSK ) */
+    /*     { */
+    /*         /\* Current message is probably either */
+    /*          * CertificateRequest or ServerHelloDone *\/ */
+    /*         ssl->keep_current_message = 1; */
+    /*         goto exit; */
+    /*     } */
 
-        MBEDTLS_SSL_DEBUG_MSG( 1, ( "server key exchange message must "
-                                    "not be skipped" ) );
-        mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
-                                        MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE );
+    /*     MBEDTLS_SSL_DEBUG_MSG( 1, ( "server key exchange message must " */
+    /*                                 "not be skipped" ) ); */
+    /*     mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL, */
+    /*                                     MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE ); */
 
-        return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
-    }
+    /*     return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE ); */
+    /* } */
 
     p   = ssl->in_msg + mbedtls_ssl_hs_hdr_len( ssl );
     end = ssl->in_msg + ssl->in_hslen;
