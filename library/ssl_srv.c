@@ -4124,7 +4124,13 @@ static int ssl_client_key_exchange_parse( mbedtls_ssl_context *ssl,
 /* Update the handshake state */
 static int ssl_client_key_exchange_postprocess( mbedtls_ssl_context *ssl )
 {
-    /* TODO: Derive keys */
+    int ret;
+
+    if( ( ret = mbedtls_ssl_derive_keys( ssl ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_derive_keys", ret );
+        return( ret );
+    }
 
     /* Update state */
     ssl->state = MBEDTLS_SSL_CERTIFICATE_VERIFY;
@@ -4402,11 +4408,11 @@ static int ssl_parse_client_key_exchange( mbedtls_ssl_context *ssl )
         return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
     }
 
-    if( ( ret = mbedtls_ssl_derive_keys( ssl ) ) != 0 )
-    {
-        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_derive_keys", ret );
-        return( ret );
-    }
+    /* if( ( ret = mbedtls_ssl_derive_keys( ssl ) ) != 0 ) */
+    /* { */
+    /*     MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_derive_keys", ret ); */
+    /*     return( ret ); */
+    /* } */
 
     ssl->state++;
 
