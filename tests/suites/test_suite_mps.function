@@ -5311,11 +5311,17 @@ exit:
 
 }
 /* END_CASE */
+
 /* BEGIN_CASE depends_on:TEST_SUITE_MPS_L3 */
 void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
-                                     int layer0_buffer_sz,
-                                     int rec_sz,
-                                     int real_transforms )
+          int layer0_buffer_sz,
+          int rec_sz,
+          int aborted_before,
+          int real_transforms,
+          int length_known,
+          int multiple_fetch,
+          int intermediate_commit,
+          int partial_commit )
 {
     /* Layer 1 objects */
     mps_l1 cli_l1, srv_l1;
@@ -5330,6 +5336,8 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
 
     mps_l3_handshake_out hs_out;
     mps_l3_handshake_in hs_in;
+
+    size_t additional_fetch = partial_commit ? 10 : 0;
 
     /* Dummy record transformations for epoch 0 */
     mbedtls_mps_transform_t *dummy_c = malloc( sizeof( mbedtls_mps_transform_t ) );
@@ -5404,24 +5412,101 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
 
     /*
+     * Client: Start but abort writing handshake message, if requested
+     */
+
+    if( aborted_before != 0)
+    {
+        hs_out.epoch = 0;
+        hs_out.type = 12;
+
+        if( length_known )
+            hs_out.len = 20;
+        else
+            hs_out.len = MPS_L3_LENGTH_UNKNOWN;
+
+        TEST_ASSERT( mps_l3_write_handshake( &cli,
+                                             &hs_out ) == 0 );
+
+        if( aborted_before == 1 )
+        {
+            TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10,
+                                                 &tmp, NULL ) == 0 );
+
+            TEST_ASSERT( mps_l3_abort_handshake( &cli ) == 0 );
+        }
+        else if( aborted_before == 2 )
+        {
+            TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10,
+                                                 &tmp, NULL ) == 0 );
+            TEST_ASSERT( mbedtls_writer_commit_ext( hs_out.wr_ext ) == 0 );
+
+            /* We shouldn't be allowed to abort once we have
+             * committed something. */
+            TEST_ASSERT( mps_l3_abort_handshake( &cli ) ==
+                         MPS_ERR_INTERNAL_ERROR );
+
+            goto exit;
+        }
+    }
+
+    /*
      * Client: Write handshake message to server
      */
 
     hs_out.epoch = 0;
     hs_out.type = 12;
-    hs_out.len = 10;
+
+    if( length_known )
+        hs_out.len = 20;
+    else
+        hs_out.len = MPS_L3_LENGTH_UNKNOWN;
+
     TEST_ASSERT( mps_l3_write_handshake( &cli,
                                          &hs_out ) == 0 );
 
-    /* Ask for outbuffer to write next chunk of data */
-    TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10, &tmp, NULL ) == 0 );
+    if( multiple_fetch )
+    {
 
-    /* Write contents */
-    for( size_t idx=0; idx<10; idx++ )
-        tmp[idx] = (unsigned char) idx;
+        TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10, &tmp, NULL ) == 0 );
+        for( size_t idx=0; idx<10; idx++ )
+            tmp[idx] = (unsigned char) idx;
 
-    /* Commit and update state */
-    TEST_ASSERT( mbedtls_writer_commit_ext( hs_out.wr_ext ) == 0 );
+        if( intermediate_commit )
+            TEST_ASSERT( mbedtls_writer_commit_ext( hs_out.wr_ext )  == 0 );
+
+        TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10 + additional_fetch,
+                                             &tmp, NULL ) == 0 );
+        for( size_t idx=0; idx< 10 + additional_fetch ; idx++ )
+            tmp[idx] = (unsigned char) ( 10 + idx );
+    }
+    else
+    {
+        TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext,
+                                             20 + additional_fetch,
+                                             &tmp, NULL ) == 0 );
+        for( size_t idx=0; idx<20 + additional_fetch; idx++ )
+            tmp[idx] = (unsigned char) idx;
+    }
+
+    if( !partial_commit )
+    {
+        /* Commit and update state */
+        TEST_ASSERT( mbedtls_writer_commit_ext( hs_out.wr_ext ) == 0 );
+    }
+    else
+    {
+        /* Commit and update state */
+        TEST_ASSERT( mbedtls_writer_commit_partial_ext( hs_out.wr_ext,
+                                                    additional_fetch ) == 0 );
+    }
+
+    /* Check that writer is blocked. */
+    if( !length_known && partial_commit )
+    {
+        TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10, &tmp, NULL ) ==
+                     MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
+    }
 
     /* Dispatch handshake message */
     TEST_ASSERT( mps_l3_dispatch( &cli ) == 0 );
@@ -5436,10 +5521,10 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
     TEST_ASSERT( mps_l3_read_handshake( &srv, &hs_in ) == 0 );
     TEST_ASSERT( hs_in.epoch == 0 );
     TEST_ASSERT( hs_in.type == 12 );
-    TEST_ASSERT( hs_in.len == 10 );
+    TEST_ASSERT( hs_in.len == 20 );
 
     /* Fetch next chunk of incoming data */
-    TEST_ASSERT( mbedtls_reader_get_ext( hs_in.rd_ext, 10, &tmp, NULL ) == 0 );
+    TEST_ASSERT( mbedtls_reader_get_ext( hs_in.rd_ext, 20, &tmp, NULL ) == 0 );
 
     /* Process incoming data */
     for( size_t idx=0; idx<10; idx++ )
@@ -5469,11 +5554,96 @@ exit:
 /* END_CASE */
 
 /* BEGIN_CASE depends_on:TEST_SUITE_MPS_L3 */
+void mbedtls_mps_l3_handshake_empty( int allocator_buffer_sz,
+                                     int layer0_buffer_sz,
+                                     int fetch_something )
+{
+    /* Layer 1 objects */
+    mps_l1 cli_l1;
+
+    /* Layer 2 objects */
+    mps_l2 cli_l2;
+
+    /* Layer 3 objects */
+    mps_l3 cli;
+
+    unsigned char *tmp;
+
+    mps_l3_handshake_out hs_out;
+
+    /* Dummy record transformations for epoch 0 */
+    mbedtls_mps_transform_t *dummy_c = malloc( sizeof( mbedtls_mps_transform_t ) );
+
+    dummy_c->type = 0;
+    dummy_c->mock.enabled = 1;
+    dummy_c->mock.pad = 5;
+
+    /* Initialize Layer 0 mock objects */
+    layer0_bufsize = (size_t) layer0_buffer_sz;
+    TEST_ASSERT( layer0_init( &c2s ) == 0 );
+
+    /* Initialize allocator mock object */
+    alloc_size = (size_t) allocator_buffer_sz;
+    alloc_init();
+
+    /* Initialize Layer 1 */
+    TEST_ASSERT( mps_l1_init( &cli_l1, MPS_L1_MODE_STREAM, ALLOC_ID_CLI,
+                              layer0_write_cli, layer0_read_cli ) == 0 );
+
+    /* Initialize and configure Layer 2 */
+    TEST_ASSERT( mps_l2_init( &cli_l2, &cli_l1, MPS_L2_MODE_STREAM,
+                              L2_DEFAULT_ACCUMULATOR_SIZE,
+                              L2_DEFAULT_QUEUE_SIZE,
+                              rnd_std_rand, NULL ) == 0 );
+    TEST_ASSERT( mps_l2_config_version( &cli_l2,
+                        MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+                                         1, 1, 0 ) == 0 );
+    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
+                                   MPS_L2_EPOCH_WRITE ) == 0 );
+
+    /* Initialize Layer 3 */
+    TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    /*
+     * Client: Attempt to dispatch a handshake message
+     *         before comitting anything.
+     */
+
+    hs_out.epoch = 0;
+    hs_out.type = 12;
+    hs_out.len = MPS_L3_LENGTH_UNKNOWN;
+
+    TEST_ASSERT( mps_l3_write_handshake( &cli, &hs_out ) == 0 );
+
+    if( fetch_something )
+    {
+        TEST_ASSERT( mbedtls_writer_get_ext( hs_out.wr_ext, 10,
+                                             &tmp, NULL ) == 0 );
+    }
+
+    TEST_ASSERT( mps_l3_dispatch( &cli ) == MPS_ERR_EMPTY_MESSAGE );
+
+exit:
+
+    /*
+     * Wrapup
+     */
+
+    TEST_ASSERT( mps_l3_free( &cli ) == 0 );
+    TEST_ASSERT( mps_l2_free( &cli_l2 ) == 0 );
+    TEST_ASSERT( mps_l1_free( &cli_l1 ) == 0 );
+    layer0_free( &c2s );
+}
+/* END_CASE */
+
+/* BEGIN_CASE depends_on:TEST_SUITE_MPS_L3 */
 void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
                                        int layer0_buffer_sz,
                                        int rec_sz,
                                        int real_transforms,
-                                       int num_msgs )
+                                       int num_msgs,
+                                       int pause_after_header )
 {
     int res;
     size_t msgs_remaining;
@@ -5636,6 +5806,15 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
             {
                 case 0:
 
+                    if( pause_after_header )
+                    {
+                        pause      = 1;
+                        send_state = 1;
+                        break;
+                    }
+
+                case 1:
+
                     /* Ask for outbuffer to write next chunk of data */
                     res = mbedtls_writer_get_ext( hs_out.wr_ext, 4, &tmp, NULL );
                     TEST_ASSERT( res == 0 ||
@@ -5653,7 +5832,7 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
                     /* Commit and update state */
                     TEST_ASSERT( mbedtls_writer_commit_ext(
                                      hs_out.wr_ext ) == 0 );
-                    send_state = 1;
+                    send_state = 2;
 
                     /* Attempt to finish the writing -- should give an error
                      * because we have initially specified how much we intend
@@ -5661,7 +5840,7 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
                     TEST_ASSERT( mps_l3_dispatch( &cli ) ==
                                  MPS_ERR_UNFINISHED_HS_MSG );
 
-                case 1:
+                case 2:
 
                     /* Ask for outbuffer to write next chunk of data */
                     res = mbedtls_writer_get_ext( hs_out.wr_ext, 4,
@@ -5681,7 +5860,7 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
                     /* Commit and update state */
                     TEST_ASSERT( mbedtls_writer_commit_ext(
                                      hs_out.wr_ext ) == 0 );
-                    send_state = 2;
+                    send_state = 3;
 
                 default:
                     break;

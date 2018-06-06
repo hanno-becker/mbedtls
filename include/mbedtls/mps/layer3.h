@@ -77,6 +77,8 @@
                                           *   whose content-byte was different
                                           *   from the static value prescribed
                                           *   in the standard.               */
+#define MPS_ERR_EMPTY_MESSAGE     -0x114 /*!< An attempt was made to dispatch
+                                          *   an empty handshake message.    */
 
 typedef uint8_t mps_hs_type;
 
@@ -122,16 +124,18 @@ typedef enum mps_l3_hs_state
  */
 typedef enum
 {
-    MPS_L3_STATE_NONE = 0,       /*!< This is a placeholder to indicate
-                                  *   that no record is currently open
-                                  *   for reading or writing.             */
-    MPS_L3_STATE_APPLICATION=23, /*!< This represents application data.   */
-    MPS_L3_STATE_HANDSHAKE=22,   /*!< This represents handshake messages. */
-    MPS_L3_STATE_ALERT=21,       /*!< This represents alert messages.     */
-    MPS_L3_STATE_CCS=20,         /*!< This represents CCS messages.       */
-    MPS_L3_STATE_ACK=19          /*!< This represents ACK messages
-                                  *   (used in DTLS 1.3 only).            */
-} mps_l3_port;
+    MBEDTLS_MPS_MSG_NONE = 0,        /*!< This is a placeholder to indicate
+                                      *   that no record is currently open
+                                      *   for reading or writing.             */
+    MBEDTLS_MPS_MSG_APP=23,         /*!< This represents application data.    */
+    MBEDTLS_MPS_MSG_HS=22,          /*!< This represents handshake messages.  */
+    MBEDTLS_MPS_MSG_ALERT=21,       /*!< This represents alert messages.      */
+    MBEDTLS_MPS_MSG_CCS=20,         /*!< This represents CCS messages.        */
+    MBEDTLS_MPS_MSG_ACK=19          /*!< This represents ACK messages
+                                     *   (used in DTLS 1.3 only).             */
+} mbedtls_mps_msg_type_t;
+
+#define MPS_L3_LENGTH_UNKNOWN (-1)
 
 /**
  * \brief    This structure represents handles to
@@ -158,6 +162,12 @@ typedef enum
  *           mps_l3_write_handshake() which must use the
  *           the same epoch, handshake type and length
  *           parameters as the initial one.
+ *
+ *           The handshake message length must be known
+ *           in advance if pausing is needed for the message.
+ *           If pausing is not needed, the length field can
+ *           be set to #MPS_L3_LENGTH_UNKNOWN and will be
+ *           be determined automatically on closing.
  */
 struct mps_l3_handshake_out
 {
@@ -168,13 +178,25 @@ struct mps_l3_handshake_out
     mps_hs_type type;           /*!< The handshake message type.
                                  *   This must be set by the user before
                                  *   calling mps_l3_write_handshake().       */
-    uint16_t len;               /*!< The total length of the message (regard-
-                                 *   less of fragmentation).
+    int32_t len;                /*!< The total length of the handshake
+                                 *   message, regardless of fragmentation,
+                                 *   or #MPS_L3_LENGTH_UNKNOWN if the length
+                                 *   will be determined at write-time.
+                                 *   In this case, pausing is not possible
+                                 *   for the handshake message (because the
+                                 *   headers for handshake fragments include
+                                 *   the total length of the handshake message).
                                  *   This must be set by the user before
                                  *   calling mps_l3_write_handshake().       */
+
+    /* NOTE: This will need extension for DTLS:
+     *       We need two fields for the fragment offset and the fragment
+     *       length, and it should be possible for the user to leave
+     *       the fragment length unspecified.  */
+
     mbedtls_writer_ext *wr_ext; /*!< The extended writer providing buffers
                                  *   to which the message contents can be
-                                 *   written, and keeing track of message
+                                 *   written, and keeping track of message
                                  *   bounds.
                                  *   This must be \c NULL when the user
                                  *   calls mps_l3_write_handshake(), which
@@ -189,7 +211,7 @@ struct mps_l3_handshake_out
  *           It is used in the following way:
  *           If a successful call to mps_l3_read() has indicated that
  *           a handshake message has been received (by returning
- *           #MPS_L3_STATE_HANDSHAKE), mps_l3_read_handshake() will
+ *           #MBEDTLS_MPS_MSG_HS), mps_l3_read_handshake() will
  *           provide an instance of this structure giving access
  *           to the epoch, the handshake type, the total length
  *           of the received handshake message, as well as a reader
@@ -201,7 +223,7 @@ struct mps_l3_handshake_out
  *           processing of the handshake message, the user should
  *           call mps_l3_pause_handshake() to temporaily suspend
  *           the reading. The next successful call to mps_l3_read()
- *           returning #MPS_L3_STATE_HANDSHAKE is then guaranteed
+ *           returning #MBEDTLS_MPS_MSG_HS is then guaranteed
  *           to yield a handle that can be used to continue the
  *           processing at the stage where the initial call stopped
  *           (determined by the last call to mps_l3_reader_commit_ext()).
@@ -226,7 +248,7 @@ struct mps_l3_handshake_in
  *           It is used in the following way:
  *           If a successful call to mps_l3_read() has indicated that
  *           a handshake message has been received (by returning
- *           #MPS_L3_STATE_ALERT), mps_l3_read_alert() will
+ *           #MBEDTLS_MPS_MSG_ALERT), mps_l3_read_alert() will
  *           provide an instance of this structure giving access
  *           to the epoch, alert type and alert level.
  *
@@ -256,7 +278,7 @@ struct mps_l3_alert_out
  *           It is used in the following way:
  *           If a successful call to mps_l3_read() has indicated that
  *           application data has been received (by returning
- *           #MPS_L3_STATE_APPLICATION), mps_l3_read_app() will
+ *           #MBEDTLS_MPS_MSG_APP), mps_l3_read_app() will
  *           provide an instance of this structure giving access
  *           to the epoch as well as a reader giving rise to the
  *           actual data.
@@ -287,7 +309,7 @@ struct mps_l3_app_out
  *           It is used in the following way:
  *           If a successful call to mps_l3_read() has indicated that
  *           application data has been received (by returning
- *           #MPS_L3_STATE_CCS), mps_l3_read_app() will provide
+ *           #MBEDTLS_MPS_MSG_CCS), mps_l3_read_app() will provide
  *           an instance of this structure giving access to the epoch
  *           used for the CCS message.
  *
@@ -309,7 +331,7 @@ struct mps_l3_ccs_in
 
 struct mps_l3_ccs_out
 {
-    mbedtls_mps_epoch_id epoch;  /*!< The epoch to use used to protect
+    mbedtls_mps_epoch_id epoch;  /*!< The epoch to use to protect
                                   *   the CCS message. Set by the user.    */
 };
 
@@ -324,7 +346,7 @@ struct mps_l3_hs_in_internal
     mps_l3_hs_state state;      /*!< Indicates if the incoming message
                                  *   is currently being paused or not.       */
     mps_hs_type type;           /*!< The handshake message type.             */
-    uint16_t len;               /*!< The total length of the message
+    int32_t len;                /*!< The total length of the message
                                  *   (regardless of fragmentation).          */
     mbedtls_reader_ext rd_ext;  /*!< The extended reader giving access to
                                  *   the message contents, but also keeping
@@ -338,8 +360,14 @@ struct mps_l3_hs_out_internal
     mps_l3_hs_state state;      /*!< Indicates if the outgoing message
                                  *   is currently being paused or not.       */
     mps_hs_type type;           /*!< The handshake message type.             */
-    uint16_t len;               /*!< The total length of the message
-                                 *   (regardless of fragmentation).          */
+    int32_t len;                /*!< The total length of the message
+                                 *   (regardless of fragmentation),
+                                 *   or #MPS_L3_LENGTH_UNKNOWN if
+                                 *   it is not yet known.                    */
+    unsigned char* hdr;         /*!< The buffer that should hold the
+                                 *   handshake header once the length
+                                 *   of the handshake message is known.      */
+    size_t hdr_len;             /*!< The size of the header buffer.          */
     mbedtls_writer_ext wr_ext;  /*!< The extended writer providing buffers
                                  *   to which the message contents can be
                                  *   written, and keeing track of message
@@ -374,15 +402,15 @@ struct mps_l3
     {
         /* Global reading state */
 
-        mps_l3_port state;      /*!< Indicates if and which record type
-                                 *   is currently open for reading.          */
+        mbedtls_mps_msg_type_t state;  /*!< Indicates if and which record type
+                                        *   is currently open for reading.    */
 
 #define MPS_L3_INV_IN_STATE( p )                          \
-        ( (p)->in.state == MPS_L3_STATE_NONE        ||    \
-          (p)->in.state == MPS_L3_STATE_APPLICATION ||    \
-          (p)->in.state == MPS_L3_STATE_HANDSHAKE   ||    \
-          (p)->in.state == MPS_L3_STATE_ALERT       ||    \
-          (p)->in.state == MPS_L3_STATE_CCS )
+        ( (p)->in.state == MBEDTLS_MPS_MSG_NONE        ||    \
+          (p)->in.state == MBEDTLS_MPS_MSG_APP ||    \
+          (p)->in.state == MBEDTLS_MPS_MSG_HS   ||    \
+          (p)->in.state == MBEDTLS_MPS_MSG_ALERT       ||    \
+          (p)->in.state == MBEDTLS_MPS_MSG_CCS )
 
         /* Raw record data. */
 
@@ -393,7 +421,7 @@ struct mps_l3
                                  *    messages).                             */
 
 #define MPS_L3_INV_IN_RAW_READER_SET( p )               \
-        ( (p)->in.state != MPS_L3_STATE_NONE <==>       \
+        ( (p)->in.state != MBEDTLS_MPS_MSG_NONE <==>       \
           (p)->in.raw_in != NULL )
 
 #define MPS_L3_INV_IN_RAW_READER( p )                   \
@@ -408,7 +436,7 @@ struct mps_l3
 
 #define MPS_L3_INV_IN_HS_ACTIVE_STATE( p )             \
         ( (p)->in.hs.state == MPS_L3_HS_ACTIVE <==>    \
-          (p)->in.state == MPS_L3_STATE_HANDSHAKE )
+          (p)->in.state == MBEDTLS_MPS_MSG_HS )
 
         mps_l3_alert_in_internal alert;  /*!< Type + Level of incoming alert. */
 
@@ -432,15 +460,15 @@ struct mps_l3
 
         /* Global writing state */
 
-        mps_l3_port state;       /*!< Indicates if and which record type is
-                                  *   currently open for writing.             */
+        mbedtls_mps_msg_type_t state;  /*!< Indicates if and which record type
+                                        *   is currently open for writing.    */
 
 #define MPS_L3_INV_OUT_STATE( p )                          \
-        ( (p)->out.state == MPS_L3_STATE_NONE        ||    \
-          (p)->out.state == MPS_L3_STATE_APPLICATION ||    \
-          (p)->out.state == MPS_L3_STATE_HANDSHAKE   ||    \
-          (p)->out.state == MPS_L3_STATE_ALERT       ||    \
-          (p)->out.state == MPS_L3_STATE_CCS )
+        ( (p)->out.state == MBEDTLS_MPS_MSG_NONE        ||    \
+          (p)->out.state == MBEDTLS_MPS_MSG_APP ||    \
+          (p)->out.state == MBEDTLS_MPS_MSG_HS   ||    \
+          (p)->out.state == MBEDTLS_MPS_MSG_ALERT       ||    \
+          (p)->out.state == MBEDTLS_MPS_MSG_CCS )
 
         /* Raw outgoing record data */
 
@@ -450,7 +478,7 @@ struct mps_l3
                                   *   messages).                              */
 
 #define MPS_L3_INV_OUT_RAW_WRITER_SET( p )               \
-        ( (p)->out.state != MPS_L3_STATE_NONE <==>       \
+        ( (p)->out.state != MBEDTLS_MPS_MSG_NONE <==>       \
           (p)->out.raw_out != NULL )
 
 #define MPS_L3_INV_OUT_RAW_WRITER( p )                   \
@@ -463,7 +491,7 @@ struct mps_l3
 
 #define MPS_L3_INV_OUT_HS_ACTIVE_STATE( p )             \
         ( (p)->out.hs.state == MPS_L3_HS_ACTIVE <==>    \
-          (p)->out.state == MPS_L3_STATE_HANDSHAKE )
+          (p)->out.state == MBEDTLS_MPS_MSG_HS )
 
     } out;
 
@@ -534,10 +562,10 @@ int mps_l3_free( mps_l3 *l3 );
  * \param l3      The pointer to the Layer 3 context to use.
  *
  * \return
- *                - One of the positive status codes #MPS_L3_STATE_HANDSHAKE,
- *                  #MPS_L3_STATE_APPLICATION, #MPS_L3_STATE_ALERT,
- *                  #MPS_L3_STATE_ALERT, #MPS_L3_STATE_CCS or
- *                  #MPS_L3_STATE_ACK success, indicating which type
+ *                - One of the positive status codes #MBEDTLS_MPS_MSG_HS,
+ *                  #MBEDTLS_MPS_MSG_APP, #MBEDTLS_MPS_MSG_ALERT,
+ *                  #MBEDTLS_MPS_MSG_ALERT, #MBEDTLS_MPS_MSG_CCS or
+ *                  #MBEDTLS_MPS_MSG_ACK success, indicating which type
  *                  of message has been received.
  *                - A negative error code on failure.
  *
@@ -778,6 +806,26 @@ int mps_l3_write_ccs( mps_l3 *l3, mps_l3_ccs_out *ccs );
 int mps_l3_pause_handshake( mps_l3 *l3 );
 
 /**
+ * \brief           Abort the writing of an outgoing handshake message.
+ *
+ *                  After the writing of a handshake message has commenced
+ *                  through a successful call to mps_l3_write_hanshake(),
+ *                  this function can be used to abort the write, as long
+ *                  as no data has been committed.
+ *
+ * \param l3        The pointer to Layer 3 context.
+ *
+ * \return          0 on success, a negative error code on failure.
+ *
+ */
+
+/*@
+  MPS_L3_INV_REQUIRES( l3 )
+  MPS_L3_INV_ENSURES( l3 )
+@*/
+int mps_l3_abort_handshake( mps_l3 *l3 );
+
+/**
  * \brief         Conclude the writing of the current outgoing message.
  *
  *                This function must be called after the user has requested
@@ -827,12 +875,12 @@ int mps_l3_dispatch( mps_l3 *l3 );
 @*/
 int mps_l3_flush( mps_l3 *l3 );
 
+
 static inline int mps_l3_epoch_add( mps_l3 *ctx,
-                                    mbedtls_mps_epoch_id epoch,
                                     mbedtls_mps_transform_t *transform,
-                                    mbedtls_mps_epoch_usage usage )
+                                    mbedtls_mps_epoch_id *epoch )
 {
-    return( mps_l2_epoch_add( ctx->conf.l2, epoch, transform, usage ) );
+    return( mps_l2_epoch_add( ctx->conf.l2, transform, epoch ) );
 }
 
 static inline int mps_l3_epoch_usage( mps_l3 *ctx,
