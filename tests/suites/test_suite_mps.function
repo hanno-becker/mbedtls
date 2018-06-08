@@ -1007,7 +1007,7 @@ int transform_get_expansion( mbedtls_mps_transform_t *transform,
  * to be sent and received through Layer 3. */
 typedef struct
 {
-    mps_l3_port type;
+    mbedtls_mps_msg_type_t type;
     union
     {
         struct
@@ -5334,6 +5334,9 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
 
     unsigned char *tmp;
 
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
+
     mps_l3_handshake_out hs_out;
     mps_l3_handshake_in hs_in;
 
@@ -5398,18 +5401,20 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Start but abort writing handshake message, if requested
@@ -5516,7 +5521,7 @@ void mbedtls_mps_l3_basic_handshake( int allocator_buffer_sz,
      * Server: Read handshake message from client
      */
 
-    TEST_ASSERT( mps_l3_read( &srv ) == MPS_L3_STATE_HANDSHAKE );
+    TEST_ASSERT( mps_l3_read( &srv ) == MBEDTLS_MPS_MSG_HS );
 
     TEST_ASSERT( mps_l3_read_handshake( &srv, &hs_in ) == 0 );
     TEST_ASSERT( hs_in.epoch == 0 );
@@ -5569,6 +5574,8 @@ void mbedtls_mps_l3_handshake_empty( int allocator_buffer_sz,
 
     unsigned char *tmp;
 
+    mbedtls_mps_epoch_id cli_epoch;
+
     mps_l3_handshake_out hs_out;
 
     /* Dummy record transformations for epoch 0 */
@@ -5597,13 +5604,15 @@ void mbedtls_mps_l3_handshake_empty( int allocator_buffer_sz,
                               rnd_std_rand, NULL ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &cli_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+
 
     /*
      * Client: Attempt to dispatch a handshake message
@@ -5658,6 +5667,9 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
     mps_l3 cli, srv;
 
     unsigned char *tmp;
+
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
 
     int send_state;
     int recv_state;
@@ -5724,18 +5736,19 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Write handshake message to server
@@ -5920,7 +5933,7 @@ void mbedtls_mps_l3_handshake_gradual( int allocator_buffer_sz,
             int pause = 0;
 
             res = mps_l3_read( &srv );
-            TEST_ASSERT( res == MPS_L3_STATE_HANDSHAKE ||
+            TEST_ASSERT( res == MBEDTLS_MPS_MSG_HS ||
                          res == MPS_ERR_WANT_READ );
             if( res < 0 )
                 continue;
@@ -6032,6 +6045,9 @@ void mbedtls_mps_l3_basic_application( int allocator_buffer_sz,
 
     unsigned char *tmp;
 
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
+
     mps_l3_app_out app_out;
     mps_l3_app_in app_in;
 
@@ -6094,18 +6110,19 @@ void mbedtls_mps_l3_basic_application( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_APPLICATION,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_APP,
                                          1, 0, 1) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_APPLICATION,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_APP,
                                          0, 1, 1 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Write application data to server
@@ -6132,7 +6149,7 @@ void mbedtls_mps_l3_basic_application( int allocator_buffer_sz,
      * Server: Read application data from client
      */
 
-    TEST_ASSERT( mps_l3_read( &srv ) == MPS_L3_STATE_APPLICATION );
+    TEST_ASSERT( mps_l3_read( &srv ) == MBEDTLS_MPS_MSG_APP );
 
     TEST_ASSERT( mps_l3_read_app( &srv, &app_in ) == 0 );
 
@@ -6193,6 +6210,9 @@ void mbedtls_mps_l3_basic_alert( int allocator_buffer_sz,
     uint8_t const alert_type = 0xc;
     uint8_t const alert_level = 0x1a;
 
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
+
     /* Dummy record transformations for epoch 0 */
     mbedtls_mps_transform_t *dummy_c = malloc( sizeof( mbedtls_mps_transform_t ) );
     mbedtls_mps_transform_t *dummy_s = malloc( sizeof( mbedtls_mps_transform_t ) );
@@ -6252,18 +6272,19 @@ void mbedtls_mps_l3_basic_alert( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_ALERT,
                                          1, alert_merging != 0, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_ALERT,
                                          1, alert_merging != 0, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Write handshake message to server
@@ -6308,7 +6329,7 @@ void mbedtls_mps_l3_basic_alert( int allocator_buffer_sz,
     {
         if( handle_fragmentation == 0 )
         {
-            TEST_ASSERT( mps_l3_read( &srv ) == MPS_L3_STATE_ALERT );
+            TEST_ASSERT( mps_l3_read( &srv ) == MBEDTLS_MPS_MSG_ALERT );
         }
         else
         {
@@ -6316,8 +6337,8 @@ void mbedtls_mps_l3_basic_alert( int allocator_buffer_sz,
             {
                 res = mps_l3_read( &srv );
                 TEST_ASSERT( res == MPS_ERR_WANT_READ ||
-                             res == MPS_L3_STATE_ALERT );
-                if( res == MPS_L3_STATE_ALERT )
+                             res == MBEDTLS_MPS_MSG_ALERT );
+                if( res == MBEDTLS_MPS_MSG_ALERT )
                     break;
             }
         }
@@ -6371,6 +6392,9 @@ void mbedtls_mps_l3_basic_ccs( int allocator_buffer_sz,
 
     mps_l3_ccs_out ccs_out;
 
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
+
     /* Dummy record transformations for epoch 0 */
     mbedtls_mps_transform_t *dummy_c = malloc( sizeof( mbedtls_mps_transform_t ) );
     mbedtls_mps_transform_t *dummy_s = malloc( sizeof( mbedtls_mps_transform_t ) );
@@ -6430,18 +6454,19 @@ void mbedtls_mps_l3_basic_ccs( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_CCS,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_CCS,
                                          1, ccs_merging != 0, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_CCS,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_CCS,
                                          1, ccs_merging != 0, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Write handshake message to server
@@ -6473,7 +6498,7 @@ void mbedtls_mps_l3_basic_ccs( int allocator_buffer_sz,
         do
         {
             res = mps_l3_read( &srv );
-            TEST_ASSERT( res == MPS_L3_STATE_CCS || res == MPS_ERR_WANT_WRITE );
+            TEST_ASSERT( res == MBEDTLS_MPS_MSG_CCS || res == MPS_ERR_WANT_WRITE );
         } while( res < 0 );
 
         /* Signal that message has been processed. */
@@ -6561,6 +6586,9 @@ void mbedtls_mps_l3_handshake_alert_interleaved( int allocator_buffer_sz,
     uint8_t const alert_type = 0xc;
     uint8_t const alert_level = 0x1a;
 
+    mbedtls_mps_epoch_id cli_epoch;
+    mbedtls_mps_epoch_id srv_epoch;
+
     /* Dummy record transformations for epoch 0 */
     mbedtls_mps_transform_t *dummy_c = malloc( sizeof( mbedtls_mps_transform_t ) );
     mbedtls_mps_transform_t *dummy_s = malloc( sizeof( mbedtls_mps_transform_t ) );
@@ -6616,24 +6644,25 @@ void mbedtls_mps_l3_handshake_alert_interleaved( int allocator_buffer_sz,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_ALERT,
                                          treat_alert_as_pausable == 1,
                                          1, 1 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_ALERT,
                                          treat_alert_as_pausable == 1,
                                          1, 1 ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &cli_l2, 0, dummy_c,
-                                   MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l2_epoch_add( &srv_l2, 0, dummy_s,
-                                   MPS_L2_EPOCH_READ ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &cli, &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &srv, &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
+
+    TEST_ASSERT( mps_l3_epoch_add( &cli, dummy_c, &cli_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &cli, cli_epoch, MPS_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &srv, dummy_s, &srv_epoch ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &srv, srv_epoch, MPS_EPOCH_READ ) == 0 );
 
     /*
      * Client: Write handshake message to server
@@ -6808,13 +6837,13 @@ void mbedtls_mps_l3_handshake_alert_interleaved( int allocator_buffer_sz,
 
             res = mps_l3_read( &srv );
 
-            TEST_ASSERT( res == MPS_L3_STATE_HANDSHAKE ||
-                         res == MPS_L3_STATE_ALERT     ||
+            TEST_ASSERT( res == MBEDTLS_MPS_MSG_HS ||
+                         res == MBEDTLS_MPS_MSG_ALERT     ||
                          res == MPS_ERR_WANT_READ );
             if( res < 0 )
                 continue;
 
-            if( res == MPS_L3_STATE_ALERT )
+            if( res == MBEDTLS_MPS_MSG_ALERT )
             {
                 TEST_ASSERT( recv_state == 1 );
                 TEST_ASSERT( mps_l3_read_alert( &srv, &alert_in ) == 0 );
@@ -6949,8 +6978,12 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
     typed_data_chunk_l3 **chunks[2];
     size_t *chunks_per_epoch[2];
     mbedtls_mps_transform_t **epochs[2];
-    size_t read_epoch[2], read_chunk[2];
-    size_t write_epoch[2], write_chunk[2];
+    mbedtls_mps_epoch_id read_epoch[2];
+    size_t read_chunk[2];
+    mbedtls_mps_epoch_id write_epoch[2];
+    size_t write_chunk[2];
+
+    mbedtls_mps_epoch_id latest_epoch[2];
 
     srand( 43 );
 
@@ -7019,7 +7052,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                         size_t cur_chunk_size;
                         printf( "Handshake message\n" );
 
-                        chunks[k][id][chunk].type = MPS_L3_STATE_HANDSHAKE;
+                        chunks[k][id][chunk].type = MBEDTLS_MPS_MSG_HS;
 
                         cur_chunk_size = ( rand() % max_chunk ) + 1;
                         chunks[k][id][chunk].data.hs.buf = malloc( cur_chunk_size );
@@ -7039,7 +7072,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                         size_t cur_chunk_size;
                         printf( "Application data message\n" );
 
-                        chunks[k][id][chunk].type = MPS_L3_STATE_APPLICATION;
+                        chunks[k][id][chunk].type = MBEDTLS_MPS_MSG_APP;
 
                         cur_chunk_size = ( rand() % max_chunk ) + 1;
                         chunks[k][id][chunk].data.app.len = cur_chunk_size;
@@ -7062,13 +7095,13 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
 
                     case 2: /* CCS */
                         printf( "CCS message\n" );
-                        chunks[k][id][chunk].type = MPS_L3_STATE_CCS;
+                        chunks[k][id][chunk].type = MBEDTLS_MPS_MSG_CCS;
                         break;
 
 
                     case 3: /* Alert */
                         printf( "Alert message\n" );
-                        chunks[k][id][chunk].type = MPS_L3_STATE_ALERT;
+                        chunks[k][id][chunk].type = MBEDTLS_MPS_MSG_ALERT;
                         chunks[k][id][chunk].data.alert.type = (uint8_t) rand();
                         chunks[k][id][chunk].data.alert.level = (uint8_t) rand();
                         break;
@@ -7110,43 +7143,48 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
     TEST_ASSERT( mps_l2_config_version( &srv_l2,
                                         MBEDTLS_SSL_MINOR_VERSION_3 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_HANDSHAKE,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_HS,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_ALERT,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_ALERT,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_ALERT,
                                          1, 1, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_APPLICATION,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_APP,
                                          0, 1, 1 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_APPLICATION,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_APP,
                                          0, 1, 1 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MPS_L3_STATE_CCS,
+    TEST_ASSERT( mps_l2_config_add_type( &cli_l2, MBEDTLS_MPS_MSG_CCS,
                                          0, 0, 0 ) == 0 );
-    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MPS_L3_STATE_CCS,
+    TEST_ASSERT( mps_l2_config_add_type( &srv_l2, MBEDTLS_MPS_MSG_CCS,
                                          0, 0, 0 ) == 0 );
 
     /* Initialize Layer 3 */
     TEST_ASSERT( mps_l3_init( &endpoint[0], &cli_l2, MPS_L3_MODE_STREAM ) == 0 );
     TEST_ASSERT( mps_l3_init( &endpoint[1], &srv_l2, MPS_L3_MODE_STREAM ) == 0 );
 
-    TEST_ASSERT( mps_l3_epoch_add( &endpoint[0], 0, epochs[0][0],
-                                MPS_L2_EPOCH_READ | MPS_L2_EPOCH_WRITE ) == 0 );
-    TEST_ASSERT( mps_l3_epoch_add( &endpoint[1], 0, epochs[1][0],
-                                MPS_L2_EPOCH_READ | MPS_L2_EPOCH_WRITE ) == 0 );
+    TEST_ASSERT( mps_l3_epoch_add( &endpoint[0], epochs[0][0],
+                                   &latest_epoch[0] ) == 0 );
+    TEST_ASSERT( latest_epoch[0] == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &endpoint[0], latest_epoch[0],
+                                  MPS_EPOCH_READ | MPS_EPOCH_WRITE ) == 0 );
+    read_epoch[0] = write_epoch[0] = latest_epoch[0];
 
-    write_epoch[0] = 0;
-    write_epoch[1] = 0;
-    read_epoch[0] = 0;
-    read_epoch[1] = 0;
+    TEST_ASSERT( mps_l3_epoch_add( &endpoint[1], epochs[1][0],
+                                   &latest_epoch[1] ) == 0 );
+    TEST_ASSERT( latest_epoch[1] == 0 );
+    TEST_ASSERT( mps_l3_epoch_usage( &endpoint[1], latest_epoch[1],
+                                  MPS_EPOCH_READ | MPS_EPOCH_WRITE ) == 0 );
+    read_epoch[1] = write_epoch[1] = latest_epoch[1];
+
     write_chunk[0] = 0;
     write_chunk[1] = 0;
     read_chunk[0] = 0;
     read_chunk[1] = 0;
 
-    while( read_epoch[0] < (unsigned) num_epochs ||
-           read_epoch[1] < (unsigned) num_epochs )
+    while( read_epoch[0] < num_epochs ||
+           read_epoch[1] < num_epochs )
     {
         size_t self;
         size_t peer;
@@ -7160,7 +7198,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
         {
             /* Reading */
 
-            size_t epoch;
+            mbedtls_mps_epoch_id epoch;
             size_t chunk_num;
             typed_data_chunk_l3 *chunk;
             size_t data_remaining;
@@ -7171,7 +7209,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
             chunk_num = read_chunk[self];
 
             /* If we have already read everything, skip. */
-            if( epoch == (unsigned) num_epochs )
+            if( epoch == num_epochs )
             {
                 printf( "SKIP READ, REACHED FINAL EPOCH %u\n",
                         (unsigned) epoch );
@@ -7190,7 +7228,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 chunk_num = 0;
                 epoch++;
 
-                if( epoch == (unsigned) num_epochs )
+                if( epoch == num_epochs )
                 {
                     read_epoch[self] = epoch;
                     read_chunk[self] = chunk_num;
@@ -7199,14 +7237,24 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                     continue;
                 }
 
-                printf( "[%u] SWITCH TO READ EPOCH %u\n",
-                        (unsigned) self, (unsigned) epoch );
-                ret = mps_l3_epoch_add( &endpoint[self], epoch,
-                                        epochs[self][epoch],
-                                        MPS_L2_EPOCH_READ );
-                TEST_ASSERT( ret == 0 || ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED );
-                if( ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED )
-                    continue;
+                /* Check if have already added the epoch for writing. */
+                if( epoch > write_epoch[self] )
+                {
+                    /* No, need to add epoch */
+                    ret = mps_l3_epoch_add( &endpoint[self],
+                                            epochs[self][epoch],
+                                            &latest_epoch[self] );
+                    TEST_ASSERT( ret == 0                             ||
+                                 ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED );
+                    if( ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED )
+                        continue;
+
+                    TEST_ASSERT( epoch == latest_epoch[self] );
+                }
+
+                TEST_ASSERT( mps_l3_epoch_usage( &endpoint[self],
+                                                 epoch,
+                                                 MPS_EPOCH_READ ) == 0 );
 
                 printf( "[%u] SWITCHED TO READ EPOCH %u\n",
                         (unsigned) self, (unsigned) epoch );
@@ -7221,30 +7269,30 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
             ret = mps_l3_read( &endpoint[self] );
             if( ! ( ret == 0                        ||
                     ret == MPS_ERR_WANT_READ        ||
-                    ret == MPS_L3_STATE_APPLICATION ||
-                    ret == MPS_L3_STATE_HANDSHAKE   ||
-                    ret == MPS_L3_STATE_ALERT       ||
-                    ret == MPS_L3_STATE_CCS ) )
+                    ret == MBEDTLS_MPS_MSG_APP ||
+                    ret == MBEDTLS_MPS_MSG_HS   ||
+                    ret == MBEDTLS_MPS_MSG_ALERT       ||
+                    ret == MBEDTLS_MPS_MSG_CCS ) )
             {
                 fprintf( stderr, "UNEXPECTED READ RESULT: %d\n",
                          ret );
             }
             TEST_ASSERT( ret == 0                        ||
                          ret == MPS_ERR_WANT_READ        ||
-                         ret == MPS_L3_STATE_APPLICATION ||
-                         ret == MPS_L3_STATE_HANDSHAKE   ||
-                         ret == MPS_L3_STATE_ALERT       ||
-                         ret == MPS_L3_STATE_CCS );
+                         ret == MBEDTLS_MPS_MSG_APP ||
+                         ret == MBEDTLS_MPS_MSG_HS   ||
+                         ret == MBEDTLS_MPS_MSG_ALERT       ||
+                         ret == MBEDTLS_MPS_MSG_CCS );
 
             if( ret == MPS_ERR_WANT_READ )
                 continue;
 
-            TEST_ASSERT( chunk->type == (mps_l3_port) ret );
+            TEST_ASSERT( chunk->type == (mbedtls_mps_msg_type_t) ret );
             printf( "L3 read returned %u\n", (unsigned) ret );
 
             switch( ret )
             {
-                case MPS_L3_STATE_HANDSHAKE:
+                case MBEDTLS_MPS_MSG_HS:
                 {
                     mps_l3_handshake_in hs_in;
 
@@ -7283,7 +7331,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 }
                 break;
 
-                case MPS_L3_STATE_APPLICATION:
+                case MBEDTLS_MPS_MSG_APP:
                 {
                     mps_l3_app_in app_in;
                     printf( "Reading application data, state %u / %u / %u\n",
@@ -7328,7 +7376,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 }
                 break;
 
-                case MPS_L3_STATE_ALERT:
+                case MBEDTLS_MPS_MSG_ALERT:
                 {
                     mps_l3_alert_in alert_in;
                     ret = mps_l3_read_alert( &endpoint[self], &alert_in );
@@ -7342,7 +7390,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 }
                 break;
 
-                case MPS_L3_STATE_CCS:
+                case MBEDTLS_MPS_MSG_CCS:
                     TEST_ASSERT( mps_l3_read_consume( &endpoint[self] ) == 0 );
 
                     chunk_num++;
@@ -7359,7 +7407,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
 
             uint8_t flush_or_write;
 
-            size_t epoch;
+            mbedtls_mps_epoch_id epoch;
             size_t chunk_num;
             typed_data_chunk_l3 *chunk;
 
@@ -7387,7 +7435,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 continue;
             }
 
-            if( epoch == (unsigned) num_epochs )
+            if( epoch == num_epochs )
             {
                 printf( "SKIP WRITE, REACHED FINAL EPOCH %u\n",
                         (unsigned) epoch );
@@ -7406,7 +7454,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 chunk_num = 0;
                 epoch++;
 
-                if( epoch == (unsigned) num_epochs )
+                if( epoch == num_epochs )
                 {
                     write_epoch[self] = epoch;
                     write_chunk[self] = chunk_num;
@@ -7415,14 +7463,28 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                     continue;
                 }
 
-                printf( "[%u] SWITCH TO WRITE EPOCH %u\n",
-                        (unsigned) self, (unsigned) epoch );
-                ret = mps_l3_epoch_add( &endpoint[self], epoch,
-                                        epochs[self][epoch],
-                                        MPS_L2_EPOCH_WRITE );
-                TEST_ASSERT( ret == 0 || ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED );
-                if( ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED )
-                    continue;
+                printf( "[%u] SWITCH TO WRITE EPOCH %u, READ EPOCH %u\n",
+                        (unsigned) self, (unsigned) epoch,
+                        (unsigned) read_epoch[ self] );
+
+                /* Check if have already added the epoch for writing. */
+                if( epoch > read_epoch[self] )
+                {
+                    /* No, need to add epoch */
+                    ret = mps_l3_epoch_add( &endpoint[self],
+                                            epochs[self][epoch],
+                                            &latest_epoch[self] );
+                    TEST_ASSERT( ret == 0                             ||
+                                 ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED );
+                    if( ret == MPS_ERR_EPOCH_WINDOW_EXCEEDED )
+                        continue;
+
+                    TEST_ASSERT( epoch == latest_epoch[self] );
+                }
+
+                TEST_ASSERT( mps_l3_epoch_usage( &endpoint[self],
+                                                 epoch,
+                                                 MPS_EPOCH_WRITE ) == 0 );
 
                 printf( "[%u] SWITCHED TO WRITE EPOCH %u\n",
                         (unsigned) self, (unsigned) epoch );
@@ -7435,7 +7497,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
 
             switch( chunk->type )
             {
-                case MPS_L3_STATE_HANDSHAKE:
+                case MBEDTLS_MPS_MSG_HS:
                 {
                     mps_l3_handshake_out hs_out;
                     hs_out.epoch = epoch;
@@ -7477,7 +7539,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 }
                 break;
 
-                case MPS_L3_STATE_APPLICATION:
+                case MBEDTLS_MPS_MSG_APP:
                 {
                     mps_l3_app_out app_out;
                     app_out.epoch = epoch;
@@ -7520,7 +7582,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
                 }
                 break;
 
-                case MPS_L3_STATE_ALERT:
+                case MBEDTLS_MPS_MSG_ALERT:
                 {
                     mps_l3_alert_out alert_out;
                     alert_out.epoch = epoch;
@@ -7542,7 +7604,7 @@ void mbedtls_mps_l3_random( int allocator_buffer_sz,
 
                     break;
 
-                case MPS_L3_STATE_CCS:
+                case MBEDTLS_MPS_MSG_CCS:
                 {
                     mps_l3_ccs_out ccs_out;
                     ccs_out.epoch = epoch;
@@ -7600,11 +7662,11 @@ exit:
                 typed_data_chunk_l3 *cur_chunk = &chunks[k][id][chunk];
                 switch( cur_chunk->type )
                 {
-                    case MPS_L3_STATE_HANDSHAKE:
+                    case MBEDTLS_MPS_MSG_HS:
                         free( cur_chunk->data.hs.buf );
                         break;
 
-                    case MPS_L3_STATE_APPLICATION:
+                    case MBEDTLS_MPS_MSG_APP:
                         free( cur_chunk->data.app.buf );
                         break;
 
