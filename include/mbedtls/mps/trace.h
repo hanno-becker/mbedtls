@@ -10,6 +10,7 @@
 #define TRACE_ENABLE_LAYER_1
 #define TRACE_ENABLE_LAYER_2
 #define TRACE_ENABLE_LAYER_3
+#define TRACE_ENABLE_LAYER_4
 #define TRACE_ENABLE_READER
 #define TRACE_ENABLE_WRITER
 
@@ -29,8 +30,9 @@ typedef enum
 #define TRACE_ID_LAYER_1 1
 #define TRACE_ID_LAYER_2 2
 #define TRACE_ID_LAYER_3 3
-#define TRACE_ID_WRITER  4
-#define TRACE_ID_READER  5
+#define TRACE_ID_LAYER_4 4
+#define TRACE_ID_WRITER  5
+#define TRACE_ID_READER  6
 
 #if defined(TRACE_ENABLE_LAYER_1)
 #define TRACE_MASK_LAYER_1 (1u << TRACE_ID_LAYER_1 )
@@ -50,6 +52,12 @@ typedef enum
 #define TRACE_MASK_LAYER_3 0
 #endif
 
+#if defined(TRACE_ENABLE_LAYER_4)
+#define TRACE_MASK_LAYER_4 (1u << TRACE_ID_LAYER_4 )
+#else
+#define TRACE_MASK_LAYER_4 0
+#endif
+
 #if defined(TRACE_ENABLE_READER)
 #define TRACE_MASK_READER (1u << TRACE_ID_READER )
 #else
@@ -65,6 +73,7 @@ typedef enum
 #define TRACE_MASK ( TRACE_MASK_LAYER_1 |           \
                      TRACE_MASK_LAYER_2 |           \
                      TRACE_MASK_LAYER_3 |           \
+                     TRACE_MASK_LAYER_4 |           \
                      TRACE_MASK_READER  |           \
                      TRACE_MASK_WRITER )
 
