@@ -583,6 +583,24 @@ int mps_l3_free( mps_l3 *l3 );
 int mps_l3_read( mps_l3 *l3 );
 
 /**
+ * \brief       Check if a message has been read.
+ *
+ * \param mps   The Layer 3 context to use.
+ *
+ * \return      #MBEDTLS_MPS_PORT_NONE if no message is available.
+ * \return      #MBEDTLS_MPS_PORT_APPLICATION, or
+ *              #MBEDTLS_MPS_PORT_HANDSHAKE, or
+ *              #MBEDTLS_MPS_PORT_ALERT, or
+ *              #MBEDTLS_MPS_PORT_CCS,
+ *              otherwise, indicating the message's record content type.
+ *
+ * \note        This function doesn't do any processing and
+ *              and only reports if a message is available
+ *              through a prior call to mps_l3_read().
+ */
+int mps_l3_read_check( mps_l3 * l3 );
+
+/**
  * \brief         Get a handle to the contents of an incoming handshake message.
  *
  * \param l3      The pointer to the Layer 3 context.

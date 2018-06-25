@@ -132,7 +132,13 @@ int mps_l3_free( mps_l3 *l3 )
  * Reading API
  */
 
-/* Attempt to receive an incoming message from Layer 2 */
+/* Check if a message is ready to be processed. */
+int mps_l3_read_check( mps_l3 *l3 )
+{
+    return( l3->in.state );
+}
+
+/* Attempt to receive an incoming message from Layer 2. */
 int mps_l3_read( mps_l3 *l3 )
 {
     int res;
