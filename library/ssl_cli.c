@@ -2829,7 +2829,7 @@ cleanup:
 static int ssl_server_key_exchange_prepare( mbedtls_ssl_context *ssl )
 {
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
     ((void) ciphersuite_info);
 
     /* If applicable, extract static DH parameters from Server CRT. */
@@ -2858,7 +2858,7 @@ static int ssl_server_key_exchange_coordinate( mbedtls_ssl_context *ssl )
 {
     int ret;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     /* The ServerKeyExchange message is not used for
      * - RSA or
@@ -2922,7 +2922,7 @@ static int ssl_server_key_exchange_parse( mbedtls_ssl_context *ssl,
     unsigned char *end;
 
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
     ((void) ciphersuite_info);
     ((void) ret);
     ((void) end);
@@ -3260,7 +3260,7 @@ static int ssl_certificate_request_coordinate( mbedtls_ssl_context *ssl )
 {
     int ret;
     const mbedtls_ssl_ciphersuite_t *info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     if( !mbedtls_ssl_ciphersuite_cert_req_allowed( info ) )
     {
@@ -3562,7 +3562,7 @@ static int ssl_client_key_exchange_prepare( mbedtls_ssl_context *ssl )
     int ret;
 
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     ((void) ret);
     ((void) ciphersuite_info);

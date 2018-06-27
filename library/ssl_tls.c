@@ -1133,7 +1133,7 @@ int mbedtls_ssl_complete_pms( mbedtls_ssl_context *ssl )
 {
     int ret;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info
-        = ssl->transform_negotiate->ciphersuite_info;
+        = ssl->handshake->ciphersuite_info;
 
 #if defined(MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED)
     if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_DHE_RSA )
@@ -4459,7 +4459,7 @@ cleanup:
 static int ssl_write_certificate_coordinate( mbedtls_ssl_context *ssl )
 {
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     if( !mbedtls_ssl_ciphersuite_uses_srv_cert( ciphersuite_info ) )
     {
@@ -4715,7 +4715,7 @@ cleanup:
 static int ssl_read_certificate_coordinate( mbedtls_ssl_context *ssl )
 {
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
     int authmode = ssl->conf->authmode;
 
     if( !mbedtls_ssl_ciphersuite_uses_srv_cert( ciphersuite_info ) )
@@ -4882,7 +4882,7 @@ static int ssl_read_certificate_validate( mbedtls_ssl_context *ssl )
     int ret = 0;
     int authmode = ssl->conf->authmode;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
     mbedtls_x509_crt *ca_chain;
     mbedtls_x509_crl *ca_crl;
 

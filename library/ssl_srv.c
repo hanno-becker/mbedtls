@@ -3282,8 +3282,6 @@ static int ssl_process_server_key_exchange( mbedtls_ssl_context *ssl )
 {
     int ret;
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process server key exchange" ) );
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-                            ssl->handshake->ciphersuite_info;
 
     if( ssl->handshake->state_local.cli_key_exch_in.preparation_done == 0 )
     {
@@ -3347,7 +3345,7 @@ static int ssl_server_key_exchange_prepare( mbedtls_ssl_context *ssl )
 {
     int ret;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-                            ssl->transform_negotiate->ciphersuite_info;
+                            ssl->handshake->ciphersuite_info;
     ((void) ciphersuite_info);
     ((void) ret);
 
@@ -3419,7 +3417,7 @@ curve_matching_done:
 static int ssl_server_key_exchange_coordinate( mbedtls_ssl_context *ssl )
 {
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-                            ssl->transform_negotiate->ciphersuite_info;
+                            ssl->handshake->ciphersuite_info;
     ((void) ciphersuite_info);
 
     /* Key exchanges not involving ephemeral keys don't use
@@ -3446,7 +3444,7 @@ static int ssl_server_key_exchange_write( mbedtls_ssl_context *ssl,
     size_t dig_signed_len = 0;
 #endif /* MBEDTLS_KEY_EXCHANGE__WITH_SERVER_SIGNATURE__ENABLED */
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-                            ssl->transform_negotiate->ciphersuite_info;
+                            ssl->handshake->ciphersuite_info;
 
     size_t const tls_hs_hdr_len = 4;
 
@@ -4053,7 +4051,6 @@ static int ssl_process_client_key_exchange( mbedtls_ssl_context *ssl )
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process client key exchange" ) );
 
     /* The ClientKeyExchange message is never skipped. */
-    ciphersuite_info = ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse client key exchange" ) );
 
@@ -4097,7 +4094,7 @@ static int ssl_client_key_exchange_parse( mbedtls_ssl_context *ssl,
 {
     int ret;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
     unsigned char *p, *end;
 
     p = buf + mbedtls_ssl_hs_hdr_len( ssl );
@@ -4402,7 +4399,7 @@ cleanup:
 static int ssl_certificate_verify_coordinate( mbedtls_ssl_context *ssl )
 {
     const mbedtls_ssl_ciphersuite_t *info =
-        ssl->transform_negotiate->ciphersuite_info;
+        ssl->handshake->ciphersuite_info;
 
     if( !mbedtls_ssl_ciphersuite_cert_req_allowed( info ) )
     {
