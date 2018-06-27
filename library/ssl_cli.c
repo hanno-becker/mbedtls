@@ -791,6 +791,12 @@ static int ssl_client_hello_postprocess( mbedtls_ssl_context *ssl );
 static int ssl_process_client_hello( mbedtls_ssl_context *ssl )
 {
     int ret = 0;
+    mbedtls_mps_handshake_out msg;
+
+    unsigned char *buf;
+    size_t buflen;
+    size_t msglen;
+
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process client hello" ) );
 
     if( ssl->handshake->state_local.cli_hello_out.preparation_done == 0 )
@@ -802,13 +808,34 @@ static int ssl_process_client_hello( mbedtls_ssl_context *ssl )
     /* Make sure we can write a new message. */
     MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_flush_output( ssl ) );
 
-    /* Prepare CertificateVerify message in output buffer. */
-    MBEDTLS_SSL_PROC_CHK( ssl_client_hello_write( ssl, ssl->out_msg,
-                                            MBEDTLS_SSL_MAX_CONTENT_LEN,
-                                            &ssl->out_msglen ) );
+    msg.type   = MBEDTLS_SSL_HS_CLIENT_HELLO;
+    msg.length = MBEDTLS_MPS_LENGTH_UNKNOWN;
+    MBEDTLS_SSL_PROC_CHK( mbedtls_mps_write_handshake(
+                              &ssl->messaging.mps, &msg ) );
 
-    ssl->out_msgtype = MBEDTLS_SSL_MSG_HANDSHAKE;
-    ssl->out_msg[0]  = MBEDTLS_SSL_HS_CLIENT_HELLO;
+    MBEDTLS_SSL_PROC_CHK( mbedtls_writer_get_ext( msg.handle,
+                                                  -1u,
+                                                  &buf, &buflen ) );
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "Got buffer of size %d from MPS", (int) buflen ) );
+
+    /* Prepare ClientHello message in MPS provided buffer. */
+    MBEDTLS_SSL_PROC_CHK( ssl_client_hello_write( ssl, buf, buflen,
+                                                  &msglen ) );
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "Message size %d / %d", (int) msglen,
+                                (int) buflen ) );
+    MBEDTLS_SSL_PROC_CHK( mbedtls_writer_commit_partial_ext( msg.handle, buflen - msglen ) );
+
+    /* /\* Prepare ClientHello message in original output buffer. *\/ */
+    /* MBEDTLS_SSL_PROC_CHK( ssl_client_hello_write( ssl, ssl->out_msg, */
+    /*                                         MBEDTLS_SSL_MAX_CONTENT_LEN, */
+    /*                                         &ssl->out_msglen ) ); */
+
+    /* ssl->out_msgtype = MBEDTLS_SSL_MSG_HANDSHAKE; */
+    /* ssl->out_msg[0]  = MBEDTLS_SSL_HS_CLIENT_HELLO;
+     */
+
+    MBEDTLS_SSL_PROC_CHK( mbedtls_mps_dispatch( &ssl->messaging.mps ) );
 
     /* Update state */
     MBEDTLS_SSL_PROC_CHK( ssl_client_hello_postprocess( ssl ) );
@@ -819,7 +846,7 @@ static int ssl_process_client_hello( mbedtls_ssl_context *ssl )
 #endif
 
     /* Dispatch message */
-    MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_write_record( ssl ) );
+    /* MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_write_record( ssl ) ); */
 
     /* NOTE: With the new messaging layer, the postprocessing
      *       step might come after the dispatching step if the
@@ -985,7 +1012,7 @@ static int ssl_client_hello_write( mbedtls_ssl_context *ssl,
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
     size_t i; /* Used to iterate through the ciphersuite list. */
 
-    size_t const tls_hs_hdr_len = 4;
+    size_t const tls_hs_hdr_len = 0 /* 4 */;
     size_t const version_len    = 2;
     size_t const rand_bytes_len = 32;
 

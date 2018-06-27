@@ -37,7 +37,7 @@
  * Apart from this dependency, the MPS is entirely
  * independent of the rest of Mbed TLS and this suite
  * can be run standalone. */
-//#define TEST_SUITE_MPS_NO_SSL
+#define TEST_SUITE_MPS_NO_SSL
 
 /* The sizes of the accumulator/queue used by the
  * readers/writers in Layer 2.
@@ -165,26 +165,30 @@ int layer0_write( layer0_mock* const mbuf, const unsigned char *src,
 }
 
 /* Write size bytes from src into the server to client buffer */
-int layer0_write_srv( const unsigned char *src, size_t size )
+int layer0_write_srv( void *ctx, const unsigned char *src, size_t size )
 {
+    ((void) ctx);
     return layer0_write( &s2c, src, size );
 }
 
 /* Write size bytes from src into the client to server buffer */
-int layer0_write_cli( const unsigned char *src, size_t size )
+int layer0_write_cli( void *ctx, const unsigned char *src, size_t size )
 {
+    ((void) ctx);
     return layer0_write( &c2s, src, size );
 }
 
 /* Read size bytes from the client to server buffer into dst */
-int layer0_read_srv( unsigned char *dst, unsigned long size )
+int layer0_read_srv( void *ctx, unsigned char *dst, unsigned long size )
 {
+    ((void) ctx);
     return layer0_read( &c2s, dst, size );
 }
 
 /* Read size bytes from the server to client buffer into dst */
-int layer0_read_cli( unsigned char *dst, unsigned long size )
+int layer0_read_cli( void *ctx, unsigned char *dst, unsigned long size )
 {
+    ((void) ctx);
     return layer0_read( &s2c, dst, size );
 }
 
@@ -300,26 +304,30 @@ static int layer0_dgram_read( layer0_dgram_mock *ctx,
 }
 
 /* Write size bytes from src into the server to client buffer */
-int layer0_dgram_write_srv( const unsigned char *src, size_t size )
+int layer0_dgram_write_srv( void* ctx, const unsigned char *src, size_t size )
 {
+    ((void) ctx);
     return layer0_dgram_write( &s2c_d, src, size );
 }
 
 /* Write size bytes from src into the client to server buffer */
-int layer0_dgram_write_cli( const unsigned char *src, size_t size )
+int layer0_dgram_write_cli( void* ctx, const unsigned char *src, size_t size )
 {
+    ((void) ctx);
     return layer0_dgram_write( &c2s_d, src, size );
 }
 
 /* Read size bytes from the client to server buffer into dst */
-int layer0_dgram_read_srv( unsigned char *dst, unsigned long size )
+int layer0_dgram_read_srv( void* ctx, unsigned char *dst, unsigned long size )
 {
+    ((void) ctx);
     return layer0_dgram_read( &c2s_d, dst, size );
 }
 
 /* Read size bytes from the server to client buffer into dst */
-int layer0_dgram_read_cli( unsigned char *dst, unsigned long size )
+int layer0_dgram_read_cli( void* ctx, unsigned char *dst, unsigned long size )
 {
+    ((void) ctx);
     return layer0_dgram_read( &s2c_d, dst, size );
 }
 

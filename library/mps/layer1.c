@@ -156,7 +156,7 @@ void l1_init_stream_read( mps_l1_stream_read *p,
                           mps_alloc *ctx,
                           mps_l0_recv_t *recv )
 {
-    mps_l1_stream_read const zero = { NULL, NULL, NULL, 0, 0, 0 };
+    mps_l1_stream_read const zero = { NULL, NULL, NULL, NULL, 0, 0, 0 };
     *p = zero;
     p->recv  = recv;
     p->alloc = ctx;
@@ -172,7 +172,7 @@ void l1_init_stream_write( mps_l1_stream_write *p,
                            mps_alloc *ctx,
                            mps_l0_send_t *send )
 {
-    mps_l1_stream_write const zero = { NULL, NULL, NULL, 0, 0, 0, 0 };
+    mps_l1_stream_write const zero = { NULL, NULL, NULL, NULL, 0, 0, 0, 0 };
     *p = zero;
     p->send  = send;
     p->alloc = ctx;
@@ -193,7 +193,7 @@ static inline
 int l1_free_stream_read( mps_l1_stream_read *p )
 {
     int ret;
-    mps_l1_stream_read const zero = { NULL, NULL, NULL, 0, 0, 0 };
+    mps_l1_stream_read const zero = { NULL, NULL, NULL, NULL, 0, 0, 0 };
     ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_IN );
     *p = zero;
     return( ret );
@@ -206,7 +206,7 @@ static inline
 int l1_free_stream_write( mps_l1_stream_write *p )
 {
     int ret;
-    mps_l1_stream_write const zero = { NULL, NULL, NULL, 0, 0, 0, 0 };
+    mps_l1_stream_write const zero = { NULL, NULL, NULL, NULL, 0, 0, 0, 0 };
     ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_OUT );
     *p = zero;
     return( ret );
@@ -266,7 +266,7 @@ int l1_fetch_stream( mps_l1_stream_read *p,
     while( data_need > 0 )
     {
         TRACE( trace_comment, "attempt to receive %u", (unsigned) data_need );
-        ret = recv( read_ptr, data_need );
+        ret = recv( p->recv_ctx, read_ptr, data_need );
         if( ret < 0 )
             break;
         TRACE( trace_comment, "got %u", (unsigned) data_need );
@@ -391,7 +391,7 @@ int l1_flush_stream( mps_l1_stream_write *p )
     {
         size_t data_written;
 
-        ret = send( buf, data_remaining );
+        ret = send( p->send_ctx, buf, data_remaining );
         if( ret <= 0 )
         {
             TRACE( trace_comment, "send failed with %d", ret );
@@ -591,7 +591,7 @@ void l1_init_dgram_read( mps_l1_dgram_read *p,
                          mps_alloc *ctx,
                          mps_l0_recv_t *recv )
 {
-    mps_l1_dgram_read const zero = { 0, NULL, NULL, 0, 0, 0, 0 };
+    mps_l1_dgram_read const zero = { NULL, 0, NULL, NULL, 0, 0, 0, 0 };
     *p = zero;
 
     p->recv  = recv;
@@ -603,7 +603,7 @@ void l1_init_dgram_write( mps_l1_dgram_write *p,
                           mps_alloc *ctx,
                           mps_l0_send_t *send )
 {
-    mps_l1_dgram_write const zero = { 0, NULL, NULL, 0, 0, 0 };
+    mps_l1_dgram_write const zero = { NULL, 0, NULL, NULL, 0, 0, 0 };
     *p = zero;
 
     p->send  = send;
@@ -622,7 +622,7 @@ void l1_init_dgram( mps_l1_dgram *p,
 static inline
 int l1_free_dgram_read( mps_l1_dgram_read *p )
 {
-    mps_l1_dgram_read const zero = { 0, NULL, NULL, 0, 0, 0, 0 };
+    mps_l1_dgram_read const zero = { NULL, 0, NULL, NULL, 0, 0, 0, 0 };
     int ret;
     ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_IN );
     *p = zero;
@@ -632,7 +632,7 @@ int l1_free_dgram_read( mps_l1_dgram_read *p )
 static inline
 int l1_free_dgram_write( mps_l1_dgram_write *p )
 {
-    mps_l1_dgram_write const zero = { 0, NULL, NULL, 0, 0, 0 };
+    mps_l1_dgram_write const zero = { NULL, 0, NULL, NULL, 0, 0, 0 };
 
     int ret;
     ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_OUT );
@@ -690,7 +690,7 @@ int l1_ensure_data_dgram( mps_l1_dgram_read *p )
          *    if the receive buffer is not large enough
          *    to hold the entire datagram? */
         recv = p->recv;
-        ret = recv( buf, bl );
+        ret = recv( p->recv_ctx, buf, bl );
         if( ret <= 0 )
             return( ret );
 
@@ -847,8 +847,10 @@ int l1_flush_dgram( mps_l1_dgram_write *p )
 int mps_l1_init( mps_l1 *ctx, uint8_t mode, mps_alloc *alloc,
                  mps_l0_send_t *send, mps_l0_recv_t *recv )
 {
-    if( ctx == NULL || recv == NULL || send == NULL )
+    if( ctx == NULL /* || recv == NULL || send == NULL */ )
         return( MPS_ERR_INVALID_PARAMS );
+
+    printf( "MODE: %d\n", mode );
 
     switch( mode )
     {

@@ -1004,6 +1004,15 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
     }
 #endif /* MBEDTLS_ZLIB_SUPPORT */
 
+    ret = mbedtls_mps_add_key_material( &ssl->messaging.mps,
+                                        ssl->messaging.transform_negotiate,
+                                        &ssl->messaging.epoch_negotiate );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 2, ( "Error %d registering new transform with MPS", ret ) );
+        return( ret );
+    }
+
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= derive keys" ) );
 
     return( 0 );
@@ -1395,6 +1404,147 @@ static void ssl_mac( mbedtls_md_context_t *md_ctx,
 /*
  * Encryption/decryption functions
  */
+
+struct mbedtls_mps_transform_t
+{
+    mbedtls_ssl_transform* real;
+};
+
+int transform_init( mbedtls_mps_transform_t *transform )
+{
+    transform->real = NULL;
+    return( 0 );
+}
+
+int transform_free( mbedtls_mps_transform_t *transform )
+{
+    ((void) transform);
+    /*
+    if( transform->real != NULL )
+        mbedtls_ssl_transform_free( transform->real );
+    */
+    return( 0 );
+}
+
+int transform_encrypt( mbedtls_mps_transform_t *transform, mps_rec *rec,
+                       int (*f_rng)(void *, unsigned char *, size_t),
+                       void *p_rng )
+{
+    int ret;
+    mbedtls_ssl_transform *real = transform->real;
+    mbedtls_record rec_alt;
+
+    if( real == NULL )
+        return( 0 );
+
+    /* TEMPORARY:
+     * Convert between different versions of record structure.
+     * This needs to be uniformized at some point.
+     */
+
+    rec_alt.buf = rec->buf.buf;
+    rec_alt.buf_len = rec->buf.buf_len;
+    rec_alt.data_len = rec->buf.data_len;
+    rec_alt.data_offset = rec->buf.data_offset;
+    rec_alt.type = rec->type;
+    rec_alt.ctr[0] = ( rec->ctr >> 56 ) & 0xFF;
+    rec_alt.ctr[1] = ( rec->ctr >> 48 ) & 0xFF;
+    rec_alt.ctr[2] = ( rec->ctr >> 40 ) & 0xFF;
+    rec_alt.ctr[3] = ( rec->ctr >> 32 ) & 0xFF;
+    rec_alt.ctr[4] = ( rec->ctr >> 24 ) & 0xFF;
+    rec_alt.ctr[5] = ( rec->ctr >> 16 ) & 0xFF;
+    rec_alt.ctr[6] = ( rec->ctr >>  8 ) & 0xFF;
+    rec_alt.ctr[7] = ( rec->ctr >>  0 ) & 0xFF;
+    rec_alt.len[0] = ( rec->buf.data_len >> 8 ) & 0xFF;
+    rec_alt.len[1] = ( rec->buf.data_len >> 0 ) & 0xFF;
+    mbedtls_ssl_write_version( rec->major_ver, rec->minor_ver,
+                               MPS_L2_MODE_STREAM, &rec_alt.ver[0] );
+
+    ret = ssl_encrypt_buf( NULL, real, &rec_alt, f_rng, p_rng );
+    if( ret != 0 )
+        return( ret );
+
+    rec->buf.data_offset = rec_alt.data_offset;
+    rec->buf.data_len = rec_alt.data_len;
+
+    return( 0 );
+}
+
+int transform_decrypt( mbedtls_mps_transform_t *transform, mps_rec *rec )
+{
+    int ret;
+    mbedtls_ssl_transform *real = transform->real;
+    mbedtls_record rec_alt;
+
+    if( real == NULL )
+        return( 0 );
+
+    /* TEMPORARY:
+     * Convert between different versions of record structure.
+     * This needs to be uniformized at some point.
+     */
+
+    rec_alt.buf = rec->buf.buf;
+    rec_alt.buf_len = rec->buf.buf_len;
+    rec_alt.data_len = rec->buf.data_len;
+    rec_alt.data_offset = rec->buf.data_offset;
+    rec_alt.type = rec->type;
+    rec_alt.ctr[0] = ( rec->ctr >> 56 ) & 0xFF;
+    rec_alt.ctr[1] = ( rec->ctr >> 48 ) & 0xFF;
+    rec_alt.ctr[2] = ( rec->ctr >> 40 ) & 0xFF;
+    rec_alt.ctr[3] = ( rec->ctr >> 32 ) & 0xFF;
+    rec_alt.ctr[4] = ( rec->ctr >> 24 ) & 0xFF;
+    rec_alt.ctr[5] = ( rec->ctr >> 16 ) & 0xFF;
+    rec_alt.ctr[6] = ( rec->ctr >>  8 ) & 0xFF;
+    rec_alt.ctr[7] = ( rec->ctr >>  0 ) & 0xFF;
+    rec_alt.len[0] = ( rec->buf.data_len >> 8 ) & 0xFF;
+    rec_alt.len[1] = ( rec->buf.data_len >> 0 ) & 0xFF;
+    mbedtls_ssl_write_version( rec->major_ver, rec->minor_ver,
+                               MPS_L2_MODE_STREAM, &rec_alt.ver[0] );
+
+    ret = ssl_decrypt_buf( NULL, real, &rec_alt );
+    if( ret != 0 )
+        return( ret );
+
+    rec->buf.data_offset = rec_alt.data_offset;
+    rec->buf.data_len = rec_alt.data_len;
+    return( 0 );
+}
+
+int transform_get_expansion( mbedtls_mps_transform_t *transform,
+                             size_t *pre_exp, size_t *post_exp )
+{
+    if( transform->real == NULL )
+    {
+        *pre_exp = 0;
+        *post_exp = 0;
+        return( 0 );
+    }
+
+    /* For the moment copied from mbedtls_ssl_get_record_expansion */
+    *pre_exp = transform->real->ivlen - transform->real->fixed_ivlen;
+    printf( "Pre-expansion: %u\n", (unsigned) *pre_exp );
+    switch( mbedtls_cipher_get_cipher_mode( &transform->real->cipher_ctx_enc ) )
+    {
+        case MBEDTLS_MODE_GCM:
+        case MBEDTLS_MODE_CCM:
+        case MBEDTLS_MODE_STREAM:
+            *post_exp = transform->real->minlen;
+            break;
+
+        case MBEDTLS_MODE_CBC:
+            *post_exp = transform->real->maclen
+                + mbedtls_cipher_get_block_size(
+                    &transform->real->cipher_ctx_enc );
+            break;
+
+        default:
+            return( -1 );
+    }
+
+    return( 0 );
+}
+
 STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
                             mbedtls_ssl_transform *transform,
                             mbedtls_record *rec,
@@ -2550,6 +2700,13 @@ int mbedtls_ssl_flush_output( mbedtls_ssl_context *ssl )
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "Bad usage of mbedtls_ssl_set_bio() "
                             "or mbedtls_ssl_set_bio()" ) );
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+    }
+
+    ret = mbedtls_mps_flush( &ssl->messaging.mps );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 2, ( "MPS flush returned %d", ret ) );
+        return( ret );
     }
 
     /* Avoid incrementing counter if data is flushed */
@@ -5256,13 +5413,24 @@ cleanup:
 
 static int ssl_process_in_ccs_postprocess( mbedtls_ssl_context *ssl )
 {
+    int ret;
+
     /*
      * Switch to our negotiated transform and session parameters for inbound
      * data.
      */
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "switching to new transform spec for inbound data" ) );
+
     ssl->transform_in = ssl->transform_negotiate;
     ssl->session_in = ssl->session_negotiate;
+
+    ret = mbedtls_mps_set_incoming_keys( &ssl->messaging.mps,
+                                         ssl->messaging.epoch_negotiate );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Couldn't switch to new transform for incoming data" ) );
+        return( ret );
+    }
 
     /* For the new messaging layer, this should be hidden in a
      * single call changing the outgoing security parameter set. */
@@ -5681,8 +5849,13 @@ static void ssl_handshake_wrapup_free_hs_transform( mbedtls_ssl_context *ssl )
         mbedtls_ssl_transform_free( ssl->transform );
         mbedtls_free( ssl->transform );
     }
+
+    ssl->messaging.epoch = ssl->messaging.epoch_negotiate;
+    ssl->messaging.epoch_negotiate = MPS_EPOCH_NONE;
+
     ssl->transform = ssl->transform_negotiate;
     ssl->transform_negotiate = NULL;
+    ssl->messaging.transform_negotiate = NULL;
 
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "<= handshake wrapup: final free" ) );
 }
@@ -5819,6 +5992,8 @@ cleanup:
 
 static int ssl_finished_out_prepare( mbedtls_ssl_context *ssl )
 {
+    int ret;
+
     /* Compute transcript of handshake up to now. */
 
     /*
@@ -5893,6 +6068,14 @@ static int ssl_finished_out_prepare( mbedtls_ssl_context *ssl )
 
     ssl->transform_out = ssl->transform_negotiate;
     ssl->session_out = ssl->session_negotiate;
+
+    ret = mbedtls_mps_set_outgoing_keys( &ssl->messaging.mps,
+                                         ssl->messaging.epoch_negotiate );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Couldn't switch to new transform for incoming data" ) );
+        return( ret );
+    }
 
 #if defined(MBEDTLS_SSL_HW_RECORD_ACCEL)
     if( mbedtls_ssl_hw_record_activate != NULL )
@@ -6236,7 +6419,9 @@ static int ssl_handshake_init( mbedtls_ssl_context *ssl )
      */
     if( ssl->transform_negotiate == NULL )
     {
-        ssl->transform_negotiate = mbedtls_calloc( 1, sizeof(mbedtls_ssl_transform) );
+        ssl->transform_negotiate =
+            mbedtls_calloc( 1, sizeof( mbedtls_ssl_transform ) );
+        ssl->messaging.transform_negotiate->real = ssl->transform_negotiate;
     }
 
     if( ssl->session_negotiate == NULL )
@@ -6269,6 +6454,8 @@ static int ssl_handshake_init( mbedtls_ssl_context *ssl )
 
     /* Initialize structures */
     mbedtls_ssl_session_init( ssl->session_negotiate );
+
+    transform_init( ssl->messaging.transform_negotiate );
     ssl_transform_init( ssl->transform_negotiate );
     ssl_handshake_params_init( ssl->handshake );
 
@@ -6336,6 +6523,98 @@ int mbedtls_ssl_setup( mbedtls_ssl_context *ssl,
     const size_t len = MBEDTLS_SSL_BUFFER_LEN;
 
     ssl->conf = conf;
+
+    /*
+     * Prepare MPS
+     */
+
+    ret = mps_alloc_init( &ssl->messaging.alloc, len );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Initialization of MPS allocator context with L1 buffers of length %u failed",
+                                    (unsigned) len ) );
+        return( ret );
+    }
+
+    ret = mps_l1_init( &ssl->messaging.l1, conf->transport, &ssl->messaging.alloc,
+                       NULL, NULL );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Initialization of MPS Layer 1 context failed." ) );
+        return( ret );
+    }
+
+    ret = mps_l2_init( &ssl->messaging.l2, &ssl->messaging.l1,
+                       conf->transport, len, len, conf->f_rng, conf->p_rng );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Initialization of MPS Layer 2 context failed." ) );
+        return( ret );
+    }
+
+    mps_l2_config_version( &ssl->messaging.l2,
+                           MBEDTLS_SSL_MINOR_VERSION_3 );
+    mps_l2_config_add_type( &ssl->messaging.l2,
+                            MBEDTLS_MPS_MSG_HS,
+                            1, 1, 0 );
+    mps_l2_config_add_type( &ssl->messaging.l2,
+                            MBEDTLS_MPS_MSG_ALERT,
+                            1, 1, 0 );
+    mps_l2_config_add_type( &ssl->messaging.l2,
+                            MBEDTLS_MPS_MSG_APP,
+                            0, 1, 1 );
+    mps_l2_config_add_type( &ssl->messaging.l2,
+                            MBEDTLS_MPS_MSG_CCS,
+                            0, 0, 0 );
+
+    ret = mps_l3_init( &ssl->messaging.l3,
+                       &ssl->messaging.l2,
+                       conf->transport );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Initialization of MPS Layer 3 context failed." ) );
+        return( ret );
+    }
+
+    ret = mbedtls_mps_init( &ssl->messaging.mps,
+                            &ssl->messaging.l3,
+                            conf->transport );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Initialization of MPS Layer 3 context failed." ) );
+        return( ret );
+    }
+
+    /* Add initial identity transform. */
+
+    ssl->messaging.transform_negotiate =
+        mbedtls_calloc( 1, sizeof( mbedtls_mps_transform_t ) );
+    transform_init( ssl->messaging.transform_negotiate );
+
+    ret = mbedtls_mps_add_key_material( &ssl->messaging.mps,
+                                        ssl->messaging.transform_negotiate,
+                                        &ssl->messaging.epoch );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Failed to add epoch 0 key material." ) );
+        return( ret );
+    }
+
+    ret = mbedtls_mps_set_incoming_keys( &ssl->messaging.mps,
+                                         ssl->messaging.epoch );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Failed to register epoch 0 for reading." ) );
+        return( ret );
+    }
+
+    ret = mbedtls_mps_set_outgoing_keys( &ssl->messaging.mps,
+                                         ssl->messaging.epoch );
+    if( ret != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Failed to register epoch 0 for writing." ) );
+        return( ret );
+    }
 
     /*
      * Prepare base structures
@@ -6578,6 +6857,12 @@ void mbedtls_ssl_set_bio( mbedtls_ssl_context *ssl,
     ssl->f_send         = f_send;
     ssl->f_recv         = f_recv;
     ssl->f_recv_timeout = f_recv_timeout;
+
+    ssl->messaging.l1.raw.stream.rd.recv     = f_recv;
+    ssl->messaging.l1.raw.stream.rd.recv_ctx = p_bio;
+
+    ssl->messaging.l1.raw.stream.wr.send     = f_send;
+    ssl->messaging.l1.raw.stream.wr.send_ctx = p_bio;
 }
 
 void mbedtls_ssl_conf_read_timeout( mbedtls_ssl_config *conf, uint32_t timeout )
@@ -8231,6 +8516,7 @@ void mbedtls_ssl_free( mbedtls_ssl_context *ssl )
     if( ssl->handshake )
     {
         mbedtls_ssl_handshake_free( ssl->handshake );
+
         mbedtls_ssl_transform_free( ssl->transform_negotiate );
         mbedtls_ssl_session_free( ssl->session_negotiate );
 

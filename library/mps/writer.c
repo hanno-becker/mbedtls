@@ -456,6 +456,8 @@ int mbedtls_writer_commit_partial_ext( mbedtls_writer_ext *wr,
 {
     int ret;
     TRACE_INIT( "writer_commit_ext" );
+    TRACE( trace_comment, "* Old fetch:  %u", (unsigned) wr->ofs_fetch );
+    TRACE( trace_comment, "* Old commit: %u", (unsigned) wr->ofs_commit );
 
     if( wr->wr == NULL ||
         wr->passthrough == MBEDTLS_WRITER_EXT_BLOCK )
@@ -478,6 +480,10 @@ int mbedtls_writer_commit_partial_ext( mbedtls_writer_ext *wr,
 
     wr->ofs_fetch  -= omit;
     wr->ofs_commit = wr->ofs_fetch;
+
+    TRACE( trace_comment, "* New fetch:  %u", (unsigned) wr->ofs_fetch );
+    TRACE( trace_comment, "* New commit: %u", (unsigned) wr->ofs_commit );
+
     RETURN( 0 );
 }
 
@@ -543,9 +549,15 @@ int mbedtls_writer_detach( mbedtls_writer_ext *wr_ext,
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
 
     if( uncommitted != NULL )
+    {
         *uncommitted = wr_ext->ofs_fetch - wr_ext->ofs_commit;
+        TRACE( trace_comment, "* Uncommitted bytes: %u", (unsigned) *uncommitted );
+    }
     if( committed != NULL )
+    {
         *committed = wr_ext->ofs_commit;
+        TRACE( trace_comment, "* Committed bytes: %u", (unsigned) *committed );
+    }
 
     wr_ext->ofs_fetch = wr_ext->ofs_commit;
     wr_ext->wr = NULL;

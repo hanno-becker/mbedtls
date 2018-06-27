@@ -32,8 +32,8 @@
 /*
  * External interface to layer 0
  */
-typedef int mps_l0_recv_t( unsigned char *buf, size_t buflen );
-typedef int mps_l0_send_t( unsigned char const *buf, size_t buflen );
+typedef int mps_l0_recv_t( void *ctx, unsigned char *buf, size_t buflen );
+typedef int mps_l0_send_t( void *ctx, unsigned char const *buf, size_t buflen );
 
 /*
  *
@@ -50,7 +50,10 @@ typedef struct
 {
     mps_alloc     *alloc; /*!< The allocator to use to acquire and release
                            *   the read-buffer used by Layer 1.              */
+
+    void          *recv_ctx;
     mps_l0_recv_t *recv;  /*!< The Layer 0 receive callback                  */
+
     unsigned char *buf;   /*!< The buffer holding the data read from Layer 0 */
     size_t buf_len;       /*!< The size of buf                               */
 
@@ -91,6 +94,8 @@ typedef struct
 {
     mps_alloc     *alloc;  /*!< The allocator to use to acquire and release
                             *   the write-buffer used by Layer 1.            */
+
+    void          *send_ctx;
     mps_l0_send_t *send;   /*!< The Layer 0 send callback                    */
 
     unsigned char *buf;    /*!< The buffer holding the data to be
@@ -284,6 +289,7 @@ typedef struct
 {
     mps_alloc     *alloc;   /*!< The allocator to use to acquire and release
                              *   the read-buffer used by Layer 1.             */
+    void          *recv_ctx;
     mps_l0_recv_t *recv;    /*!< The Layer 0 receive callback                 */
 
     unsigned char *buf;     /*!< The buffer holding the datagram received
@@ -306,6 +312,7 @@ typedef struct
 {
     mps_alloc     *alloc;   /*!< The allocator to use to acquire and release
                              *   the write-buffer used by Layer 1.            */
+    void          *send_ctx;
     mps_l0_send_t *send;    /*!< The Layer 0 receive callback                 */
 
     unsigned char *buf;     /*!< The buffer wherein the outgoing data
@@ -525,8 +532,8 @@ typedef struct mps_l1 mps_l1;
  * Maintenance
  */
 
-#define MPS_L1_MODE_STREAM  1    /*!< Stream mode of operation   */
-#define MPS_L1_MODE_DGRAM   2    /*!< Datagram mode of operation */
+#define MPS_L1_MODE_STREAM  0    /*!< Stream mode of operation   */
+#define MPS_L1_MODE_DGRAM   1    /*!< Datagram mode of operation */
 
 /**
  * \brief          Initialize a Layer 1 context

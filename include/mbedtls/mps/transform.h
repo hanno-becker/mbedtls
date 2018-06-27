@@ -61,6 +61,8 @@ typedef struct
                          *   surrounded by a parent buffer. */
 } mps_rec;
 
+extern int transform_init( mbedtls_mps_transform_t *transform );
+
 extern int transform_free( mbedtls_mps_transform_t *transform );
 extern int transform_encrypt( mbedtls_mps_transform_t *transform, mps_rec *rec,
                               int (*f_rng)(void *, unsigned char *, size_t),

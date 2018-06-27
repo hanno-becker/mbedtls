@@ -65,6 +65,8 @@
 #include "mbedtls/platform_time.h"
 #endif
 
+#include "mps/mps.h"
+
 /*
  * SSL Error codes
  */
@@ -792,6 +794,26 @@ struct mbedtls_ssl_config
 struct mbedtls_ssl_context
 {
     const mbedtls_ssl_config *conf; /*!< configuration information          */
+
+    /*
+     * MPS
+     */
+
+    struct
+    {
+        mps_alloc alloc;
+
+        mps_l1       l1;
+        mps_l2       l2;
+        mps_l3       l3;
+        mbedtls_mps  mps;
+
+        mbedtls_mps_transform_t *transform_negotiate;
+
+        mbedtls_mps_epoch_id epoch;
+        mbedtls_mps_epoch_id epoch_negotiate;
+
+    } messaging;
 
     /*
      * Miscellaneous
