@@ -2764,9 +2764,6 @@ static int ssl_server_key_exchange_postprocess( mbedtls_ssl_context *ssl );
 static int ssl_process_server_key_exchange( mbedtls_ssl_context *ssl )
 {
     int ret;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->handshake->ciphersuite_info;
-    unsigned char *p = NULL, *end = NULL;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse server key exchange" ) );
 
@@ -3206,12 +3203,6 @@ static int ssl_certificate_request_postprocess( mbedtls_ssl_context *ssl );
 static int ssl_process_certificate_request( mbedtls_ssl_context *ssl )
 {
     int ret;
-    unsigned char *buf;
-    size_t n = 0;
-    size_t cert_type_len = 0, dn_len = 0;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->handshake->ciphersuite_info;
-
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> process certificate request" ) );
 
     /* Coordination step
@@ -4013,22 +4004,9 @@ cleanup:
 
 static int ssl_certificate_verify_coordinate( mbedtls_ssl_context *ssl )
 {
-    int ret = MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
-    const mbedtls_ssl_ciphersuite_t *ciphersuite_info =
-        ssl->handshake->ciphersuite_info;
-    size_t n = 0, offset = 0;
-    unsigned char hash[48];
-    unsigned char *hash_start = hash;
-    mbedtls_md_type_t md_alg = MBEDTLS_MD_NONE;
-    unsigned int hashlen;
+    const mbedtls_ssl_ciphersuite_t *info = ssl->handshake->ciphersuite_info;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write certificate verify" ) );
-
-    if( ( ret = mbedtls_ssl_derive_keys( ssl ) ) != 0 )
-    {
-        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_derive_keys", ret );
-        return( ret );
-    }
 
     if( !mbedtls_ssl_ciphersuite_cert_req_allowed( info ) )
     {
