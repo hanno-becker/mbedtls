@@ -330,6 +330,9 @@ static void ssl_write_supported_point_formats_ext( mbedtls_ssl_context *ssl,
                                                    size_t *olen )
 {
     unsigned char *p = buf;
+#if !defined(MBEDTLS_DEBUG_C)
+    ((void) ssl);
+#endif
 
     *olen = 0;
 
