@@ -27,6 +27,65 @@ static int trace_id = TRACE_ID_LAYER_1;
 #include <string.h>
 
 static inline int l1_check_flush_stream( mps_l1_stream_write *p );
+static int l1_release_if_set( unsigned char **buf_ptr,
+                              mps_alloc *ctx,
+                              mps_alloc_type purpose );
+static int l1_acquire_if_unset( unsigned char **buf_ptr,
+                                size_t *buflen,
+                                mps_alloc *ctx,
+                                mps_alloc_type purpose );
+static inline void l1_init_stream_read( mps_l1_stream_read *p,
+                                        mps_alloc *ctx,
+                                        mps_l0_recv_t *recv );
+static inline void l1_init_stream_write( mps_l1_stream_write *p,
+                                         mps_alloc *ctx,
+                                         mps_l0_send_t *send );
+
+static inline void l1_init_stream( mps_l1_stream *p,
+                                   mps_alloc *ctx,
+                                   mps_l0_send_t *send,
+                                   mps_l0_recv_t *recv );
+static inline int l1_free_stream_read( mps_l1_stream_read *p );
+static inline int l1_free_stream_write( mps_l1_stream_write *p );
+static inline int l1_free_stream( mps_l1_stream *p );
+static inline int l1_stash_stream( mps_l1_stream_read *p );
+static inline int l1_fetch_stream( mps_l1_stream_read *p,
+                                   unsigned char **dst,
+                                   size_t len );
+static inline int l1_consume_stream( mps_l1_stream_read *p );
+static inline int l1_flush_stream( mps_l1_stream_write *p );
+static inline int l1_write_stream( mps_l1_stream_write *p,
+                                   unsigned char **dst,
+                                   size_t *buflen );
+static inline int l1_check_flush_stream( mps_l1_stream_write *p );
+static inline int l1_dispatch_stream( mps_l1_stream_write *p,
+                                      size_t len );
+
+static inline void l1_init_dgram_read( mps_l1_dgram_read *p,
+                                       mps_alloc *ctx,
+                                       mps_l0_recv_t *recv );
+static inline void l1_init_dgram_write( mps_l1_dgram_write *p,
+                                        mps_alloc *ctx,
+                                        mps_l0_send_t *send );
+static inline void l1_init_dgram( mps_l1_dgram *p,
+                                  mps_alloc *ctx,
+                                  mps_l0_send_t *send,
+                                  mps_l0_recv_t *recv );
+static inline int l1_free_dgram_read( mps_l1_dgram_read *p );
+static inline int l1_free_dgram_write( mps_l1_dgram_write *p );
+static inline int l1_free_dgram( mps_l1_dgram *p );
+static inline int l1_ensure_data_dgram( mps_l1_dgram_read *p );
+static inline int l1_fetch_dgram( mps_l1_dgram_read *p,
+                                  unsigned char **dst,
+                                  size_t len );
+static inline int l1_stash_dgram( mps_l1_dgram_read *p );
+static inline int l1_consume_dgram( mps_l1_dgram_read *p );
+static inline int l1_write_dgram( mps_l1_dgram_write *p,
+                                  unsigned char **buf,
+                                  size_t *buflen );
+static inline int l1_dispatch_dgram( mps_l1_dgram_write *p, size_t len );
+static inline int l1_flush_dgram( mps_l1_dgram_write *p );
+
 
 /*
  * GENERAL NOTE ON CODING STYLE
@@ -57,24 +116,28 @@ static inline int l1_check_flush_stream( mps_l1_stream_write *p );
  *
  */
 
-static int l1_release_if_set( unsigned char **buf_ptr, uint8_t id )
+static int l1_release_if_set( unsigned char **buf_ptr,
+                              mps_alloc *ctx,
+                              mps_alloc_type purpose )
 {
     unsigned char *buf = *buf_ptr;
     if( buf == NULL )
         return( 0 );
 
     *buf_ptr = NULL;
-    return( release_buffer( id ) );
+    return( mps_alloc_release( ctx, purpose ) );
 }
 
 static int l1_acquire_if_unset( unsigned char **buf_ptr,
-                                size_t *buflen, uint8_t id )
+                                size_t *buflen,
+                                mps_alloc *ctx,
+                                mps_alloc_type purpose )
 {
     unsigned char *buf = *buf_ptr;
     if( buf != NULL )
         return( 0 );
 
-    return( acquire_buffer( id, buf_ptr, buflen ) );
+    return( mps_alloc_acquire( ctx, purpose, buf_ptr, buflen ) );
 }
 
 /*
@@ -90,13 +153,13 @@ static int l1_acquire_if_unset( unsigned char **buf_ptr,
 @*/
 static inline
 void l1_init_stream_read( mps_l1_stream_read *p,
-                          uint8_t id,
+                          mps_alloc *ctx,
                           mps_l0_recv_t *recv )
 {
-    mps_l1_stream_read const zero = { NULL, NULL, 0, 0, 0, 0 };
+    mps_l1_stream_read const zero = { NULL, NULL, NULL, 0, 0, 0 };
     *p = zero;
-    p->id = ( id << 1 ) | MPS_L1_ALLOC_BUFFER_READ;
-    p->recv = recv;
+    p->recv  = recv;
+    p->alloc = ctx;
 }
 
 /*@
@@ -106,21 +169,21 @@ void l1_init_stream_read( mps_l1_stream_read *p,
 @*/
 static inline
 void l1_init_stream_write( mps_l1_stream_write *p,
-                           uint8_t id,
+                           mps_alloc *ctx,
                            mps_l0_send_t *send )
 {
-    mps_l1_stream_write const zero = { NULL, NULL, 0, 0, 0, 0, 0 };
+    mps_l1_stream_write const zero = { NULL, NULL, NULL, 0, 0, 0, 0 };
     *p = zero;
-    p->id = ( id << 1 ) | MPS_L1_ALLOC_BUFFER_WRITE;
-    p->send = send;
+    p->send  = send;
+    p->alloc = ctx;
 }
 
 static inline
-void l1_init_stream( mps_l1_stream *p, uint8_t id,
+void l1_init_stream( mps_l1_stream *p, mps_alloc *ctx,
                      mps_l0_send_t *send, mps_l0_recv_t *recv )
 {
-    l1_init_stream_read ( &p->rd, id, recv );
-    l1_init_stream_write( &p->wr, id, send );
+    l1_init_stream_read ( &p->rd, ctx, recv );
+    l1_init_stream_write( &p->wr, ctx, send );
 }
 
 /*@
@@ -130,9 +193,8 @@ static inline
 int l1_free_stream_read( mps_l1_stream_read *p )
 {
     int ret;
-    uint8_t id = p->id;
-    mps_l1_stream_read const zero = { NULL, NULL, 0, 0, 0, 0 };
-    ret = l1_release_if_set( &p->buf, id );
+    mps_l1_stream_read const zero = { NULL, NULL, NULL, 0, 0, 0 };
+    ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_IN );
     *p = zero;
     return( ret );
 }
@@ -144,9 +206,8 @@ static inline
 int l1_free_stream_write( mps_l1_stream_write *p )
 {
     int ret;
-    uint8_t id = p->id;
-    mps_l1_stream_write const zero = { NULL, NULL, 0, 0, 0, 0, 0 };
-    ret = l1_release_if_set( &p->buf, id );
+    mps_l1_stream_write const zero = { NULL, NULL, NULL, 0, 0, 0, 0 };
+    ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_OUT );
     *p = zero;
     return( ret );
 }
@@ -182,11 +243,10 @@ int l1_fetch_stream( mps_l1_stream_read *p,
     size_t bl, br, data_need, data_fetched;
     unsigned char *read_ptr;
     mps_l0_recv_t *recv;
-    uint8_t id;
     TRACE_INIT( "l1_fetch_stream, desired %u", (unsigned) len );
 
-    id = p->id;
-    ret = l1_acquire_if_unset( &p->buf, &p->buf_len, id );
+    ret = l1_acquire_if_unset( &p->buf, &p->buf_len,
+                               p->alloc, MPS_ALLOC_L1_IN );
     if( ret != 0 )
         RETURN( ret );
 
@@ -250,7 +310,6 @@ static inline
 int l1_consume_stream( mps_l1_stream_read *p )
 {
     int ret;
-    uint8_t id;
     unsigned char *buf;
     size_t bf, br, not_yet_fetched;
     TRACE_INIT( "l1_consume_stream" );
@@ -276,8 +335,7 @@ int l1_consume_stream( mps_l1_stream_read *p )
     }
     else
     {
-        id = p->id;
-        ret = l1_release_if_set( &p->buf, id );
+        ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_IN );
         p->buf = NULL;
         p->buf_len = 0;
     }
@@ -385,7 +443,7 @@ int l1_write_stream( mps_l1_stream_write *p,
                      unsigned char **dst, size_t *buflen )
 {
     int ret;
-    uint8_t id, status;
+    uint8_t status;
     size_t bl, br, data_remaining;
     unsigned char* buf;
     TRACE_INIT( "l1_write_stream" );
@@ -419,8 +477,8 @@ int l1_write_stream( mps_l1_stream_write *p,
     }
 
     /* Make sure a write-buffer is available. */
-    id = p->id;
-    ret = l1_acquire_if_unset( &p->buf, &p->buf_len, id );
+    ret = l1_acquire_if_unset( &p->buf, &p->buf_len,
+                               p->alloc, MPS_ALLOC_L1_OUT );
     if( ret != 0 )
         RETURN( ret );
 
@@ -530,45 +588,43 @@ int l1_dispatch_stream( mps_l1_stream_write *p, size_t len )
 
 static inline
 void l1_init_dgram_read( mps_l1_dgram_read *p,
-                         uint8_t id,
+                         mps_alloc *ctx,
                          mps_l0_recv_t *recv )
 {
     mps_l1_dgram_read const zero = { 0, NULL, NULL, 0, 0, 0, 0 };
     *p = zero;
 
-    p->id = ( id << 1 ) | MPS_L1_ALLOC_BUFFER_READ;
-    p->recv = recv;
+    p->recv  = recv;
+    p->alloc = ctx;
 }
 
 static inline
 void l1_init_dgram_write( mps_l1_dgram_write *p,
-                          uint8_t id,
+                          mps_alloc *ctx,
                           mps_l0_send_t *send )
 {
     mps_l1_dgram_write const zero = { 0, NULL, NULL, 0, 0, 0 };
     *p = zero;
 
-    p->id = ( id << 1 ) | MPS_L1_ALLOC_BUFFER_WRITE;
-    p->send = send;
+    p->send  = send;
+    p->alloc = ctx;
 }
 
 static inline
 void l1_init_dgram( mps_l1_dgram *p,
-                    uint8_t id,
+                    mps_alloc *ctx,
                     mps_l0_send_t *send, mps_l0_recv_t *recv )
 {
-    l1_init_dgram_read( &p->rd, id, recv );
-    l1_init_dgram_write( &p->wr, id, send );
+    l1_init_dgram_read ( &p->rd, ctx, recv );
+    l1_init_dgram_write( &p->wr, ctx, send );
 }
 
 static inline
 int l1_free_dgram_read( mps_l1_dgram_read *p )
 {
     mps_l1_dgram_read const zero = { 0, NULL, NULL, 0, 0, 0, 0 };
-
     int ret;
-    uint8_t id = p->id;
-    ret = l1_release_if_set( &p->buf, id );
+    ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_IN );
     *p = zero;
     return( ret );
 }
@@ -579,8 +635,7 @@ int l1_free_dgram_write( mps_l1_dgram_write *p )
     mps_l1_dgram_write const zero = { 0, NULL, NULL, 0, 0, 0 };
 
     int ret;
-    uint8_t id = p->id;
-    ret = l1_release_if_set( &p->buf, id );
+    ret = l1_release_if_set( &p->buf, p->alloc, MPS_ALLOC_L1_OUT );
     *p = zero;
     return( ret );
 }
@@ -590,7 +645,7 @@ int l1_free_dgram( mps_l1_dgram *p )
 {
     int ret0, ret1;
 
-    ret0 = l1_free_dgram_read( &p->rd );
+    ret0 = l1_free_dgram_read ( &p->rd );
     ret1 = l1_free_dgram_write( &p->wr );
 
     if( ret0 != 0 || ret1 != 0 )
@@ -614,14 +669,13 @@ static inline
 int l1_ensure_data_dgram( mps_l1_dgram_read *p )
 {
     size_t ml, bl;
-    uint8_t id;
     unsigned char *buf;
     mps_l0_recv_t *recv;
     int ret;
 
     /* 1. Ensure that a buffer is available to receive data */
-    id = p->id;
-    ret = l1_acquire_if_unset( &p->buf, &p->buf_len, id );
+    ret = l1_acquire_if_unset( &p->buf, &p->buf_len,
+                               p->alloc, MPS_ALLOC_L1_IN );
     if( ret != 0 )
         return( ret );
 
@@ -711,7 +765,6 @@ static inline
 int l1_consume_dgram( mps_l1_dgram_read *p )
 {
     int ret;
-    uint8_t id;
     unsigned char *buf;
     size_t wl, wb, ml;
 
@@ -722,8 +775,6 @@ int l1_consume_dgram( mps_l1_dgram_read *p )
     wb = p->window_base;
     wl = p->window_len;
     ml = p->msg_len;
-
-    id = p->id;
 
     if( wb + wl == ml )
     {
@@ -739,7 +790,7 @@ int l1_consume_dgram( mps_l1_dgram_read *p )
          * shouldn't just forward to malloc/free, as this would
          * lead to an unnecessarily heavy heap usage.
          */
-        ret = release_buffer( id );
+        ret = mps_alloc_release( p->alloc, MPS_ALLOC_L1_IN );
         if( ret != 0 )
             return( ret );
 
@@ -793,7 +844,7 @@ int l1_flush_dgram( mps_l1_dgram_write *p )
 /* Q: Generate these functions through a macro?
  *    Doesn't reduce code-size but eases reading. */
 
-int mps_l1_init( mps_l1 *ctx, uint8_t mode, uint8_t id,
+int mps_l1_init( mps_l1 *ctx, uint8_t mode, mps_alloc *alloc,
                  mps_l0_send_t *send, mps_l0_recv_t *recv )
 {
     if( ctx == NULL || recv == NULL || send == NULL )
@@ -802,10 +853,10 @@ int mps_l1_init( mps_l1 *ctx, uint8_t mode, uint8_t id,
     switch( mode )
     {
         case MPS_L1_MODE_STREAM:
-            l1_init_stream( &ctx->raw.stream, id, send, recv );
+            l1_init_stream( &ctx->raw.stream, alloc, send, recv );
             break;
         case MPS_L1_MODE_DGRAM:
-            l1_init_dgram( &ctx->raw.dgram, id, send, recv  );
+            l1_init_dgram( &ctx->raw.dgram, alloc, send, recv  );
             break;
         default:
             return( MPS_ERR_INVALID_PARAMS );

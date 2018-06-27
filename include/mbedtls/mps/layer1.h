@@ -27,22 +27,13 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "allocator.h"
+
 /*
  * External interface to layer 0
  */
 typedef int mps_l0_recv_t( unsigned char *buf, size_t buflen );
 typedef int mps_l0_send_t( unsigned char const *buf, size_t buflen );
-
-/*
- * External interface to allocator
- */
-
-/* A call to `malloc` with a pre-defined length suffices,
- * but adding this layer of indirection allows to better
- * keep track of buffer usage; this is important if we want
- * to consider moving to a shared read/write buffer at some point. */
-extern int acquire_buffer( uint8_t id, unsigned char **buf, size_t *buflen );
-extern int release_buffer( uint8_t id );
 
 /*
  *
@@ -57,6 +48,8 @@ extern int release_buffer( uint8_t id );
 /** Context maintaining the reading-side of a stream-based Layer 1 context. */
 typedef struct
 {
+    mps_alloc     *alloc; /*!< The allocator to use to acquire and release
+                           *   the read-buffer used by Layer 1.              */
     mps_l0_recv_t *recv;  /*!< The Layer 0 receive callback                  */
     unsigned char *buf;   /*!< The buffer holding the data read from Layer 0 */
     size_t buf_len;       /*!< The size of buf                               */
@@ -78,11 +71,6 @@ typedef struct
                            *   Must not be larger than bytes_read
                            *   (MPS_L1_STREAM_READ_INV_BUF_INEQUALITIES).        */
 
-    uint8_t id;           /*!< The base ID of the Layer 1 context to use when
-                           *   making acquire/release requests to the
-                           *   underlying allocator. See the documentation
-                           *   of mps_l1_init for more information.          */
-
 } mps_l1_stream_read;
 
 typedef enum
@@ -101,6 +89,8 @@ typedef enum
 /** Context maintaining the writing-side of a stream-based Layer 1 context.  */
 typedef struct
 {
+    mps_alloc     *alloc;  /*!< The allocator to use to acquire and release
+                            *   the write-buffer used by Layer 1.            */
     mps_l0_send_t *send;   /*!< The Layer 0 send callback                    */
 
     unsigned char *buf;    /*!< The buffer holding the data to be
@@ -134,10 +124,6 @@ typedef struct
                                   *    awaiting dispatch call.
                                   * Invariant L1_STREAM_INV_STATUS_VALID.     */
 
-    uint8_t id;            /*!< The base ID of the Layer 1 context to use when
-                            *   making acquire/release requests to the
-                            *   underlying allocator. See the documentation
-                            *   of mps_l1_init for more information.         */
 } mps_l1_stream_write;
 
 typedef struct
@@ -296,10 +282,8 @@ typedef struct
 /** Context maintaining the reading-side of a datagram-based Layer 1 context. */
 typedef struct
 {
-    uint8_t id;             /*!< The base ID of the Layer 1 context to use
-                             *   when making acquire/release requests to the
-                             *   underlying allocator. See the documentation
-                             *   of mps_l1_init for more information.         */
+    mps_alloc     *alloc;   /*!< The allocator to use to acquire and release
+                             *   the read-buffer used by Layer 1.             */
     mps_l0_recv_t *recv;    /*!< The Layer 0 receive callback                 */
 
     unsigned char *buf;     /*!< The buffer holding the datagram received
@@ -320,10 +304,8 @@ typedef struct
 /** Context maintaining the writing-side of a datagram-based Layer 1 context. */
 typedef struct
 {
-    uint8_t id;             /*!< The base ID of the Layer 1 context to use
-                             *   when making acquire/release requests to the
-                             *   underlying allocator. See the documentation
-                             *   of mps_l1_init for more information.         */
+    mps_alloc     *alloc;   /*!< The allocator to use to acquire and release
+                             *   the write-buffer used by Layer 1.            */
     mps_l0_send_t *send;    /*!< The Layer 0 receive callback                 */
 
     unsigned char *buf;     /*!< The buffer wherein the outgoing data
@@ -554,13 +536,8 @@ typedef struct mps_l1 mps_l1;
  *                 Either #MPS_L1_MODE_STREAM if the underlying Layer 0
  *                 transport is a stream transport, or #MPS_L1_MODE_DGRAM if
  *                 the underlying Layer 0 transport is a datagram transport.
- * \param major_id The identifier base to use when Layer 1 interfaces with
- *                 the allocator to request/release the buffers for sending
- *                 and receiving. This must have the parity bit \c 0 cleared
- *                 to allow the purpose of an allocation to be encoded in it.
- *                 When Layer 1 requests/releases the read/write buffer,
- *                 the request ID will have the lowest bit set to
- *                 #MPS_L1_ALLOC_BUFFER_READ resp. #MPS_L1_ALLOC_BUFFER_WRITE.
+ * \param alloc    The allocator context to use to acquire and release
+ *                 the read and write buffers used by Layer 1.
  * \param send     The callback to the sending function of the underlying
  *                 Layer 0 transport.
  * \param recv     The callback to the receiving function of the underlying
@@ -575,7 +552,7 @@ typedef struct mps_l1 mps_l1;
   requires \valid( ctx );
  MPS_L1_INV_ENSURES( ctx )
   @*/
-int mps_l1_init( mps_l1 *ctx, uint8_t mode, uint8_t major_id,
+int mps_l1_init( mps_l1 *ctx, uint8_t mode, mps_alloc *alloc,
                  mps_l0_send_t *send, mps_l0_recv_t *recv );
 
 /**
