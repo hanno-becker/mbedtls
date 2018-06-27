@@ -58,6 +58,7 @@ set(src_crypto
     version.c
     version_features.c
     xtea.c
+    mps/allocator.c
     mps/trace.c
     mps/layer1.c
     mps/layer2.c
