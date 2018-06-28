@@ -599,6 +599,21 @@ void mbedtls_ssl_sig_hash_set_add( mbedtls_ssl_sig_hash_set_t *set,
 void mbedtls_ssl_sig_hash_set_const_hash( mbedtls_ssl_sig_hash_set_t *set,
                                           mbedtls_md_type_t md_alg );
 
+typedef int (*hs_parse_func)( mbedtls_ssl_context*,
+                              unsigned char *,
+                              size_t );
+typedef int (*hs_write_func)( mbedtls_ssl_context*,
+                              unsigned char *,
+                              size_t,
+                              size_t* );
+int mbedtls_ssl_parse_hs_msg( mbedtls_ssl_context *ssl,
+                              uint8_t hs_type,
+                              hs_parse_func f );
+int mbedtls_ssl_write_hs_msg( mbedtls_ssl_context *ssl,
+                              uint8_t hs_type,
+                              int32_t length,
+                              hs_write_func f );
+
 /* Setup an empty signature-hash set */
 static inline void mbedtls_ssl_sig_hash_set_init( mbedtls_ssl_sig_hash_set_t *set )
 {

@@ -80,6 +80,7 @@ static inline void debug_send_line( const mbedtls_ssl_context *ssl, int level,
                                     const char *file, int line,
                                     const char *str )
 {
+    ((void) ssl);
     /*
      * If in a threaded environment, we need a thread identifier.
      * Since there is no portable way to get one, use the address of the ssl
@@ -137,8 +138,8 @@ void mbedtls_debug_print_ret( const mbedtls_ssl_context *ssl, int level,
 {
     char str[DEBUG_BUF_SIZE];
 
-    if( ssl->conf == NULL || ssl->conf->f_dbg == NULL || level > debug_threshold )
-        return;
+    /* if( ssl == NULL || ssl->conf == NULL || ssl->conf->f_dbg == NULL || level > debug_threshold ) */
+    /*     return; */
 
     /*
      * With non-blocking I/O and examples that just retry immediately,

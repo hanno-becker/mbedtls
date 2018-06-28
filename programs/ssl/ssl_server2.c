@@ -2317,7 +2317,7 @@ data_exchange:
      */
     if( opt.transport == MBEDTLS_SSL_TRANSPORT_STREAM )
     {
-        do
+        /* do */
         {
             int terminated = 0;
             len = sizeof( buf ) - 1;
@@ -2336,7 +2336,7 @@ data_exchange:
 #endif
                 }
 
-                continue;
+/*                continue; */
             }
 
             if( ret <= 0 )
@@ -2359,7 +2359,7 @@ data_exchange:
                 }
             }
 
-            if( mbedtls_ssl_get_bytes_avail( &ssl ) == 0 )
+            if( 1 /* mbedtls_ssl_get_bytes_avail( &ssl ) == 0 */ )
             {
                 len = ret;
                 buf[len] = '\0';
@@ -2415,10 +2415,10 @@ data_exchange:
             if( terminated )
             {
                 ret = 0;
-                break;
+/*                break; */
             }
         }
-        while( 1 );
+/*        while( 1 ); */
     }
     else /* Not stream, so datagram */
     {
