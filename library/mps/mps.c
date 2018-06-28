@@ -358,12 +358,44 @@ int mbedtls_mps_read( mbedtls_mps *mps )
      */
     switch( ret )
     {
+        case MBEDTLS_MPS_MSG_CCS:
+        {
+            mps_l3_ccs_in ccs_l3;
+            MPS_CHK( mps_l3_read_ccs( mps->conf.l3, &ccs_l3 ) );
+
+            /* For DTLS, Layer 3 might be configured to pass through
+             * records on multiple epochs for the purpose of detection
+             * of flight retransmissions.
+             *
+             * CCS messages, however, should always be discarded
+             * if it's not secured through the current incoming epoch.
+             */
+
+            if( ccs_l3.epoch != mps->in_epoch )
+                RETURN( MBEDTLS_ERR_MPS_BAD_EPOCH );
+
+            mps->in.state = MBEDTLS_MPS_MSG_CCS;
+            MPS_CHK( mps_l3_read_consume( mps->conf.l3 ) );
+            RETURN( MBEDTLS_MPS_MSG_CCS );
+        }
+
         case MBEDTLS_MPS_MSG_ALERT:
         {
             mps_l3_alert_in alert;
             TRACE( trace_comment, "Received an alert from Layer 3" );
 
             MPS_CHK( mps_l3_read_alert( mps->conf.l3, &alert ) );
+
+            /* For DTLS, Layer 3 might be configured to pass through
+             * records on multiple epochs for the purpose of detection
+             * of flight retransmissions.
+             *
+             * CCS messages, however, should always be discarded
+             * if it's not secured through the current incoming epoch.
+             */
+            if( alert.epoch != mps->in_epoch )
+                RETURN( MBEDTLS_ERR_MPS_BAD_EPOCH );
+
             MPS_CHK( mps_l3_read_consume( mps->conf.l3 ) );
 
             switch( alert.level )
@@ -444,7 +476,22 @@ int mbedtls_mps_read( mbedtls_mps *mps )
 
         case MBEDTLS_MPS_MSG_APP:
         {
-            mps->in.state = MBEDTLS_MPS_MSG_APP;
+            mps_l3_app_in app_l3;
+            MPS_CHK( mps_l3_read_app( mps->conf.l3, &app_l3 ) );
+
+            /* For DTLS, Layer 3 might be configured to pass through
+             * records on multiple epochs for the purpose of detection
+             * of flight retransmissions.
+             *
+             * Application data, however, should always be discarded
+             * if it's not secured through the current incoming epoch.
+             */
+
+            if( app_l3.epoch != mps->in_epoch )
+                RETURN( MBEDTLS_ERR_MPS_BAD_EPOCH );
+
+            mps->in.state    = MBEDTLS_MPS_MSG_APP;
+            mps->in.data.app = app_l3.rd;
             RETURN( MBEDTLS_MPS_MSG_APP );
         }
 
