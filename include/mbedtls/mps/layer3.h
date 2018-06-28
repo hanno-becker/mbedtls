@@ -654,10 +654,6 @@ int mps_l3_read_app( mps_l3 *l3, mps_l3_app_in *app );
  * \return        \c 0 on success.
  * \return        A negative error code on failure.
  *
- * \note          The handle returned by this function is owned by
- *                the Layer 3 context and must not be freed by the user.
- *                It must also not be used after the read has been acknowledged
- *                through a call to mps_l3_dispatch().
  */
 
 /*@
@@ -665,6 +661,23 @@ int mps_l3_read_app( mps_l3 *l3, mps_l3_app_in *app );
   MPS_L3_INV_ENSURES( l3 )
 @*/
 int mps_l3_read_alert( mps_l3 *l3, mps_l3_alert_in *alert );
+
+/**
+ * \brief         Get a handle to the contents of an incoming CCS message.
+ *
+ * \param l3      The pointer to the Layer 3 context.
+ * \param alert   The address to hold the address of the alert handle.
+ *
+ * \return        \c 0 on success.
+ * \return        A negative error code on failure.
+ *
+ */
+
+/*@
+  MPS_L3_INV_REQUIRES( l3 )
+  MPS_L3_INV_ENSURES( l3 )
+@*/
+int mps_l3_read_ccs( mps_l3 *l3, mps_l3_ccs_in *ccs );
 
 /**
  * \brief         Pause the reading of an incoming handshake message.
