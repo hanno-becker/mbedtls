@@ -741,12 +741,16 @@ int mps_l2_epoch_usage( mps_l2 *ctx, mbedtls_mps_epoch_id epoch,
             ctx->epochs.tls.default_in != epoch )
         {
             remove_read = ctx->epochs.tls.default_in;
+            /* Reset record sequence number */
+            ctx->in_ctr = 0;
         }
 
         if( ( usage & MPS_EPOCH_WRITE ) != 0   &&
             ctx->epochs.tls.default_out != epoch )
         {
             remove_write = ctx->epochs.tls.default_out;
+            /* Reset record sequence number */
+            ctx->out_ctr = 0;
         }
     }
     else
