@@ -269,7 +269,7 @@ int l1_fetch_stream( mps_l1_stream_read *p,
         ret = recv( p->recv_ctx, read_ptr, data_need );
         if( ret < 0 )
             break;
-        TRACE( trace_comment, "got %u", (unsigned) data_need );
+        TRACE( trace_comment, "got %u", (unsigned) ret );
 
 #if( MAX_INT > SIZE_MAX )
         if( ret > (int) SIZE_MAX )
