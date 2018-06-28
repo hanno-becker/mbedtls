@@ -635,6 +635,46 @@ int mbedtls_mps_write_alert( mbedtls_mps *mps,
                              mbedtls_mps_alert_t alert_type );
 
 /**
+ * \brief       Attempt to start writing a ChangeCipherSpecm essage.
+ *
+ * \param mps        The MPS context to use.
+ *
+ * \return           \c 0 on success.
+ * \return           A negative error code on failure.
+ *
+ * \note             Even if there is no content to be specified for
+ *                   ChangeCipherSpec messages, the writing must currently
+ *                   still be explicitly concluded through a call to
+ *                   mbedtls_mps_dispatch() in uniformity with the handling
+ *                   of the other content types.
+ *
+ *                   Originally, this splitting was mandatory because
+ *                   mbedtls_mps_dispatch() might attempt to deliver
+ *                   the outgoing message to the underlying transport
+ *                   immediately. In that case, we must be able to tell
+ *                   apart the following situations:
+ *                   (a) The call returned WANT_WRITE because there was still
+ *                       data to be flushed, but the underlying transport
+ *                       wasn't available.
+ *                   (b) The call returned WANT_WRITE because the alert/CCS
+ *                       message could be prepared but not yet delivered
+ *                       to the underlying transport.
+ *                   In case (a), the writing of the alert/CCS hasn't
+ *                   commenced, hence we need to call this function again
+ *                   for a retry. In case (b), in contrast, the record holding
+ *                   the alert/CCS has been prepared and only its delivery
+ *                   needs to be retried via mbedtls_mps_flush().
+ *
+ *                   However, the current version of MPS does never attempt
+ *                   immediate delivery of messages to the underlying transport,
+ *                   and hence one might omit the explicit call to
+ *                   mbedtls_mps_dispatch() in this case. For now, however,
+ *                   we keep it for uniformity.
+ *
+ */
+int mbedtls_mps_write_ccs( mbedtls_mps *mps );
+
+/**
  * \brief          Pause the writing of an outgoing handshake message.
  *
  * \param mps      The MPS context to use.
