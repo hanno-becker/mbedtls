@@ -826,6 +826,23 @@ exit:
     return( ret );
 }
 
+int mbedtls_mps_write_ccs( mbedtls_mps *mps )
+{
+    int ret;
+    mps_l3_ccs_out ccs_l3;
+
+    ret = mps_check_write( mps );
+    if( ret != 0 )
+        return( ret );
+
+    ccs_l3.epoch = mps->out_epoch;
+    MPS_CHK( mps_l3_write_ccs( mps->conf.l3, &ccs_l3 ) );
+
+exit:
+    mps_generic_failure_handler( mps, ret );
+    return( ret );
+}
+
 int mbedtls_mps_write_pause( mbedtls_mps *mps )
 {
     int ret;
