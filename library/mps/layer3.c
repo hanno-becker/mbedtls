@@ -680,6 +680,19 @@ int mps_l3_read_alert( mps_l3 *l3, mps_l3_alert_in *alert )
     RETURN( 0 );
 }
 
+int mps_l3_read_ccs( mps_l3 *l3, mps_l3_ccs_in *ccs )
+{
+    TRACE_INIT( "mps_l3_read_ccs" );
+    if( l3->in.state != MBEDTLS_MPS_MSG_CCS )
+    {
+        TRACE( trace_comment, "No CCSmessage opened" );
+        RETURN( MPS_ERR_UNEXPECTED_OPERATION );
+    }
+
+    ccs->epoch = l3->in.epoch;
+    RETURN( 0 );
+}
+
 /*
  * Writing API
  */
@@ -1004,10 +1017,6 @@ int mps_l3_dispatch( mps_l3 *l3 )
             res = mbedtls_writer_free_ext( &l3->out.hs.wr_ext );
             if( res != 0 )
                 RETURN( res );
-
-            /* Check if anything has been committed. */
-            if( committed == 0 )
-                RETURN( MPS_ERR_EMPTY_MESSAGE );
 
             if( l3->out.hs.len == MPS_L3_LENGTH_UNKNOWN )
             {
