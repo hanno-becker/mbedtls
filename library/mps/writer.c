@@ -472,14 +472,16 @@ int mbedtls_writer_commit_partial_ext( mbedtls_writer_ext *wr,
             RETURN( ret );
     }
 
+    wr->ofs_commit = wr->ofs_fetch - omit;
     if( wr->passthrough == MBEDTLS_WRITER_EXT_HOLD &&
         omit > 0 )
     {
         wr->passthrough = MBEDTLS_WRITER_EXT_BLOCK;
     }
-
-    wr->ofs_fetch  -= omit;
-    wr->ofs_commit = wr->ofs_fetch;
+    else
+    {
+        wr->ofs_fetch -= omit;
+    }
 
     TRACE( trace_comment, "* New fetch:  %u", (unsigned) wr->ofs_fetch );
     TRACE( trace_comment, "* New commit: %u", (unsigned) wr->ofs_commit );
