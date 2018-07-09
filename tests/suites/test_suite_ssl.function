@@ -336,7 +336,7 @@ void ssl_crypt_record( int cipher_type, int hash_id,
             continue;
         }
 
-        /* Decrypt record with t_in */
+        /* Decrypt record with t_dec */
         TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
         /* Compare results */
@@ -482,7 +482,7 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
             if( ret != 0 )
                 continue;
 
-            /* Decrypt record with t_in */
+            /* Decrypt record with t_dec */
             TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
             /* Compare results */
