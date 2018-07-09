@@ -1423,6 +1423,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     if( mode == MBEDTLS_MODE_STREAM )
     {
         int ret;
+        size_t olen;
         MBEDTLS_SSL_DEBUG_MSG( 3, ( "before encrypt: msglen = %d, "
                                     "including %d bytes of padding",
                                     rec->data_len, 0 ) );
@@ -1430,10 +1431,16 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         if( ( ret = mbedtls_cipher_crypt( &transform->cipher_ctx_enc,
                                    transform->iv_enc, transform->ivlen,
                                    data, rec->data_len,
-                                   data, &rec->data_len ) ) != 0 )
+                                   data, &olen ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_cipher_crypt", ret );
             return( ret );
+        }
+
+        if( rec->data_len != olen )
+        {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "should never happen" ) );
+            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
         }
     }
     else
