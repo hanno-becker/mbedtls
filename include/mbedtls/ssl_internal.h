@@ -321,10 +321,10 @@ struct mbedtls_ssl_handshake_params
  * Representation of decryption/encryption transformations on records
  *
  * There are the following general types of record transformations:
- * - Stream stream transformations
- *   This comes in essentially two variants depending on the order
- *   of encryption and authentication. The TLS version is irrelevant.
- * - CBC block cipher transformations
+ * - Stream transformations (TLS versions <= 1.2 only)
+ *   Transformation adding a MAC and applying a stream-cipher
+ *   to the authenticated message.
+ * - CBC block cipher transformations ([D]TLS versions <= 1.2 only)
  *   In addition to the distinction of the order of encryption and
  *   authentication, there's a fundamental difference between the
  *   handling in SSL3 & TLS 1.0 and TLS 1.1 and TLS 1.2: For SSL3
@@ -334,15 +334,17 @@ struct mbedtls_ssl_handshake_params
  *   at key extraction time. In contrast, for TLS 1.1 and 1.2, no
  *   IV is generated at key extraction time, but every encrypted
  *   record is explicitly prefixed by the IV with which it was encrypted.
- * - AEAD transformations
- *   These differ fundamentally between TLS 1.2 and TLS 1.3: For TLS 1.2,
- *   the IV to be used for a record is obtained as the concatenation of
- *   an explicit, static 4-byte IV and the 8-byte record sequence number,
- *   and explicitly prepending this sequence number to the encrypted
- *   record. In contrast, for TLS 1.3, the IV is obtained by XOR'ing a
- *   static IV obtained at key extraction time with the 8-byte record
- *   sequence number, without prepending the latter to the encrypted
- *   record.
+ * - AEAD transformations ([D]TLS versions >= 1.2 only)
+ *   These come in two fundamentally different versions, the first one
+ *   used in TLS 1.2, excluding ChaChaPoly ciphersuites, and the second
+ *   one used for ChaChaPoly ciphersuites in TLS 1.2 as well as for TLS 1.3.
+ *   In the first transformation, the IV to be used for a record is obtained
+ *   as the concatenation of an explicit, static 4-byte IV and the 8-byte
+ *   record sequence number, and explicitly prepending this sequence number
+ *   to the encrypted record. In contrast, in the second transformation
+ *   the IV is obtained by XOR'ing a static IV obtained at key extraction
+ *   time with the 8-byte record sequence number, without prepending the
+ *   latter to the encrypted record.
  *
  * In addition to type and version, the following parameters are relevant:
  * - The symmetric cipher algorithm to be used.
