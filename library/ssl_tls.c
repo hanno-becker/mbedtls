@@ -1315,7 +1315,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
 #endif
 
     /* The PRNG is used for dynamic IV generation that's used
-     * for CBC transformations in TLS 1.1 and TLS 1.1. */
+     * for CBC transformations in TLS 1.1 and TLS 1.2. */
 #if !( defined(MBEDTLS_CIPHER_MODE_CBC) &&                              \
        ( defined(MBEDTLS_AES_C) || defined(MBEDTLS_CAMELLIA_C) ) &&     \
        ( defined(MBEDTLS_SSL_PROTO_TLS1_1) || defined(MBEDTLS_SSL_PROTO_TLS1_2) ) )
