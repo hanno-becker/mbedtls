@@ -1371,7 +1371,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     {
         if( post_avail < transform->maclen )
         {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Record provided for encrypted record not large enough" ) );
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Buffer provided for encrypted record not large enough" ) );
             return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         }
 
