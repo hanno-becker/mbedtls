@@ -1297,6 +1297,17 @@ static void ssl_mac( mbedtls_md_context_t *md_ctx,
 /*
  * Encryption/decryption functions
  */
+
+static void ssl_extract_add_data_from_record( unsigned char* add_data,
+                                              mbedtls_record *rec )
+{
+    memcpy( add_data, rec->ctr, sizeof( rec->ctr ) );
+    add_data[8] = rec->type;
+    memcpy( add_data + 9, rec->ver, sizeof( rec->ver ) );
+    add_data[11] = ( rec->data_len >> 8 ) & 0xFF;
+    add_data[12] = rec->data_len & 0xFF;
+}
+
 STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
                             mbedtls_ssl_transform *transform,
                             mbedtls_record *rec,
@@ -1306,7 +1317,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     mbedtls_cipher_mode_t mode;
     int auth_done = 0;
     unsigned char * data;
-    unsigned char * const add_data = (unsigned char*) rec;
+    unsigned char add_data[13];
     size_t post_avail;
 
     /* The SSL context is only used for debugging purposes! */
@@ -1390,7 +1401,11 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         if( transform->minor_ver >= MBEDTLS_SSL_MINOR_VERSION_1 )
         {
             unsigned char mac[MBEDTLS_SSL_MAC_ADD];
-            mbedtls_md_hmac_update( &transform->md_ctx_enc, add_data, 13 );
+
+            ssl_extract_add_data_from_record( add_data, rec );
+
+            mbedtls_md_hmac_update( &transform->md_ctx_enc, add_data,
+                                    sizeof( add_data ) );
             mbedtls_md_hmac_update( &transform->md_ctx_enc,
                                     data, rec->data_len );
             mbedtls_md_hmac_finish( &transform->md_ctx_enc, mac );
@@ -1409,8 +1424,6 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
                                transform->maclen );
 
         rec->data_len += transform->maclen;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
         post_avail -= transform->maclen;
         auth_done++;
     }
@@ -1472,7 +1485,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         memcpy( data - explicit_iv_len, rec->ctr, explicit_iv_len );
 
         MBEDTLS_SSL_DEBUG_BUF( 4, "additional data used for AEAD",
-                               (unsigned char*) rec, 13 );
+                               add_data, 13 );
         MBEDTLS_SSL_DEBUG_BUF( 4, "IV used", rec->ctr, explicit_iv_len );
         MBEDTLS_SSL_DEBUG_MSG( 3, ( "before encrypt: msglen = %d, "
                                     "including %d bytes of padding",
@@ -1481,9 +1494,11 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         /*
          * Encrypt and authenticate
          */
+
+        ssl_extract_add_data_from_record( add_data, rec );
         if( ( ret = mbedtls_cipher_auth_encrypt( &transform->cipher_ctx_enc,
                    transform->iv_enc, transform->ivlen,
-                   add_data, 13,                 /* add data     */
+                   add_data, sizeof( add_data),
                    data, rec->data_len,          /* source       */
                    data, &rec->data_len,         /* destination  */
                    data + rec->data_len, transform->taglen ) ) != 0 )
@@ -1497,8 +1512,6 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
 
         rec->data_len    += transform->taglen + explicit_iv_len;
         rec->data_offset -= explicit_iv_len;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
         post_avail -= transform->taglen;
         auth_done++;
     }
@@ -1528,8 +1541,6 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             data[rec->data_len + i] = (unsigned char) padlen;
 
         rec->data_len += padlen + 1;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
         post_avail -= padlen + 1;
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_1) || defined(MBEDTLS_SSL_PROTO_TLS1_2)
@@ -1593,8 +1604,6 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             data             -= transform->ivlen;
             rec->data_offset -= transform->ivlen;
             rec->data_len    += transform->ivlen;
-            rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-            rec->len[1] = (unsigned char)( rec->data_len      );
         }
 
 #if defined(MBEDTLS_SSL_ENCRYPT_THEN_MAC)
@@ -1618,9 +1627,13 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             }
 
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "using encrypt then mac" ) );
-            MBEDTLS_SSL_DEBUG_BUF( 4, "MAC'd meta-data", add_data, 13 );
+            MBEDTLS_SSL_DEBUG_BUF( 4, "MAC'd meta-data", add_data,
+                                   sizeof( add_data ) );
 
-            mbedtls_md_hmac_update( &transform->md_ctx_enc, add_data, 13 );
+            ssl_extract_add_data_from_record( add_data, rec );
+
+            mbedtls_md_hmac_update( &transform->md_ctx_enc, add_data,
+                                    sizeof( add_data ) );
             mbedtls_md_hmac_update( &transform->md_ctx_enc,
                                     data, rec->data_len );
             mbedtls_md_hmac_finish( &transform->md_ctx_enc, mac );
@@ -1629,8 +1642,6 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
             memcpy( data + rec->data_len, mac, transform->maclen );
 
             rec->data_len += transform->maclen;
-            rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-            rec->len[1] = (unsigned char)( rec->data_len      );
             post_avail -= transform->maclen;
             auth_done++;
         }
@@ -1667,7 +1678,7 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
     size_t padlen = 0, correct = 1;
 #endif
     unsigned char* data;
-    unsigned char* const add_data = (unsigned char*) rec;
+    unsigned char add_data[13];
 
 #if !defined(MBEDTLS_SSL_DEBUG_C)
     ((void) ssl);
@@ -1736,9 +1747,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
         data += explicit_iv_len;
         rec->data_offset += explicit_iv_len;
         rec->data_len -= explicit_iv_len + transform->taglen;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
 
+        ssl_extract_add_data_from_record( add_data, rec );
         MBEDTLS_SSL_DEBUG_BUF( 4, "additional data used for AEAD",
                                add_data, 13 );
 
@@ -1801,8 +1811,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
             }
 
             rec->data_len -= transform->maclen;
-            rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-            rec->len[1] = (unsigned char)( rec->data_len      );
+
+            ssl_extract_add_data_from_record( add_data, rec );
 
             MBEDTLS_SSL_DEBUG_BUF( 4, "MAC'd meta-data", add_data, 13 );
             mbedtls_md_hmac_update( &transform->md_ctx_dec, add_data, 13 );
@@ -1847,14 +1857,12 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
                 MBEDTLS_SSL_DEBUG_MSG( 1, ( "message too small to contain IV" ) );
                 return( MBEDTLS_ERR_SSL_INVALID_MAC );
             }
-            for( size_t i = 0; i < transform->ivlen; i++ )
-                transform->iv_dec[i] = data[i];
+
+            memcpy( transform->iv_dec, data, transform->ivlen );
 
             data += transform->ivlen;
             rec->data_offset += transform->ivlen;
             rec->data_len -= transform->ivlen;
-            rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-            rec->len[1] = (unsigned char)( rec->data_len      );
         }
 #endif /* MBEDTLS_SSL_PROTO_TLS1_1 || MBEDTLS_SSL_PROTO_TLS1_2 */
 
@@ -1958,8 +1966,6 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
         }
 
         rec->data_len -= padlen;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
     }
     else
 #endif /* MBEDTLS_CIPHER_MODE_CBC &&
@@ -1989,8 +1995,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
         }
 
         rec->data_len -= transform->maclen;
-        rec->len[0] = (unsigned char)( rec->data_len >> 8 );
-        rec->len[1] = (unsigned char)( rec->data_len      );
+
+        ssl_extract_add_data_from_record( add_data, rec );
 
 #if defined(MBEDTLS_SSL_PROTO_SSL3)
         if( transform->minor_ver == MBEDTLS_SSL_MINOR_VERSION_0 )
@@ -2876,16 +2882,17 @@ int mbedtls_ssl_write_record( mbedtls_ssl_context *ssl )
         if( ssl->transform_out != NULL )
         {
             mbedtls_record rec;
+
+            rec.buf         = ssl->out_iv;
+            rec.buf_len     = MBEDTLS_SSL_BUFFER_LEN -
+                ( ssl->out_iv - ssl->out_buf );
+            rec.data_len    = ssl->out_msglen;
+            rec.data_offset = ssl->out_msg - rec.buf;
+
             memcpy( &rec.ctr[0], ssl->out_ctr, 8 );
             mbedtls_ssl_write_version( ssl->major_ver, ssl->minor_ver,
                                        ssl->conf->transport, rec.ver );
             rec.type = ssl->out_msgtype;
-            rec.buf = ssl->out_iv;
-            rec.buf_len = MBEDTLS_SSL_BUFFER_LEN - ( ssl->out_iv - ssl->out_buf );
-            rec.data_len = ssl->out_msglen;
-            rec.data_offset = ssl->out_msg - rec.buf;
-            rec.len[0] = (unsigned char)( rec.data_len >> 8 );
-            rec.len[1] = (unsigned char)( rec.data_len      );
 
             if( ( ret = ssl_encrypt_buf( ssl, ssl->transform_out, &rec,
                                          ssl->conf->f_rng, ssl->conf->p_rng ) ) != 0 )
@@ -3759,16 +3766,16 @@ static int ssl_prepare_record_content( mbedtls_ssl_context *ssl )
     if( !done && ssl->transform_in != NULL )
     {
         mbedtls_record rec;
+
+        rec.buf         = ssl->in_iv;
+        rec.buf_len     = MBEDTLS_SSL_BUFFER_LEN - ( ssl->in_iv - ssl->in_buf );
+        rec.data_len    = ssl->in_msglen;
+        rec.data_offset = 0;
+
         memcpy( &rec.ctr[0], ssl->in_ctr, 8 );
         mbedtls_ssl_write_version( ssl->major_ver, ssl->minor_ver,
                                    ssl->conf->transport, rec.ver );
         rec.type = ssl->in_msgtype;
-        rec.buf = ssl->in_iv;
-        rec.buf_len = MBEDTLS_SSL_BUFFER_LEN - ( ssl->in_iv - ssl->in_buf );
-        rec.data_len = ssl->in_msglen;
-        rec.data_offset = 0;
-        rec.len[0] = (unsigned char)( rec.data_len >> 8 );
-        rec.len[1] = (unsigned char)( rec.data_len      );
 
         if( ( ret = ssl_decrypt_buf( ssl, ssl->transform_in, &rec ) ) != 0 )
         {

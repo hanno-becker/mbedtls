@@ -319,8 +319,6 @@ void ssl_crypt_record( int cipher_type, int hash_id,
         /* Make sure to vary the length to exercise different
          * paddings. */
         rec.data_len = 1 + num_records;
-        rec.len[0] = (unsigned char)( rec.data_len >> 8 );
-        rec.len[1] = (unsigned char)( rec.data_len      );
 
         memset( rec.buf + rec.data_offset, 42, rec.data_len );
 
@@ -456,9 +454,6 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
                     TEST_ASSERT( 0 );
                     break;
             }
-
-            rec.len[0] = (unsigned char)( rec.data_len >> 8 );
-            rec.len[1] = (unsigned char)( rec.data_len      );
 
             memset( rec.buf + rec.data_offset, 42, rec.data_len );
 

@@ -449,11 +449,6 @@ struct mbedtls_ssl_transform
 /*
  * Internal representation of record frames
  *
- * The header layout is chosen to facilitate the computation of
- * authentication tags which often use the header bytes laid out
- * exactly as in the struct; note that it does not match what's
- * transferred on the wire.
- *
  * Instances come in two flavors:
  * (1) Encrypted
  *     These always have data_offset = 0
@@ -473,7 +468,6 @@ typedef struct
     uint8_t ctr[8];         /*!< Record sequence number        */
     uint8_t type;           /*!< Record type                   */
     uint8_t ver[2];         /*!< SSL/TLS version               */
-    uint8_t len[2];         /*!< Content length, little endian */
 
     unsigned char *buf;     /*!< Memory buffer enclosing the record content */
     size_t buf_len;         /*!< Buffer length */
