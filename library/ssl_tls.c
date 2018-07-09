@@ -1504,7 +1504,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
         int ret;
         size_t padlen, i;
 
-        /* Currently we're always using padding
+        /* Currently we're always using minimal padding
          * (up to 255 bytes would be allowed). */
         padlen = transform->ivlen - ( rec->data_len + 1 ) % transform->ivlen;
         if( padlen == transform->ivlen )
