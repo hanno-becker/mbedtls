@@ -1523,6 +1523,7 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
     {
         int ret;
         size_t padlen, i;
+        size_t olen;
 
         /* Currently we're always using minimal padding
          * (up to 255 bytes would be allowed). */
@@ -1584,11 +1585,18 @@ STATIC int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
                                    transform->iv_enc,
                                    transform->ivlen,
                                    data, rec->data_len,
-                                   data, &rec->data_len ) ) != 0 )
+                                   data, &olen ) ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_cipher_crypt", ret );
             return( ret );
         }
+
+        if( rec->data_len != olen )
+        {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "should never happen" ) );
+            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+        }
+
 #if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1)
         if( transform->minor_ver < MBEDTLS_SSL_MINOR_VERSION_2 )
         {
