@@ -1802,6 +1802,50 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
     ( defined(MBEDTLS_AES_C) || defined(MBEDTLS_CAMELLIA_C) )
     if( mode == MBEDTLS_MODE_CBC )
     {
+        size_t minlen = 0;
+
+        /*
+         * Check immediate ciphertext sanity
+         */
+#if defined(MBEDTLS_SSL_PROTO_TLS1_1) || defined(MBEDTLS_SSL_PROTO_TLS1_2)
+        if( ssl->minor_ver >= MBEDTLS_SSL_MINOR_VERSION_2 )
+        {
+            /* The ciphertext is prefixed with the CBC IV. */
+            minlen += transform->ivlen;
+        }
+#endif
+
+        /* Size considerations:
+         *
+         * - The CBC cipher text must not be empty and hence
+         *   at least of size transform->ivlen.
+         *
+         * Together with the potential IV-prefix, this explains
+         * the first of the two checks below.
+         *
+         * - The record must contain a MAC, either in plain or
+         *   encrypted, depending on whether Encrypt-then-MAC
+         *   is used or not.
+         *   - If it is, the message contains the IV-prefix,
+         *     the CBC ciphertext, and the MAC.
+         *   - If it is not, the padded plaintext, and hence
+         *     the CBC ciphertext, has at least length maclen + 1
+         *     because there is at least the padding length byte.
+         *
+         * As the CBC ciphertext is not empty, both cases give the
+         * lower bound minlen + maclen + 1 on the record size, which
+         * we test for in the second check below.
+         */
+        if( rec->data_len < minlen + transform->ivlen ||
+            rec->data_len < minlen + transform->maclen + 1 )
+        {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < max( ivlen(%d), maclen (%d) "
+                                "+ 1 ) ( + expl IV )", rec->data_len,
+                                transform->ivlen,
+                                transform->maclen ) );
+            return( MBEDTLS_ERR_SSL_INVALID_MAC );
+        }
+
         /*
          * Authenticate before decrypt if enabled
          */
@@ -1811,13 +1855,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
             unsigned char mac_expect[MBEDTLS_SSL_MAC_ADD];
 
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "using encrypt then mac" ) );
-            if( rec->data_len < transform->maclen )
-            {
-                MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < maclen (%d)",
-                                            rec->data_len, transform->maclen ) );
-                return( MBEDTLS_ERR_SSL_INVALID_MAC );
-            }
 
+            /* Safe due to the check data_len >= minlen + maclen + 1 above. */
             rec->data_len -= transform->maclen;
 
             ssl_extract_add_data_from_record( add_data, rec );
@@ -1860,12 +1899,8 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
          */
         if( transform->minor_ver >= MBEDTLS_SSL_MINOR_VERSION_2 )
         {
-            if( rec->data_len < transform->ivlen )
-            {
-                MBEDTLS_SSL_DEBUG_MSG( 1, ( "message too small to contain IV" ) );
-                return( MBEDTLS_ERR_SSL_INVALID_MAC );
-            }
-
+            /* This is safe because data_len >= minlen + maclen + 1 initially,
+             * and at this point we have at most subtracted maclen. */
             memcpy( transform->iv_dec, data, transform->ivlen );
 
             data += transform->ivlen;
@@ -1898,24 +1933,37 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
                     transform->ivlen );
         }
 #endif
-        if( rec->data_len == 0 )
+
+        /* Safe since data_len >= minlen + maclen + 1, so after having
+         * subtracted at most minlen and maclen up to this point,
+         * data_len > 0. */
+        padlen = data[rec->data_len - 1];
+
+        if( auth_done == 1 )
         {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "message doesn't contain padding byte" ) );
-            return( MBEDTLS_ERR_SSL_INVALID_MAC );
+            correct *= ( rec->data_len >= padlen + 1 );
+            padlen  *= ( rec->data_len >= padlen + 1 );
+        }
+        else
+        {
+#if defined(MBEDTLS_SSL_DEBUG_ALL)
+            if( rec->data_len < transform->maclen + padlen + 1 )
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < maclen (%d) + padlen (%d)",
+                                            rec->data_len,
+                                            transform->maclen,
+                                            padlen + 1 ) );
+            }
+#endif
+
+            correct *= ( rec->data_len >= transform->maclen + padlen + 1 );
+            padlen  *= ( rec->data_len >= transform->maclen + padlen + 1 );
         }
 
-        padlen = data[rec->data_len - 1];
-#if defined(MBEDTLS_SSL_DEBUG_ALL)
-        if( rec->data_len < padlen + 1 )
-        {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < 1 + padlen (%d)",
-                                        rec->data_len, padlen ) );
-        }
-#endif
-        correct *= ( rec->data_len >= padlen + 1 );
-        padlen  *= ( rec->data_len >= padlen + 1 );
-        /* Make sure padlen > 0 because we're later applying (_ % padlen) */
         padlen++;
+
+        /* Regardless of the validity of the padding,
+         * we have data_len >= padlen here. */
 
 #if defined(MBEDTLS_SSL_PROTO_SSL3)
         if( transform->minor_ver == MBEDTLS_SSL_MINOR_VERSION_0 )
@@ -1973,6 +2021,10 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
             return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
         }
 
+        /* If the padding was found to be invalid, padlen == 0
+         * and the subtraction is safe. If the padding was found valid,
+         * padlen hasn't been changed and the previous assertion
+         * data_len >= padlen still holds. */
         rec->data_len -= padlen;
     }
     else
@@ -1995,13 +2047,19 @@ STATIC int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
     {
         unsigned char mac_expect[MBEDTLS_SSL_MAC_ADD];
 
-        if( rec->data_len < transform->maclen )
-        {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "msglen (%d) < maclen (%d)",
-                                        rec->data_len, transform->maclen ) );
-            return( MBEDTLS_ERR_SSL_INVALID_MAC );
-        }
-
+        /* If the initial value of padlen was such that
+         * data_len < maclen + padlen + 1, then padlen
+         * got reset to 1, and the initial check
+         * data_len >= minlen + maclen + 1
+         * guarantees that at this point we still
+         * have at least data_len >= maclen.
+         *
+         * If the initial value of padlen was such that
+         * data_len >= maclen + padlen + 1, then we have
+         * subtracted either padlen + 1 (if the padding was correct)
+         * or 0 (if the padding was incorrect) since then,
+         * hence data_len >= maclen in any case.
+         */
         rec->data_len -= transform->maclen;
 
         ssl_extract_add_data_from_record( add_data, rec );
