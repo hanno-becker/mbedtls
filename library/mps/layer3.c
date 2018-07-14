@@ -881,9 +881,11 @@ int mps_l3_write_handshake( mps_l3 *l3, mps_l3_handshake_out *out )
 
     TRACE_INIT( "l3_write_handshake" );
     TRACE( trace_comment, "Parameters: " );
-    TRACE( trace_comment, "* Epoch:  %u", (unsigned) out->epoch );
-    TRACE( trace_comment, "* Type:   %u", (unsigned) out->type );
-    TRACE( trace_comment, "* Length: %u", (unsigned) out->len );
+    TRACE( trace_comment, "* Epoch:    %u", (unsigned) out->epoch );
+    TRACE( trace_comment, "* Type:     %u", (unsigned) out->type );
+    TRACE( trace_comment, "* Length:   %u", (unsigned) out->len );
+    TRACE( trace_comment, "* Frag Off: %u", (unsigned) out->frag_offset );
+    TRACE( trace_comment, "* Frag Len: %u", (unsigned) out->frag_len );
 
     /*
      * See the documentation of mps_l3_read() for a description
@@ -897,6 +899,7 @@ int mps_l3_write_handshake( mps_l3 *l3, mps_l3_handshake_out *out )
           l3->out.hs.type  != out->type  ||
           l3->out.hs.len   != out->len ) )
     {
+        TRACE( trace_error, "Inconsistent parameters on continuation." );
         RETURN( MPS_ERR_INCONSISTENT_ARGS );
     }
 
@@ -1446,7 +1449,10 @@ static int l3_prepare_write( mps_l3 *l3, mbedtls_mps_msg_type_t port,
     TRACE( trace_comment, "* Epoch: %u", (unsigned) epoch );
 
     if( l3->out.state != MBEDTLS_MPS_MSG_NONE )
+    {
+        TRACE( trace_error, "Unexpected state" );
         RETURN( MPS_ERR_UNEXPECTED_OPERATION );
+    }
 
 #if !defined(MPS_L3_ALLOW_INTERLEAVED_SENDING)
     if( l3->out.hs.state == MPS_L3_HS_PAUSED && port != MBEDTLS_MPS_MSG_HS )

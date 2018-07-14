@@ -522,7 +522,13 @@ int l1_check_flush_stream( mps_l1_stream_write *p )
 
     /* Several heuristics for flushing are conceivable,
      * the simplest one being to immediately flush once
-     * data is available. */
+     * data is available.
+     *
+     * QUESTION:
+     * Is it more efficient to gather a large buffer of
+     * outgoing data before calling the underlying stream
+     * transport, or should this always be done immediately?
+     */
     if( br > 0 && br >= 4 * bl / 5 )
     {
         TRACE( trace_comment, "L1 check flush -- flush" );
@@ -579,6 +585,7 @@ int l1_dispatch_stream( mps_l1_stream_write *p, size_t len )
      * COMMENTS WELCOME
      *
      */
+
     RETURN( l1_check_flush_stream( p ) );
 }
 
@@ -963,6 +970,7 @@ int l1_flush_dgram( mps_l1_dgram_write *p )
     p->buf         = NULL;
     p->buf_len     = 0;
 
+    p->flush = 0;
     RETURN( 0 );
 }
 

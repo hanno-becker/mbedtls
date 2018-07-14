@@ -269,6 +269,8 @@ int mbedtls_writer_get( mbedtls_writer *wr, size_t desired,
     /* We're still serving from the output buffer.
      * Check if there's enough space left in it. */
     or = ol - end;
+    TRACE( trace_comment, "%u bytes remaining in output buffer",
+           (unsigned) or );
     if( or < desired )
     {
         TRACE( trace_comment, "need %u, but only %u remains in write buffer",

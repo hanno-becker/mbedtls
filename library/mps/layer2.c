@@ -75,7 +75,7 @@ static int l2_epoch_lookup( mps_l2 *ctx,
                             mbedtls_mps_epoch_id epoch_id,
                             mps_l2_epoch_t **epoch );
 
-/* Check some epochs are no longer needed and can be removed. */
+/* Check if some epochs are no longer needed and can be removed. */
 static int l2_epoch_cleanup( mps_l2 *ctx );
 
 /* Check if removal of the read-permission for an epoch
@@ -166,15 +166,6 @@ static int l2_counter_replay_check( mps_l2 *ctx,
     {                                                   \
         *( dst ) = ( (uint8_t*) ( src ) )[0];           \
     } while( 0 )
-
-/*
- * TODO: Decide and document clearly if the family of `dispatch` functions
- *       on the various layers is allowed to do actual transmission to the
- *       underlying transport or not. This is important, because if it doesn't
- *       -- and instead an explicit call to `flush` must be made -- then `dispatch`
- *       may be called in the middle of a function; if it does, then any call
- *       to `dispatch` must be made re-entrant.
- */
 
 static void l2_out_write_version( int major, int minor, int transport,
                        unsigned char ver[2] )
@@ -426,7 +417,9 @@ static int l2_out_prepare_record( mps_l2 *ctx, mbedtls_mps_epoch_id epoch_id )
     {
         TRACE( trace_comment, "Not enough space for record, need at least %u == ( %u + %u + %u + 1 ) but have only %u",
                (unsigned)( hdr_len + pre_expansion + post_expansion + 1 ),
-               (unsigned) hdr_len, (unsigned) pre_expansion, (unsigned) post_expansion,
+               (unsigned) hdr_len,
+               (unsigned) pre_expansion,
+               (unsigned) post_expansion,
                (unsigned) total_sz );
 
         /* TODO: Check that L1 has something to send to avoid an infinite loop
@@ -865,7 +858,7 @@ int mps_l2_write_start( mps_l2 *ctx, mps_l2_out *out )
     if( ret != 0 )
         RETURN( ret );
 
-    /* Make sure that no data is queued for dispatching, and that
+    /* Make sure that no data is queueing for dispatching, and that
      * all dispatched data has been delivered by Layer 1 in case
      * a flush has been requested.
      * Please consult the documentation of ::mps_l2 for further information. */
@@ -1142,7 +1135,8 @@ int mps_l2_read_done( mps_l2 *ctx )
          * multiple chunks of data in the same record. */
         if( l2_type_can_be_merged( ctx, ctx->in.active->type ) == 0 )
         {
-            TRACE( trace_error, "Record content type does not allow multiple reads from the same record." );
+            TRACE( trace_error, "Record content type %u does not allow multiple reads from the same record.",
+                   (unsigned) ctx->in.active->type );
             RETURN( MPS_ERR_INVALID_CONTENT_MERGE );
         }
 
@@ -1334,6 +1328,18 @@ int mps_l2_read_start( mps_l2 *ctx, mps_l2_in *in )
         ret = l2_in_update_counter( ctx, rec.epoch, rec.ctr );
         if( ret != 0 )
             RETURN( ret );
+
+        /*
+         * Check if the record is empty, and if yes,
+         * if empty records are allowed for the given content type.
+         */
+
+        if( rec.buf.data_len == 0 )
+        {
+            TRACE( trace_comment, "Record is empty" );
+            if( l2_type_empty_allowed( ctx, rec.type ) == 0 )
+                RETURN( MPS_ERR_EMPTY_RECORD );
+        }
 
         /* 3.1 */
         /* TLS only */
