@@ -69,6 +69,9 @@
 #define MPS_ERR_INVALID_RECORD         -0x321  /*!< The record header is invalid.            */
 #define MPS_ERR_INVALID_MAC            -0x33  /*!< The record MAC is invalid.               */
 #define MPS_ERR_INVALID_EPOCH          -0x42  /*!< The record header is invalid.            */
+#define MPS_ERR_EMPTY_RECORD           -0x43 /*!< An empty record was attempted to be
+                                              *   sent or received for a content type which
+                                              *   does not allow such.                     */
 #define MPS_ERR_EPOCH_CHANGE_REJECTED  -0x6  /*!< The current epoch couldn't be changed.   */
 #define MPS_ERR_EPOCH_ALREADY_SET      -0x7  /*!< The epoch under consideration has already
                                               *   been configured.                         */
@@ -399,23 +402,21 @@ typedef struct
                            *   multiple messages (that is, data written by
                            *   the user between two calls of mps_l2_write_start
                            *   and mps_l2_write_end) to be merged within
-                           *   the same outgoing record.
+                           *   the same record.
                            *   It is realized as a 64-bit bitflag, with the
                            *   n-th bit (n=0..63) indicating being set if
                            *   the record content type ID n is allowed.
                            *   This must be a sub-field of \p type_flag.     */
     uint64_t empty_flag;  /*!< This member defines the record content type
                            *   ID's for which the Layer 2 instance allows
-                           *   empty records to be sent, or whether such
-                           *   requests should be silently ignored.
+                           *   empty records to be sent and received.
                            *   It is realized as a 64-bit bitflag, with the
                            *   n-th bit (n=0..63) indicating being set if
-                           *   the record content type ID n is allowed.
+                           *   empty records of content type ID n is allowed.
                            *   This must be a sub-field of \p type_flag.
-                           *
-                           *   Note that Layer 2 does not fail when an
-                           *   attempt to send an empty record is made,
-                           *   but instead silently discards the request.    */
+                           *   If empty records are not allowed, requests
+                           *   to send them will be silently ignored, while
+                           *   incoming empty records are treated as errors. */
 
 #define MPS_L2_CONF_INV_PAUSE_FLAG( p )                         \
     ( ( (p)->pause_flag & (p)->type_flag ) == (p)->pause_flag )
@@ -1047,8 +1048,8 @@ int mps_l2_free( mps_l2 *ctx );
  *                 member of ::mps_l2_config for more information.
  * \param empty    This parameter indicates whether empty records of content
  *                 type \p type are allowed to be sent
- *                 (value #MPS_L2_EMPTY_ALLOWED) or should be silently
- *                 discarded (value #MPS_L2_EMPTY_DISCARD).
+ *                 (value #MPS_L2_EMPTY_ALLOWED) or not
+ *                 (value #MPS_L2_EMPTY_DISCARD).
  *                 See the documentation of \c empty_flag
  *                 member of ::mps_l2_config for more information.
  *
@@ -1062,8 +1063,8 @@ int mps_l2_free( mps_l2 *ctx );
 #define MPS_L2_PACK_DISABLED  0
 #define MPS_L2_PACK_ENABLED   1
 
-#define MPS_L2_EMPTY_ALLOWED  0
-#define MPS_L2_EMPTY_DISCARD  1
+#define MPS_L2_EMPTY_FORBIDDEN 0
+#define MPS_L2_EMPTY_ALLOWED   1
 
 /*@
   MPS_L2_INV_REQUIRES( ctx )

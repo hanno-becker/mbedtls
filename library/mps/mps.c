@@ -103,6 +103,7 @@ int mbedtls_mps_send_fatal( mbedtls_mps *mps, mbedtls_mps_alert_t alert_type )
     mps_block( mps );
 
     /* Attempt to send alert. */
+    TRACE( trace_comment, "Pend fatal alert" );
     mps->alert_pending = 1;
     MPS_CHK( mps_handle_pending_alert( mps ) );
 
@@ -225,6 +226,7 @@ int mbedtls_mps_close( mbedtls_mps *mps )
      * of whether data is still pending to be delivered;
      * in that case, the pending data will be flushed first
      * before writing and dispatching the alert. */
+    TRACE( trace_comment, "Pend closure alert" );
     mps->alert_pending = 1;
     MPS_CHK( mps_handle_pending_alert( mps ) );
 
@@ -298,10 +300,12 @@ int mbedtls_mps_init( mbedtls_mps *mps,
     mps->in_epoch  = MPS_EPOCH_NONE;
     mps->out_epoch = MPS_EPOCH_NONE;
 
+    mps->alert_pending = 0;
     mps->state = MBEDTLS_MPS_STATE_OPEN;
     mps->blocking_info.reason = MBEDTLS_MPS_ERROR_NONE;
 
-    mps->in.state = MBEDTLS_MPS_MSG_NONE;
+    mps->in.state  = MBEDTLS_MPS_MSG_NONE;
+    mps->out.state = MBEDTLS_MPS_MSG_NONE;
     RETURN( 0 );
 }
 
@@ -347,7 +351,7 @@ int mbedtls_mps_read( mbedtls_mps *mps )
      *       retransmission from an old flight.
      *   (3) fetch the contents and add it to the message reassembler,
      *       in case it's a proper fragment of a handshake message,
-     *       and potentially RETURN the fully reassembled message.
+     *       and potentially return the fully reassembled message.
      *   (4) buffer it if it's a future message and the retransmission
      *       state machine supports it.
      *   (5) ignore otherwise.
@@ -462,6 +466,8 @@ int mbedtls_mps_read( mbedtls_mps *mps )
                 MPS_CHK( mps_l3_read_consume( mps->conf.l3 ) );
                 RETURN( MBEDTLS_MPS_MSG_NONE );
             }
+            else
+                RETURN( ret );
 
             /* TODO: Decide where to handle the situation where the
              * retransmission state machine needs to send something,

@@ -1142,7 +1142,8 @@ int mps_l2_read_done( mps_l2 *ctx )
          * multiple chunks of data in the same record. */
         if( l2_type_can_be_merged( ctx, ctx->in.active->type ) == 0 )
         {
-            TRACE( trace_error, "Record content type does not allow multiple reads from the same record." );
+            TRACE( trace_error, "Record content type %u does not allow multiple reads from the same record.",
+                   (unsigned) ctx->in.active->type );
             RETURN( MPS_ERR_INVALID_CONTENT_MERGE );
         }
 
@@ -1334,6 +1335,18 @@ int mps_l2_read_start( mps_l2 *ctx, mps_l2_in *in )
         ret = l2_in_update_counter( ctx, rec.epoch, rec.ctr );
         if( ret != 0 )
             RETURN( ret );
+
+        /*
+         * Check if the record is empty, and if yes,
+         * if empty records are allowed for the given content type.
+         */
+
+        if( rec.buf.data_len == 0 )
+        {
+            TRACE( trace_comment, "Record is empty" );
+            if( l2_type_empty_allowed( ctx, rec.type ) == 0 )
+                RETURN( MPS_ERR_EMPTY_RECORD );
+        }
 
         /* 3.1 */
         /* TLS only */
