@@ -2,16 +2,6 @@
 #include <mbedtls/ssl.h>
 #include <mbedtls/ssl_internal.h>
 
-void ssl_transform_init( mbedtls_ssl_transform *transform );
-int ssl_encrypt_buf( mbedtls_ssl_context *ssl,
-                     mbedtls_ssl_transform *transform,
-                     mbedtls_record *rec,
-                     int (*f_rng)(void *, unsigned char *, size_t),
-                     void *p_rng );
-int ssl_decrypt_buf( mbedtls_ssl_context *ssl,
-                     mbedtls_ssl_transform *transform,
-                     mbedtls_record *rec );
-
 /*
  * Helper function setting up inverse record transformations
  * using given cipher, hash, EtM mode, authentication tag length,
@@ -274,8 +264,8 @@ void ssl_crypt_record( int cipher_type, int hash_id,
     mbedtls_record rec, rec_backup;
 
     mbedtls_ssl_init( &ssl );
-    ssl_transform_init( &t0 );
-    ssl_transform_init( &t1 );
+    mbedtls_ssl_transform_init( &t0 );
+    mbedtls_ssl_transform_init( &t1 );
     TEST_ASSERT( build_transforms( &t0, &t1, cipher_type, hash_id,
                                    etm, tag_mode, ver ) == 0 );
 
@@ -326,8 +316,8 @@ void ssl_crypt_record( int cipher_type, int hash_id,
         rec_backup = rec;
 
         /* Encrypt record */
-        ret = ssl_encrypt_buf( &ssl, t_enc, &rec,
-                               rnd_std_rand, NULL );
+        ret = mbedtls_ssl_encrypt_buf( &ssl, t_enc, &rec,
+                                       rnd_std_rand, NULL );
         TEST_ASSERT( ret == 0 || ret == MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
         if( ret != 0 )
         {
@@ -335,7 +325,7 @@ void ssl_crypt_record( int cipher_type, int hash_id,
         }
 
         /* Decrypt record with t_dec */
-        TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
+        TEST_ASSERT( mbedtls_ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
         /* Compare results */
         TEST_ASSERT( rec.type == rec_backup.type );
@@ -401,8 +391,8 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
                        * already seen a successful test. */
 
     mbedtls_ssl_init( &ssl );
-    ssl_transform_init( &t0 );
-    ssl_transform_init( &t1 );
+    mbedtls_ssl_transform_init( &t0 );
+    mbedtls_ssl_transform_init( &t1 );
     TEST_ASSERT( build_transforms( &t0, &t1, cipher_type, hash_id,
                                    etm, tag_mode, ver ) == 0 );
 
@@ -461,7 +451,7 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
             rec_backup = rec;
 
             /* Encrypt record */
-            ret = ssl_encrypt_buf( &ssl, t_enc, &rec, rnd_std_rand, NULL );
+            ret = mbedtls_ssl_encrypt_buf( &ssl, t_enc, &rec, rnd_std_rand, NULL );
 
             if( ( mode == 1 || mode == 2 ) && seen_success )
             {
@@ -478,7 +468,7 @@ void ssl_crypt_record_small( int cipher_type, int hash_id,
                 continue;
 
             /* Decrypt record with t_dec */
-            TEST_ASSERT( ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
+            TEST_ASSERT( mbedtls_ssl_decrypt_buf( &ssl, t_dec, &rec ) == 0 );
 
             /* Compare results */
             TEST_ASSERT( rec.type == rec_backup.type );
