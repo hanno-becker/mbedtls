@@ -401,7 +401,7 @@ int mbedtls_writer_feed( mbedtls_writer *writer,
  *
  * \param writer    The writer context to be used.
  * \param queued    The address at which to store the amount of
- *                  outgoing data that has been queued. May be NULL
+ *                  outgoing data that has been queued. May be \c NULL
  *                  if this information is not required.
  * \param force     Indicates whether the output buffer should
  *                  be reclaimed even if there's space left.

@@ -551,20 +551,123 @@ exit:
     return( ret );
 }
 
+static int mps_clear_pending( mbedtls_mps *mps )
+{
+    int ret;
+    /* Check if a handshake message is still pending to be dispatched. */
+    while( mps->out.state    == MBEDTLS_MPS_MSG_HS &&
+           mps->out.hs.state == MPS_HS_QUEUED )
+    {
+        ret = mps_feed_hs_fragment( mps );
+        if( ret == MBEDTLS_ERR_WRITER_NEED_MORE )
+            continue;
+        MPS_CHK( ret );
+    }
+
+exit:
+    /* No failure handler for internal functions. */
+    return( ret );
+}
+
+static int mps_feed_hs_fragment( mbedtls_mps *mps )
+{
+    int ret;
+
+    mps_l3_handshake_out l3_hs;
+
+    unsigned char *frag; /* Buffer holding the contents of the HS fragment. */
+    size_t frag_len;     /* Length of handshake fragment buffer.            */
+
+    size_t remaining;
+
+    TRACE_INIT( "mps_prepare_hs_fragment" );
+
+    if( mps->out.state != MBEDTLS_MPS_MSG_HS ||
+        ( mps->out.hs.state != MPS_HS_PAUSED &&
+          mps->out.hs.state != MPS_HS_QUEUED ) )
+    {
+        TRACE( trace_error, "Should not happen..." );
+        RETURN( MPS_ERR_INTERNAL_ERROR );
+    }
+
+    l3_hs.epoch       = mps->out.hs.epoch;
+    l3_hs.seq_nr      = mps->out.hs.seq_nr;
+    l3_hs.len         = mps->out.hs.length;
+    l3_hs.frag_offset = mps->out.hs.offset;
+    l3_hs.frag_len    = MPS_L3_LENGTH_UNKNOWN;
+
+    if( l3_hs.len == MPS_L3_LENGTH_UNKNOWN )
+        remaining = -1u;
+    else
+        remaining = l3_hs.len - l3_hs.frag_offset;
+
+    MPS_CHK( mps_l3_write_handshake( mps->conf.l3, &l3_hs ) );
+
+    MPS_CHK( mbedtls_writer_get_ext( l3_hs.wr_ext, remaining,
+                                     &frag, &frag_len ) );
+
+    ret = mbedtls_writer_feed( &mps->out.hs.wr, frag, frag_len );
+    if( ret == MBEDTLS_ERR_WRITER_NEED_MORE )
+    {
+        MPS_CHK( mbedtls_writer_commit_ext( l3_hs.wr_ext ) );
+        MPS_CHK( mps_l3_dispatch( mps->conf.l3 ) );
+        mps->out.hs.offset += frag_len;
+    }
+
+    if( ret != 0 )
+        goto exit;
+
+    mps->out.hs.state = MPS_HS_ACTIVE;
+
+exit:
+    /* No failure handler for internal functions. */
+    return( ret );
+}
+
+static int mps_dispatch_hs_fragment( mbedtls_mps *mps )
+{
+    size_t frag_len, bytes_queued;
+
+    TRACE_INIT( "mps_dispatch_hs_fragment" );
+
+    if( mps->out.state != MBEDTLS_MPS_MSG_HS ||
+        mps->out.hs.state != MPS_HS_ACTIVE )
+    {
+        TRACE( trace_error, "Should not happen..." );
+        RETURN( MPS_ERR_INTERNAL_ERROR );
+    }
+
+    MPS_CHK( mbedtls_writer_reclaim( &mps->out.hs.wr, &frag_len, &bytes_queued,
+                                     MBEDTLS_WRITER_RECLAIM_FORCE ) );
+    MPS_CHK( mbedtls_writer_commit_ext( mps->out.hs.wr_ext_l3, frag_len ) );
+    MPS_CHK( mps_l3_dispatch( mps->conf.l3 ) );
+
+    if( bytes_queued > 0 )
+    {
+
+    }
+
+exit:
+    /* No failure handler for internal functions. */
+    return( ret );
+}
+
 static int mps_rsm_new_hs_out( mbedtls_mps *mps, mbedtls_mps_handshake_out *hs )
 {
     int ret = 0;
     mps_l3_handshake_out hs_l3;
+    TRACE_INIT( "mps_rsm_new_hs_out, type %u, length %u",
+                (unsigned) hs->type, (unsigned) hs->length );
+
+    hs_l3.epoch = mps->out_epoch;
+    hs_l3.type  = hs->type;
+    hs_l3.len   = hs->length;
 
     if( mps->conf.mode == MBEDTLS_SSL_TRANSPORT_STREAM )
     {
         /* TLS
          * Attempt to write a handshake message on Layer 3
          * and forward the writer. */
-
-        hs_l3.epoch = mps->out_epoch;
-        hs_l3.type  = hs->type;
-        hs_l3.len   = hs->length;
 
         MPS_CHK( mps_l3_write_handshake( mps->conf.l3, &hs_l3 ) );
 
@@ -573,18 +676,87 @@ static int mps_rsm_new_hs_out( mbedtls_mps *mps, mbedtls_mps_handshake_out *hs )
     }
     else
     {
-        /* DTLS
-         * Not yet implemented
+        /* DTLS */
+        unsigned char *raw_buf;
+        size_t remaining;
+        size_t raw_buf_len;
+
+        if( mps->retransmission.state == MBEDTLS_MPS_FLIGHT_RECEIVING )
+        {
+            TRACE( trace_error, "Attempt to write a handshake message while retransmission state machine is in state RECEIVING." );
+            RETURN( MPS_ERR_INTERNAL_ERROR );
+        }
+
+        if( mps->out.hs.state == MPS_HS_ACTIVE )
+        {
+            TRACE( trace_error, "An outgoing handshake message is already being written." );
+            RETURN( MPS_ERR_INTERNAL_ERROR );
+        }
+
+        /* Check consistency of parameters on continuation */
+        if( mps->out.hs.state == MPS_HS_PAUSED &&
+            ( mps->out.hs.length != hs->length ||
+              mps->out.hs.type   != hs->type ) )
+        {
+            TRACE( trace_error, "Inconsistent parameters when continuing a handshake write." );
+            RETURN( MPS_ERR_INTERNAL_ERROR );
+        }
+
+        if( mps->out.hs.state == MPS_HS_NONE )
+        {
+            TRACE( trace_comment, "No handshake message currently opened." );
+
+            mps->out.hs.length = hs->length;
+            mps->out.hs.type   = hs->type;
+            mps->out.hs.offset = 0;
+
+            MPS_CHK( mbedtls_writer_init( &mps->out.hs.wr, NULL, 0 ) );
+            MPS_CHK( mbedtls_writer_init_ext( &mps->out.hs.wr_ext,
+                                              hs_l3.len ) );
+            MPS_CHK( mbedtls_writer_attach( &mps->out.hs.wr_ext,
+                                            &mps->out.hs.wr,
+                                            MBEDTLS_WRITER_EXT_PASS ) );
+        }
+
+        if( mps->out.hs.length == MPS_L3_LENGTH_UNKNOWN )
+            remaining = -1u;
+        else
+            remaining = mps->out.hs.length - mps->out.hs.offset;
+
+        hs_l3.frag_len    = MPS_L3_LENGTH_UNKNOWN;
+        hs_l3.frag_offset = mps->out.hs.offset;
+        MPS_CHK( mps_l3_write_handshake( mps->conf.l3, &hs_l3 ) );
+
+        MPS_CHK( mbedtls_writer_get_ext( hs_l3.wr_ext, remaining,
+                                         &raw_buf, &raw_buf_len ) );
+
+        MPS_CHK( mbedtls_writer_feed( &mps->out.hs.wr, raw_buf, raw_buf_len ) );
+
+        /* Distinguish between handshake messages for which the total
+         * length is known and those for which it isn't:
          *
-         * Implementations might drop messages,
-         * trigger retransmissions, buffer them...
+         * - For handshake messages with known total length,
+         *   query the underlying Layer 3 for a handshake
+         *   message fragment with known total size, unknown
+         *   fragment length and fragment offset 0.
+         *   Check how much space is available in the writer obtained.
+         *   - If it is large enough to accomodate the entire
+         *     handshake message, pass on the extended writer
+         *     obtained from Layer 3.
+         *   - If it is not large enough to accomodate the entire
+         *     handshake message, setup a new extended writer
+         *     and feed it the raw buffer available for the current
+         *     handshake fragment.
+         * - For handshake messages with unknown total length:
+         *     TODO
          */
-        MPS_CHK( MBEDTLS_ERR_MPS_OPERATION_UNSUPPORTED );
+
+
     }
 
 exit:
     /* No failure handler for internal functions. */
-    return( ret );
+    RETURN( ret );
 }
 
 static int mps_rsm_get_hs_in( mbedtls_mps *mps,
