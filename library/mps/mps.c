@@ -555,6 +555,8 @@ static int mps_rsm_new_hs_out( mbedtls_mps *mps, mbedtls_mps_handshake_out *hs )
 {
     int ret = 0;
     mps_l3_handshake_out hs_l3;
+    TRACE_INIT( "mps_rsm_new_hs_out, type %u, length %u",
+                (unsigned) hs->type, (unsigned) hs->length );
 
     if( mps->conf.mode == MBEDTLS_SSL_TRANSPORT_STREAM )
     {
@@ -573,18 +575,36 @@ static int mps_rsm_new_hs_out( mbedtls_mps *mps, mbedtls_mps_handshake_out *hs )
     }
     else
     {
-        /* DTLS
-         * Not yet implemented
+        /* DTLS */
+
+        if( mps->retransmission.state == MBEDTLS_MPS_FLIGHT_RECEIVING )
+        {
+            TRACE( trace_error, "Attempt to write a handshake message while retransmission state machine is in state RECEIVING." );
+            RETURN( MPS_ERR_INTERNAL_ERROR );
+        }
+
+        /* Distinguish between handshake messages for which the total
+         * length is known and those for which it isn't:
          *
-         * Implementations might drop messages,
-         * trigger retransmissions, buffer them...
-         */
-        MPS_CHK( MBEDTLS_ERR_MPS_OPERATION_UNSUPPORTED );
+         * - For handshake messages with known total length,
+         *   query the underlying Layer 3 for a handshake
+         *   message fragment with known total size, unknown
+         *   fragment length and fragment offset 0.
+         *   Check how much space is available in the writer obtained.
+         *   - If it is large enough to accomodate the entire
+         *     handshake message, pass on the extended writer
+         *     obtained from Layer 3.
+         *   - If it is not large enough to accomodate the entire
+         *     handshake message, setup a new extended writer
+         *     and feed it the raw buffer available for the current
+         *     handshake fragment.
+         * - For handshake messages with unknown total length:
+         *     TODO
     }
 
 exit:
     /* No failure handler for internal functions. */
-    return( ret );
+    RETURN( ret );
 }
 
 static int mps_rsm_get_hs_in( mbedtls_mps *mps,
