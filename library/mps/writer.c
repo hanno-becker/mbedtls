@@ -30,7 +30,8 @@ static int trace_id = 4;
 int mbedtls_writer_init( mbedtls_writer *wr,
                          unsigned char *queue, size_t queue_len )
 {
-    mbedtls_writer const zero = { NULL, 0, 0, 0, NULL, 0, 0, 0 };
+    mbedtls_writer const zero = { MBEDTLS_WRITER_PROVIDING, NULL,
+                                  0, 0, 0, NULL, 0, 0, 0 };
     TRACE_INIT( "writer_init, queue_len %u", (unsigned) queue_len );
 
     *wr = zero;
@@ -41,7 +42,8 @@ int mbedtls_writer_init( mbedtls_writer *wr,
 
 int mbedtls_writer_free( mbedtls_writer *wr )
 {
-    mbedtls_writer const zero = { NULL, 0, 0, 0, NULL, 0, 0, 0 };
+    mbedtls_writer const zero = { MBEDTLS_WRITER_PROVIDING, NULL,
+                                  0, 0, 0, NULL, 0, 0, 0 };
     TRACE_INIT( "writer_free" );
 
     *wr = zero;
@@ -51,19 +53,19 @@ int mbedtls_writer_free( mbedtls_writer *wr )
 int mbedtls_writer_feed( mbedtls_writer *wr,
                          unsigned char *buf, size_t buf_len )
 {
-    unsigned char *out, *queue;
+    unsigned char *queue;
+    unsigned char state;
     size_t copy_from_queue;
     TRACE_INIT( "writer_feed, buflen %u",
                 (unsigned) buf_len );
 
-    /* Feeding is only possible if no output buffer
-     * is currently being managed by the writer. */
-    out = wr->out;
-    if( out != NULL )
+    /* Feeding is only possible in providing mode. */
+    state = wr->state;
+    if( state != MBEDTLS_WRITER_PROVIDING )
+    {
+        TRACE( trace_error, "Attempt to feed output buffer to writer outside providing mode." );
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
-
-    if( buf == NULL )
-        RETURN( MBEDTLS_ERR_WRITER_INVALID_ARG );
+    }
 
     /* Check if there is data in the queue pending to be dispatched. */
     queue = wr->queue;
@@ -116,24 +118,28 @@ int mbedtls_writer_feed( mbedtls_writer *wr,
 
     }
 
-    wr->out = buf;
+    wr->out     = buf;
     wr->out_len = buf_len;
-    wr->commit = copy_from_queue;
-    wr->end = copy_from_queue;
+    wr->commit  = copy_from_queue;
+    wr->end     = copy_from_queue;
+    wr->state   = MBEDTLS_WRITER_CONSUMING;
     RETURN( 0 );
 }
 
 int mbedtls_writer_reclaim( mbedtls_writer *wr, size_t *olen,
                             size_t *queued, int force )
 {
-    unsigned char *out;
+    unsigned char state;
     size_t commit, ol;
     TRACE_INIT( "writer_reclaim, force %u", (unsigned) force );
 
-    /* Check that the reader is in providing mode. */
-    out = wr->out;
-    if( out == NULL )
+    /* Check that the writer is in consuming mode. */
+    state = wr->state;
+    if( state != MBEDTLS_WRITER_CONSUMING )
+    {
+        TRACE( trace_error, "Attempt to reclaim output buffer outside of consuming mode." );
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
+    }
 
     /* Check if there's space left unused. */
     commit = wr->commit;
@@ -177,23 +183,28 @@ int mbedtls_writer_reclaim( mbedtls_writer *wr, size_t *olen,
         *queued = qr;
     }
 
-    wr->end = 0;
-    wr->commit = 0;
-    wr->out = NULL;
+    wr->end     = 0;
+    wr->commit  = 0;
+    wr->out     = NULL;
     wr->out_len = 0;
+    wr->state   = MBEDTLS_WRITER_PROVIDING;
     RETURN( 0 );
 }
 
 int mbedtls_writer_bytes_written( mbedtls_writer *wr, size_t *written )
 {
     size_t commit;
-    unsigned char *out;
+    unsigned char state;
     TRACE_INIT( "writer_bytes_written" );
 
-    /* Check that the reader is in providing mode. */
-    out = wr->out;
-    if( out == NULL )
+    /* Feeding is only possible in providing mode. */
+    state = wr->state;
+    if( state != MBEDTLS_WRITER_PROVIDING )
+    {
+        TRACE( trace_error, "Attempt to feed output buffer to writer outside providing mode." );
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
+    }
+
     commit = wr->commit;
     *written = commit;
 
@@ -204,18 +215,20 @@ int mbedtls_writer_get( mbedtls_writer *wr, size_t desired,
                         unsigned char **buffer, size_t *buflen )
 {
     unsigned char *out, *queue;
+    unsigned char state;
     size_t end, ol, or, ql, qn, qo;
     TRACE_INIT( "writer_get, desired %u", (unsigned) desired );
 
-    out = wr->out;
-    if( out == NULL )
+    state = wr->state;
+    if( state != MBEDTLS_WRITER_CONSUMING )
     {
-        TRACE( trace_comment, "unexpected operation" );
+        TRACE( trace_error, "Attempt to request write-buffer outside consuming mode." );
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
     }
 
+    out = wr->out;
     end = wr->end;
-    ol = wr->out_len;
+    ol  = wr->out_len;
 
     /* Check if we're already serving from the queue */
     if( end > ol )
@@ -326,15 +339,19 @@ int mbedtls_writer_commit_partial( mbedtls_writer *wr,
 {
     size_t to_be_committed, commit, end, queue_overlap;
     size_t out_len, copy_from_queue;
+    unsigned char state;
     unsigned char *out, *queue;
     TRACE_INIT( "writer_commit_partial" );
     TRACE( trace_comment, "* Omit %u bytes", (unsigned) omit );
 
-    /* Check that the reader is in providing mode. */
-    out = wr->out;
-    if( out == NULL )
+    state = wr->state;
+    if( state != MBEDTLS_WRITER_CONSUMING )
+    {
+        TRACE( trace_error, "Attempt to request write-buffer outside consuming mode." );
         RETURN( MBEDTLS_ERR_WRITER_UNEXPECTED_OPERATION );
+    }
 
+    out           = wr->out;
     queue_overlap = wr->queue_next;
     commit        = wr->commit;
     end           = wr->end;

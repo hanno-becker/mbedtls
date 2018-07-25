@@ -181,8 +181,8 @@ mbedtls_mps_writer_queue_multiple_rounds:
 MPS Writer: Test behavior on unexpected operations
 mbedtls_mps_writer_unexpected_operations:
 
-MPS Writer: Feed with invalid buffer (NULL)
-mbedtls_mps_writer_feed_empty:0
+MPS Writer: Feed with empty buffer (NULL)
+mbedtls_mps_writer_feed_empty:
 
 MPS Writer: Random usage #1
 mbedtls_mps_writer_random_usage:10000:100:100:50
