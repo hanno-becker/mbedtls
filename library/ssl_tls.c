@@ -6983,6 +6983,81 @@ const char *mbedtls_ssl_get_version( const mbedtls_ssl_context *ssl )
     }
 }
 
+int mbedtls_ssl_transform_get_expansion( mbedtls_ssl_transform *transform,
+                                         int32_t plaintext_length,
+                                         uint32_t *pre_expansion,
+                                         uint32_t *post_expansion )
+{
+    if( transform == NULL )
+    {
+        *pre_expansion  = 0;
+        *post_expansion = 0;
+        return( 0 );
+    }
+
+    switch( mbedtls_cipher_get_cipher_mode( &transform->cipher_ctx_enc ) )
+    {
+        case MBEDTLS_MODE_GCM:
+        case MBEDTLS_MODE_CCM:
+        case MBEDTLS_MODE_CHACHAPOLY:
+        {
+            size_t const explicit_iv_len =
+                transform->ivlen - transform->fixed_ivlen;
+
+            /* Expansion is independent of the plaintext length. */
+            ((void) plaintext_length);
+
+            *pre_expansion  = explicit_iv_len;
+            *post_expansion = transform->taglen;
+            break;
+        }
+
+        case MBEDTLS_MODE_STREAM:
+            /* Expansion is independent of the plaintext length. */
+            ((void) plaintext_length);
+
+            *pre_expansion  = 0;
+            *post_expansion = transform->maclen;
+            break;
+
+        case MBEDTLS_MODE_CBC:
+        {
+            size_t pre_expansion_iv = 0;
+            size_t cbc_plaintext_length;
+            size_t cbc_padding;
+            size_t const block_size = mbedtls_cipher_get_block_size(
+                                        &transform->cipher_ctx_enc );
+
+            /* Starting from TLS 1.1, there's an explicit IV at
+             * the beginning of the protected record content. */
+#if defined(MBEDTLS_SSL_PROTO_TLS1_1) || defined(MBEDTLS_SSL_PROTO_TLS1_2)
+            if( ssl->minor_ver >= MBEDTLS_SSL_MINOR_VERSION_2 )
+                pre_expansion_iv += block_size;
+#endif /* MBEDTLS_SSL_PROTO_TLS1_1 || MBEDTLS_SSL_PROTO_TLS1_2 */
+
+#if defined(MBEDTLS_SSL_ENCRYPT_THEN_MAC)
+            if( transform->encrypt_then_mac == MBEDTLS_SSL_ETM_ENABLED )
+            {
+                /* Padding is applied to the plaintext + MAC */
+                cbc_plaintext_length = plaintext_length + transform->maclen;
+            }
+            else
+#endif /* MBEDTLS_SSL_ENCRYPT_THEN_MAC */
+            {
+                cbc_plaintext_length = plaintext_length;
+            }
+
+            cbc_padding = block_size - ( cbc_plaintext_length % block_size );
+            *post_expansion = cbc_padding + transform->maclen;
+
+            break;
+
+        default:
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "should never happen" ) );
+            return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+    }
+}
+
 int mbedtls_ssl_get_record_expansion( const mbedtls_ssl_context *ssl )
 {
     size_t transform_expansion;

@@ -595,6 +595,11 @@ static inline void mbedtls_ssl_sig_hash_set_init( mbedtls_ssl_sig_hash_set_t *se
  */
 void mbedtls_ssl_transform_free( mbedtls_ssl_transform *transform );
 
+int mbedtls_ssl_transform_get_expansion( mbedtls_ssl_transform *transform,
+                                         int32_t plaintext_length,
+                                         uint32_t *pre_expansion,
+                                         uint32_t *post_expansion );
+
 /**
  * \brief           Free referenced items in an SSL handshake context and clear
  *                  memory
