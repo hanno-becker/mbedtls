@@ -4897,11 +4897,11 @@ run_test    "DTLS fragmenting: none (for reference)" \
             "$P_SRV dtls=1 debug_level=2 auth_mode=required \
              crt_file=data_files/server7_int-ca.crt \
              key_file=data_files/server7.key \
-             max_frag_len=2048" \
+             max_frag_len=4096" \
             "$P_CLI dtls=1 debug_level=2 \
              crt_file=data_files/server8_int-ca2.crt \
              key_file=data_files/server8.key \
-             max_frag_len=2048" \
+             max_frag_len=4096" \
             0 \
             -S "found fragmented DTLS handshake message" \
             -C "found fragmented DTLS handshake message" \
@@ -4986,11 +4986,11 @@ run_test    "DTLS fragmenting: none (for reference) (MTU)" \
             "$P_SRV dtls=1 debug_level=2 auth_mode=required \
              crt_file=data_files/server7_int-ca.crt \
              key_file=data_files/server7.key \
-             mtu=2048" \
+             mtu=4096" \
             "$P_CLI dtls=1 debug_level=2 \
              crt_file=data_files/server8_int-ca2.crt \
              key_file=data_files/server8.key \
-             mtu=2048" \
+             mtu=4096" \
             0 \
             -S "found fragmented DTLS handshake message" \
             -C "found fragmented DTLS handshake message" \
@@ -5003,7 +5003,7 @@ run_test    "DTLS fragmenting: client (MTU)" \
             "$P_SRV dtls=1 debug_level=2 auth_mode=required \
              crt_file=data_files/server7_int-ca.crt \
              key_file=data_files/server7.key \
-             mtu=2048" \
+             mtu=4096" \
             "$P_CLI dtls=1 debug_level=2 \
              crt_file=data_files/server8_int-ca2.crt \
              key_file=data_files/server8.key \
