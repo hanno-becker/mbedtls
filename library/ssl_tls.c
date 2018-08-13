@@ -7014,6 +7014,8 @@ int mbedtls_ssl_get_record_expansion( const mbedtls_ssl_context *ssl )
 
 #if defined(MBEDTLS_ZLIB_SUPPORT)
     if( ssl->session_out->compression != MBEDTLS_SSL_COMPRESS_NULL )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "cannot predict expansion with compression" ) );
         return( MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE );
     }
 #endif
@@ -7024,12 +7026,34 @@ int mbedtls_ssl_get_record_expansion( const mbedtls_ssl_context *ssl )
         case MBEDTLS_MODE_CCM:
         case MBEDTLS_MODE_CHACHAPOLY:
         case MBEDTLS_MODE_STREAM:
+            /* MAC/tag + explicit IV if any */
             transform_expansion = transform->minlen;
             break;
 
         case MBEDTLS_MODE_CBC:
-            transform_expansion = transform->maclen
-                      + mbedtls_cipher_get_block_size( &transform->cipher_ctx_enc );
+#if defined(MBEDTLS_SSL_PROTO_SSL3) || defined(MBEDTLS_SSL_PROTO_TLS1)
+            if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_0 ||
+                ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_1 )
+            {
+                transform_expansion = transform->maclen
+                                    + transform->ivlen; /* padding */
+            }
+            else
+#endif
+#if defined(MBEDTLS_SSL_PROTO_TLS1_1) || defined(MBEDTLS_SSL_PROTO_TLS1_2)
+            if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_2 ||
+                ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_3 )
+            {
+                transform_expansion = transform->maclen
+                                    + transform->ivlen /* padding */
+                                    + transform->ivlen; /* explicit IV */
+            }
+            else
+#endif
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "should never happen" ) );
+                return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+            }
             break;
 
         default:
