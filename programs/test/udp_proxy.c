@@ -302,6 +302,7 @@ static unsigned ellapsed_time( void )
 
     return( mbedtls_timing_get_timer( &hires, 0 ) );
 }
+#endif /* MBEDTLS_TIMING_C */
 
 typedef struct
 {
@@ -309,7 +310,9 @@ typedef struct
 
     const char *description;
 
+#if defined(MBEDTLS_TIMING_C)
     unsigned packet_lifetime;
+#endif /* MBEDTLS_TIMING_C */
     unsigned num_datagrams;
 
     unsigned char data[MAX_MSG_SIZE];
@@ -317,16 +320,26 @@ typedef struct
 
 } out_buffer;
 
-static ctx_buffer outbuf[2];
+static out_buffer outbuf_server;
+static out_buffer outbuf_client;
 
 static int out_buffer_flush( out_buffer *buf )
 {
     int ret;
 
+    if( buf->len == 0 )
+        return( 0 );
+
+#if defined(MBEDTLS_TIMING_C)
     mbedtls_printf( "  %05u flush    %s: %u bytes, %u datagrams, last %u ms\n",
                     ellapsed_time(), buf->description,
                     (unsigned) buf->len, buf->num_datagrams,
                     ellapsed_time() - buf->packet_lifetime );
+#else
+    mbedtls_printf( "        flush    %s: %u bytes, %u datagrams\n",
+                    buf->description,
+                    (unsigned) buf->len, buf->num_datagrams );
+#endif /* MBEDTLS_TIMING_C */
 
     ret = mbedtls_net_send( buf->ctx, buf->data, buf->len );
 
@@ -336,6 +349,7 @@ static int out_buffer_flush( out_buffer *buf )
     return( ret );
 }
 
+#if defined(MBEDTLS_TIMING_C)
 static unsigned out_buffer_time_remaining( out_buffer *buf )
 {
     unsigned const cur_time = ellapsed_time();
@@ -348,6 +362,7 @@ static unsigned out_buffer_time_remaining( out_buffer *buf )
 
     return( opt.pack - ( cur_time - buf->packet_lifetime ) );
 }
+#endif /* MBEDTLS_TIMING_C */
 
 static int out_buffer_append( out_buffer *buf,
                               const unsigned char * data,
@@ -374,39 +389,26 @@ static int out_buffer_append( out_buffer *buf,
     memcpy( buf->data + buf->len, data, len );
 
     buf->len += len;
-    if( ++buf->num_datagrams == 1 )
+    ++buf->num_datagrams;
+
+#if defined(MBEDTLS_TIMING_C)
+    if( buf->num_datagrams == 1 )
         buf->packet_lifetime = ellapsed_time();
+#endif /* MBEDTLS_TIMING_C */
 
     return( (int) len );
 }
-#endif /* MBEDTLS_TIMING_C */
 
-static int dispatch_data( mbedtls_net_context *ctx,
+static int dispatch_data( out_buffer *buf,
                           const unsigned char * data,
                           size_t len )
 {
-#if defined(MBEDTLS_TIMING_C)
-    out_buffer *buf = NULL;
-    if( opt.pack > 0 )
-    {
-        if( outbuf[0].ctx == ctx )
-            buf = &outbuf[0];
-        else if( outbuf[1].ctx == ctx )
-            buf = &outbuf[1];
-
-        if( buf == NULL )
-            return( -1 );
-
-        return( out_buffer_append( buf, data, len ) );
-    }
-#endif /* MBEDTLS_TIMING_C */
-
-    return( mbedtls_net_send( ctx, data, len ) );
+    return( out_buffer_append( buf, data, len ) );
 }
 
 typedef struct
 {
-    mbedtls_net_context *dst;
+    out_buffer *dst;
     const char *way;
     const char *type;
     unsigned len;
@@ -438,7 +440,7 @@ void print_packet( const packet *p, const char *why )
 int send_packet( const packet *p, const char *why )
 {
     int ret;
-    mbedtls_net_context *dst = p->dst;
+    out_buffer *dst = p->dst;
 
     /* insert corrupted ApplicationData record? */
     if( opt.bad_ad &&
@@ -533,7 +535,7 @@ void update_dropped( const packet *p )
 }
 
 int handle_message( const char *way,
-                    mbedtls_net_context *dst,
+                    out_buffer *dst,
                     mbedtls_net_context *src )
 {
     int ret;
@@ -701,41 +703,39 @@ accept:
         nb_fds = listen_fd.fd;
     ++nb_fds;
 
-#if defined(MBEDTLS_TIMING_C)
-    if( opt.pack > 0 )
-    {
-        outbuf[0].ctx = &server_fd;
-        outbuf[0].description = "S <- C";
-        outbuf[0].num_datagrams = 0;
-        outbuf[0].len = 0;
+    outbuf_server.ctx = &server_fd;
+    outbuf_server.description = "S <- C";
+    outbuf_server.num_datagrams = 0;
+    outbuf_server.len = 0;
 
-        outbuf[1].ctx = &client_fd;
-        outbuf[1].description = "S -> C";
-        outbuf[1].num_datagrams = 0;
-        outbuf[1].len = 0;
-    }
-#endif /* MBEDTLS_TIMING_C */
+    outbuf_client.ctx = &client_fd;
+    outbuf_client.description = "S -> C";
+    outbuf_client.num_datagrams = 0;
+    outbuf_client.len = 0;
 
     while( 1 )
     {
+        int server_flush = 1;
+        int client_flush = 1;
+
 #if defined(MBEDTLS_TIMING_C)
         if( opt.pack > 0 )
         {
             unsigned max_wait_server, max_wait_client, max_wait;
-            max_wait_server = out_buffer_time_remaining( &outbuf[0] );
-            max_wait_client = out_buffer_time_remaining( &outbuf[1] );
+            max_wait_server = out_buffer_time_remaining( &outbuf_server );
+            max_wait_client = out_buffer_time_remaining( &outbuf_client );
 
             max_wait = (unsigned) -1;
 
-            if( max_wait_server == 0 )
-                out_buffer_flush( &outbuf[0] );
-            else
-                max_wait = max_wait_server;
-
-            if( max_wait_client == 0 )
-                out_buffer_flush( &outbuf[1] );
-            else
+            if( max_wait_server != 0 )
             {
+                server_flush = 0;
+                max_wait = max_wait_server;
+            }
+
+            if( max_wait_client != 0 )
+            {
+                client_flush = 0;
                 if( max_wait_client < max_wait )
                     max_wait = max_wait_client;
             }
@@ -754,6 +754,11 @@ accept:
         }
 #endif /* MBEDTLS_TIMING_C */
 
+        if( server_flush )
+            out_buffer_flush( &outbuf_server );
+        if( client_flush )
+            out_buffer_flush( &outbuf_client );
+
         FD_ZERO( &read_fds );
         FD_SET( server_fd.fd, &read_fds );
         FD_SET( client_fd.fd, &read_fds );
@@ -771,14 +776,14 @@ accept:
         if( FD_ISSET( client_fd.fd, &read_fds ) )
         {
             if( ( ret = handle_message( "S <- C",
-                                        &server_fd, &client_fd ) ) != 0 )
+                                        &outbuf_server, &client_fd ) ) != 0 )
                 goto accept;
         }
 
         if( FD_ISSET( server_fd.fd, &read_fds ) )
         {
             if( ( ret = handle_message( "S -> C",
-                                        &client_fd, &server_fd ) ) != 0 )
+                                        &outbuf_client, &server_fd ) ) != 0 )
                 goto accept;
         }
 
