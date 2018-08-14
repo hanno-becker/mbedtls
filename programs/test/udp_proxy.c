@@ -315,11 +315,11 @@ typedef struct
     unsigned char data[MAX_MSG_SIZE];
     size_t len;
 
-} ctx_buffer;
+} out_buffer;
 
 static ctx_buffer outbuf[2];
 
-static int ctx_buffer_flush( ctx_buffer *buf )
+static int out_buffer_flush( out_buffer *buf )
 {
     int ret;
 
@@ -336,7 +336,7 @@ static int ctx_buffer_flush( ctx_buffer *buf )
     return( ret );
 }
 
-static unsigned ctx_buffer_time_remaining( ctx_buffer *buf )
+static unsigned out_buffer_time_remaining( out_buffer *buf )
 {
     unsigned const cur_time = ellapsed_time();
 
@@ -349,7 +349,7 @@ static unsigned ctx_buffer_time_remaining( ctx_buffer *buf )
     return( opt.pack - ( cur_time - buf->packet_lifetime ) );
 }
 
-static int ctx_buffer_append( ctx_buffer *buf,
+static int out_buffer_append( out_buffer *buf,
                               const unsigned char * data,
                               size_t len )
 {
@@ -367,7 +367,7 @@ static int ctx_buffer_append( ctx_buffer *buf,
 
     if( sizeof( buf->data ) - buf->len < len )
     {
-        if( ( ret = ctx_buffer_flush( buf ) ) <= 0 )
+        if( ( ret = out_buffer_flush( buf ) ) <= 0 )
             return( ret );
     }
 
@@ -386,7 +386,7 @@ static int dispatch_data( mbedtls_net_context *ctx,
                           size_t len )
 {
 #if defined(MBEDTLS_TIMING_C)
-    ctx_buffer *buf = NULL;
+    out_buffer *buf = NULL;
     if( opt.pack > 0 )
     {
         if( outbuf[0].ctx == ctx )
@@ -397,7 +397,7 @@ static int dispatch_data( mbedtls_net_context *ctx,
         if( buf == NULL )
             return( -1 );
 
-        return( ctx_buffer_append( buf, data, len ) );
+        return( out_buffer_append( buf, data, len ) );
     }
 #endif /* MBEDTLS_TIMING_C */
 
@@ -722,18 +722,18 @@ accept:
         if( opt.pack > 0 )
         {
             unsigned max_wait_server, max_wait_client, max_wait;
-            max_wait_server = ctx_buffer_time_remaining( &outbuf[0] );
-            max_wait_client = ctx_buffer_time_remaining( &outbuf[1] );
+            max_wait_server = out_buffer_time_remaining( &outbuf[0] );
+            max_wait_client = out_buffer_time_remaining( &outbuf[1] );
 
             max_wait = (unsigned) -1;
 
             if( max_wait_server == 0 )
-                ctx_buffer_flush( &outbuf[0] );
+                out_buffer_flush( &outbuf[0] );
             else
                 max_wait = max_wait_server;
 
             if( max_wait_client == 0 )
-                ctx_buffer_flush( &outbuf[1] );
+                out_buffer_flush( &outbuf[1] );
             else
             {
                 if( max_wait_client < max_wait )
