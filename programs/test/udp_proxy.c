@@ -434,7 +434,9 @@ void print_packet( const packet *p, const char *why )
                 p->way, p->type, p->len, why );
 #endif
 
+    mbedtls_printf( "Flush stdout...\n" );
     fflush( stdout );
+    mbedtls_printf( "Flush done\n" );
 }
 
 int send_packet( const packet *p, const char *why )
