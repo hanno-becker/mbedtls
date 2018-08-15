@@ -4280,6 +4280,9 @@ static void ssl_handshake_wrapup_free_hs_transform( mbedtls_ssl_context *ssl );
  * RFC 6347 4.1.2.7) and continue reading until a valid record is found.
  *
  */
+
+/* Helper functions for mbedtls_ssl_read_record(). */
+static int ssl_consume_current_message( mbedtls_ssl_context *ssl );
 static int ssl_read_record_layer( mbedtls_ssl_context *ssl );
 
 int mbedtls_ssl_read_record( mbedtls_ssl_context *ssl,
@@ -4331,13 +4334,9 @@ int mbedtls_ssl_read_record( mbedtls_ssl_context *ssl,
     return( 0 );
 }
 
-static int ssl_read_record_layer( mbedtls_ssl_context *ssl )
+static int ssl_consume_current_message( mbedtls_ssl_context *ssl )
 {
-    int ret;
-
     /*
-     * Step A
-     *
      * Consume last content-layer message and potentially
      * update in_msglen which keeps track of the contents'
      * consumption state.
@@ -4418,6 +4417,25 @@ static int ssl_read_record_layer( mbedtls_ssl_context *ssl )
     {
         ssl->in_msglen = 0;
     }
+
+    return( 0 );
+}
+
+static int ssl_read_record_layer( mbedtls_ssl_context *ssl )
+{
+    int ret;
+
+    /*
+     * Step A
+     *
+     * Consume last content-layer message and potentially
+     * update in_msglen which keeps track of the contents'
+     * consumption state.
+     */
+
+    ret = ssl_consume_current_message( ssl );
+    if( ret != 0 )
+        return( ret );
 
     /*
      * Step B
