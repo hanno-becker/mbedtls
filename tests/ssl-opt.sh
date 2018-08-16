@@ -5357,6 +5357,16 @@ run_test    "DTLS proxy: delay ChangeCipherSpec" \
             -s "Extra-header:" \
             -c "HTTP/1.0 200 OK"
 
+# Tests for reordering support with DTLS
+
+run_test    "DTLS reordering: Buffer out-of-order CCS message"\
+            -p "$P_PXY delay=3 seed=1" \
+            "$P_SRV cookies=0 dtls=1 debug_level=2" \
+            "$P_CLI dtls=1 debug_level=2" \
+            0 \
+            -c "Inject buffered CCS message" \
+            -c "Remember CCS message"
+
 # Tests for "randomly unreliable connection": try a variety of flows and peers
 
 client_needs_more_time 2
