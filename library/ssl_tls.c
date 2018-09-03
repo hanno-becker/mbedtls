@@ -2963,7 +2963,7 @@ int mbedtls_ssl_flight_transmit( mbedtls_ssl_context *ssl )
             ( cur->type == MBEDTLS_SSL_MSG_HANDSHAKE &&
               cur->p[0] == MBEDTLS_SSL_HS_FINISHED );
 
-        uint8_t const force_flush = ssl->disable_datagram_packing == 1 ?
+        uint8_t force_flush = ssl->disable_datagram_packing == 1 ?
             SSL_FORCE_FLUSH : SSL_DONT_FORCE_FLUSH;
 
         /* Swap epochs before sending Finished: we can't do it after
@@ -2975,10 +2975,27 @@ int mbedtls_ssl_flight_transmit( mbedtls_ssl_context *ssl )
             ssl_swap_epochs( ssl );
         }
 
-        ret = ssl_get_remaining_payload_in_datagram( ssl );
-        if( ret < 0 )
-            return( ret );
-        max_frag_len = (size_t) ret;
+        if( cur->type          == MBEDTLS_SSL_MSG_HANDSHAKE   &&
+            cur->p[0]          == MBEDTLS_SSL_HS_CLIENT_HELLO &&
+            ssl->transform_out == NULL )
+        {
+            /* We ignore MTU and MFL for ClientHello messages of epoch 0,
+             * which should not be fragmented. Also, double-check
+             * that everything's flushed when we get here. */
+
+            if( ( ret = mbedtls_ssl_flush_output( ssl ) ) != 0 )
+                return( ret );
+
+            max_frag_len = MBEDTLS_SSL_OUT_CONTENT_LEN;
+            force_flush = SSL_FORCE_FLUSH;
+        }
+        else
+        {
+            ret = ssl_get_remaining_payload_in_datagram( ssl );
+            if( ret < 0 )
+                return( ret );
+            max_frag_len = (size_t) ret;
+        }
 
         /* CCS is copied as is, while HS messages may need fragmentation */
         if( cur->type == MBEDTLS_SSL_MSG_CHANGE_CIPHER_SPEC )
@@ -3395,14 +3412,19 @@ int mbedtls_ssl_write_record( mbedtls_ssl_context *ssl, uint8_t force_flush )
          * the remaining space in the datagram. */
         if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM )
         {
-            ret = ssl_get_remaining_space_in_datagram( ssl );
-            if( ret < 0 )
-                return( ret );
-
-            if( protected_record_size > (size_t) ret )
+            /* We ignore MTU and MFL settings for ClientHello. */
+            if( ssl->out_msgtype == MBEDTLS_SSL_MSG_HANDSHAKE &&
+                ssl->out_msg[0]  != MBEDTLS_SSL_HS_CLIENT_HELLO )
             {
-                /* Should never happen */
-                return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+                ret = ssl_get_remaining_space_in_datagram( ssl );
+                if( ret < 0 )
+                    return( ret );
+
+                if( protected_record_size > (size_t) ret )
+                {
+                    /* Should never happen */
+                    return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+                }
             }
         }
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
