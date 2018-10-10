@@ -1186,7 +1186,7 @@ typedef uint32_t psa_algorithm_t;
     (PSA_ALG_CATEGORY_HASH | ((hkdf_alg) & PSA_ALG_HASH_MASK))
 
 #define PSA_ALG_TLS12_PRF_BASE                     ((psa_algorithm_t)0x30000200)
-/** Macro to build an TLS-1.2 PRF algorithm.
+/** Macro to build a TLS-1.2 PRF algorithm.
  *
  * For example, `PSA_ALG_TLS12_PRF(PSA_ALG_SHA256)` represents the
  * TLS 1.2 PRF using HMAC-SHA-256.
