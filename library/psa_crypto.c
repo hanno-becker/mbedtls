@@ -3211,7 +3211,7 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
     psa_algorithm_t hash_alg = PSA_ALG_HKDF_GET_HASH( alg );
     uint8_t hash_length = PSA_HASH_SIZE( hash_alg );
     psa_hmac_internal_data hmac;
-    psa_status_t status;
+    psa_status_t status, cleanup_status;
     key_slot_t *slot;
 
     /* We can't be wanting more output after block 0xff, otherwise
@@ -3278,19 +3278,20 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
                                           slot->data.raw.bytes,
                                           hash_alg );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
+
         status = psa_hash_update( &hmac.hash_ctx,
                                   /* This omits the (so far undefined)
                                    * first hash_length bytes. */
                                   tls12_prf->Ai_with_seed + hash_length,
                                   tls12_prf->seed_length );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
         status = psa_hmac_finish_internal( &hmac,
                                            tls12_prf->Ai_with_seed,
                                            hash_length );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
     }
     else
     {
@@ -3300,20 +3301,20 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
                                           slot->data.raw.bytes,
                                           hash_alg );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
 
         status = psa_hash_update( &hmac.hash_ctx,
                                   tls12_prf->Ai_with_seed,
                                   /* This omits the seed part of A(i) */
                                   hash_length );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
 
         status = psa_hmac_finish_internal( &hmac,
                                            tls12_prf->Ai_with_seed,
                                            hash_length );
         if( status != PSA_SUCCESS )
-            return( status );
+            goto cleanup;
     }
 
     /* Compute the next block `HMAC_hash(secret, A(i+1) + seed)`. */
@@ -3322,21 +3323,27 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
                                       slot->data.raw.bytes,
                                       hash_alg );
     if( status != PSA_SUCCESS )
-        return( status );
+        goto cleanup;
 
     status = psa_hash_update( &hmac.hash_ctx,
                               tls12_prf->Ai_with_seed,
                               hash_length + tls12_prf->seed_length );
     if( status != PSA_SUCCESS )
-        return( status );
+        goto cleanup;
 
     status = psa_hmac_finish_internal( &hmac,
                                        tls12_prf->output_block,
                                        hash_length );
     if( status != PSA_SUCCESS )
-        return( status );
+        goto cleanup;
 
-    return( PSA_SUCCESS );
+cleanup:
+
+    cleanup_status = psa_hmac_abort_internal( &hmac );
+    if( status == PSA_SUCCESS && cleanup_status != PSA_SUCCESS )
+        status = cleanup_status;
+
+    return( status );
 }
 
 /* Read some bytes from an TLS-1.2-PRF-based generator.
