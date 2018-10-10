@@ -3381,7 +3381,6 @@ static psa_status_t psa_generator_tls12_prf_read(
         output += n;
         output_length -= n;
         tls12_prf->offset_in_block += n;
-
     }
 
     return( PSA_SUCCESS );
