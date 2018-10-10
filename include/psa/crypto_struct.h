@@ -144,7 +144,7 @@ typedef struct
     uint8_t block_number;
 } psa_hkdf_generator_t;
 
-typedef struct
+typedef struct psa_tls12_prf_generator_s
 {
     /* The TLS 1.2 PRF uses the key for each HMAC iteration,
      * hence we must store it for the lifetime of the generator.
