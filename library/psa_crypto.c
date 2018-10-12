@@ -3125,7 +3125,12 @@ psa_status_t psa_generator_abort( psa_crypto_generator_t *generator )
     }
     else if( PSA_ALG_IS_TLS12_PRF( generator->alg ) )
     {
-        /* Nothing to do. */
+        if( generator->ctx.tls12_prf.key != NULL )
+        {
+            mbedtls_zeroize( generator->ctx.tls12_prf.key,
+                             generator->ctx.tls12_prf.key_len );
+            mbedtls_free( generator->ctx.tls12_prf.key );
+        }
     }
     else
 #endif /* MBEDTLS_MD_C */
@@ -3218,7 +3223,6 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
     uint8_t hash_length = PSA_HASH_SIZE( hash_alg );
     psa_hmac_internal_data hmac;
     psa_status_t status, cleanup_status;
-    key_slot_t *slot;
 
     /* We can't be wanting more output after block 0xff, otherwise
      * the capacity check in psa_generator_read() would have
@@ -3231,23 +3235,6 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
     /* We need a new block */
     ++tls12_prf->block_number;
     tls12_prf->offset_in_block = 0;
-
-    /* It hasn't been decided yet whether keys may be destroyed during
-     * multipart operations, and if so, what the consequences to the
-     * ongoing operations are.
-     *
-     * The present implementation looks up the key slot on each expansion
-     * step, including the policies, and hence fails if the key slot is
-     * wiped, or its policy is changed (if that'll ever be possible).
-     * It wouldn't notice, though, when a key slot was wiped and filled
-     * with another key in between generator read calls.
-     */
-    status = psa_get_key_from_slot( tls12_prf->key, &slot,
-                                    PSA_KEY_USAGE_DERIVE, alg );
-    if( status != PSA_SUCCESS )
-        return( status );
-    if( slot->type != PSA_KEY_TYPE_DERIVE )
-        return( PSA_ERROR_INVALID_ARGUMENT );
 
     /* Recall the definition of the TLS-1.2-PRF from RFC 5246:
      *
@@ -3282,8 +3269,8 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
     {
         /* Compute A(1) = HMAC_hash(secret, label + seed) */
         status = psa_hmac_setup_internal( &hmac,
-                                          slot->data.raw.data,
-                                          slot->data.raw.bytes,
+                                          tls12_prf->key,
+                                          tls12_prf->key_len,
                                           hash_alg );
         if( status != PSA_SUCCESS )
             goto cleanup;
@@ -3305,8 +3292,8 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
     {
         /* Compute A(i+1) = HMAC_hash(secret, A(i)) */
         status = psa_hmac_setup_internal( &hmac,
-                                          slot->data.raw.data,
-                                          slot->data.raw.bytes,
+                                          tls12_prf->key,
+                                          tls12_prf->key_len,
                                           hash_alg );
         if( status != PSA_SUCCESS )
             goto cleanup;
@@ -3327,8 +3314,8 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
 
     /* Compute the next block `HMAC_hash(secret, A(i+1) + seed)`. */
     status = psa_hmac_setup_internal( &hmac,
-                                      slot->data.raw.data,
-                                      slot->data.raw.bytes,
+                                      tls12_prf->key,
+                                      tls12_prf->key_len,
                                       hash_alg );
     if( status != PSA_SUCCESS )
         goto cleanup;
@@ -3541,7 +3528,8 @@ static psa_status_t psa_generator_hkdf_setup( psa_hkdf_generator_t *hkdf,
 /* Set up a TLS-1.2-prf-based generator (see RFC 5246, Section 5). */
 static psa_status_t psa_generator_tls12_prf_setup(
     psa_tls12_prf_generator_t *tls12_prf,
-    psa_key_slot_t key,
+    unsigned char *key,
+    size_t key_len,
     psa_algorithm_t hash_alg,
     const uint8_t *salt,
     size_t salt_length,
@@ -3550,7 +3538,11 @@ static psa_status_t psa_generator_tls12_prf_setup(
 {
     uint8_t hash_length = PSA_HASH_SIZE( hash_alg );
 
-    tls12_prf->key = key;
+    tls12_prf->key = mbedtls_calloc( 1, key_len );
+    if( tls12_prf->key == NULL )
+        return( PSA_ERROR_INSUFFICIENT_MEMORY );
+    tls12_prf->key_len = key_len;
+    memcpy( tls12_prf->key, key, key_len );
 
     /* Write `label + seed' at the end of the `A(i) + seed` buffer,
      * leaving the initial `hash_length` bytes unspecified for now. */
@@ -3623,8 +3615,9 @@ psa_status_t psa_key_derivation( psa_crypto_generator_t *generator,
             return( PSA_ERROR_INVALID_ARGUMENT );
 
         status = psa_generator_tls12_prf_setup( &generator->ctx.tls12_prf,
-                                                key, hash_alg,
-                                                salt, salt_length,
+                                                slot->data.raw.data,
+                                                slot->data.raw.bytes,
+                                                hash_alg, salt, salt_length,
                                                 label, label_length );
     }
     else

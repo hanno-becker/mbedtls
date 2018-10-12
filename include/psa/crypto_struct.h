@@ -150,7 +150,8 @@ typedef struct psa_tls12_prf_generator_s
      * hence we must store it for the lifetime of the generator.
      * This is different from HKDF, where the key is only used
      * in the extraction phase, but not during expansion. */
-    psa_key_slot_t key;
+    unsigned char *key;
+    size_t key_len;
 
     /* `A(i) + seed` in the notation of RFC 5246, Sect. 5 */
     uint8_t Ai_with_seed[PSA_HASH_MAX_SIZE + 64];
