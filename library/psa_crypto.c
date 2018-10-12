@@ -1375,6 +1375,12 @@ static psa_status_t psa_hmac_abort_internal( psa_hmac_internal_data *hmac )
     mbedtls_zeroize( hmac->opad, sizeof( hmac->opad ) );
     return( psa_hash_abort( &hmac->hash_ctx ) );
 }
+
+static void psa_hmac_init_internal( psa_hmac_internal_data *hmac )
+{
+    /* Instances of psa_hash_operation_s can be initialized by zeroization. */
+    memset( hmac, 0, sizeof( *hmac ) );
+}
 #endif /* MBEDTLS_MD_C */
 
 psa_status_t psa_mac_abort( psa_mac_operation_t *operation )
@@ -3266,6 +3272,8 @@ static psa_status_t psa_generator_tls12_prf_generate_next_block(
      * A(0) is computed at setup time.
      *
      */
+
+    psa_hmac_init_internal( &hmac );
 
     /* We must distinguish the calculation of A(1) from those
      * of A(2) and higher, because A(0)=seed has a different
