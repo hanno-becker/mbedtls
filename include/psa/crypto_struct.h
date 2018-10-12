@@ -173,6 +173,9 @@ typedef struct psa_tls12_prf_generator_s
 
 } psa_tls12_prf_generator_t;
 
+/* The maximum PSK size supported by the TLS-1.2 PSK-to-MS KDF. */
+#define PSA_ALG_TLS12_PSK_TO_MS_MAX_PSK_LEN 32
+
 struct psa_crypto_generator_s
 {
     psa_algorithm_t alg;
