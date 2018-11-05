@@ -1319,6 +1319,16 @@ int main( int argc, char *argv[] )
     char *p, *q;
     const int *list;
 
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+    status = psa_crypto_init();
+    if( status != PSA_SUCCESS )
+    {
+        mbedtls_printf( "Failed to initialize PSA Crypto library - error was %d\n",
+                        (int) status );
+        return( 1 );
+    }
+#endif /* MBEDTLS_USE_PSA_CRYPTO */
+
 #if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
     mbedtls_memory_buffer_alloc_init( alloc_buf, sizeof(alloc_buf) );
 #endif
