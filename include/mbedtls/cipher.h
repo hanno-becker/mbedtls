@@ -188,6 +188,10 @@ typedef enum {
     MBEDTLS_MODE_CCM,                    /**< The CCM cipher mode. */
     MBEDTLS_MODE_XTS,                    /**< The XTS cipher mode. */
     MBEDTLS_MODE_CHACHAPOLY,             /**< The ChaCha-Poly cipher mode. */
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+    MBEDTLS_MODE_PSA,                    /**< A wrapper-mode for PSA-based
+                                          *   cipher implementations.      */
+#endif /* MBEDTLS_USE_PSA_CRYPTO */
 } mbedtls_cipher_mode_t;
 
 /** Supported cipher padding types. */
