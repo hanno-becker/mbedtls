@@ -115,6 +115,7 @@ typedef struct
 } mbedtls_cipher_definition_t;
 
 extern const mbedtls_cipher_definition_t mbedtls_cipher_definitions[];
+extern const mbedtls_cipher_definition_t mbedtls_cipher_definitions_psa[];
 
 extern int mbedtls_cipher_supported[];
 

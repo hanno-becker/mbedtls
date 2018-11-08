@@ -122,6 +122,12 @@ const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type( const mbedtls_cipher
 #if defined(MBEDTLS_USE_PSA_CRYPTO)
 const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type_psa( const mbedtls_cipher_type_t cipher_type )
 {
+    const mbedtls_cipher_definition_t *def;
+
+    for( def = mbedtls_cipher_definitions_psa; def->info != NULL; def++ )
+        if( def->type == cipher_type )
+            return( def->info );
+
     return( NULL );
 }
 #endif /* MBEDTLS_USE_PSE_CRYPTO */

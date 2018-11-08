@@ -2266,6 +2266,14 @@ const mbedtls_cipher_definition_t mbedtls_cipher_definitions[] =
     { MBEDTLS_CIPHER_NONE, NULL }
 };
 
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+/* The list of PSA-enabled ciphers */
+const mbedtls_cipher_definition_t mbedtls_cipher_definitions_psa[] =
+{
+    { MBEDTLS_CIPHER_NONE, NULL }
+};
+#endif /* MBEDTLS_USE_PSA_CRYPTO */
+
 #define NUM_CIPHERS ( sizeof(mbedtls_cipher_definitions) /      \
                       sizeof(mbedtls_cipher_definitions[0]) )
 int mbedtls_cipher_supported[NUM_CIPHERS];
