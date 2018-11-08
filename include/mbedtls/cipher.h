@@ -330,6 +330,11 @@ typedef struct mbedtls_cipher_context_t
  *        via mbedtls_cipher_info_from_type(), which can then be used
  *        to prepare a cipher context via mbedtls_cipher_setup().
  *
+ *        To query for a cipher-information structure representing
+ *        a PSA-based implementation of the given cipher, use
+ *        mbedtls_cipher_info_from_type_psa(). However, it is not
+ *        guaranteed that every cipher listed by this function has
+ *        a PSA-based implementation available.
  *
  * \return      A statically-allocated array of cipher identifiers
  *              of type cipher_type_t. The last entry is zero.
