@@ -360,6 +360,22 @@ const mbedtls_cipher_info_t *mbedtls_cipher_info_from_string( const char *cipher
  */
 const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type( const mbedtls_cipher_type_t cipher_type );
 
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+/**
+ * \brief               This function retrieves the cipher-information
+ *                      structure representing the PSA-based implementation
+ *                      of the given cipher.
+ *
+ * \param cipher_type   The type of the cipher to search for.
+ *
+ * \return              The cipher information structure representing the
+ *                      PSA-based implementation of the given cipher type.
+ * \return              \c NULL if no PSA-based implementation is available
+ *                      for the specified cipher type.
+ */
+const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type_psa( const mbedtls_cipher_type_t cipher_type );
+#endif /* MBEDTLS_USE_PSA_CRYPTO */
+
 /**
  * \brief               This function retrieves the cipher-information
  *                      structure associated with the given cipher ID,

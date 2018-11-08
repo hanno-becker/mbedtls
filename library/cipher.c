@@ -119,6 +119,13 @@ const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type( const mbedtls_cipher
     return( NULL );
 }
 
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+const mbedtls_cipher_info_t *mbedtls_cipher_info_from_type_psa( const mbedtls_cipher_type_t cipher_type )
+{
+    return( NULL );
+}
+#endif /* MBEDTLS_USE_PSE_CRYPTO */
+
 const mbedtls_cipher_info_t *mbedtls_cipher_info_from_string( const char *cipher_name )
 {
     const mbedtls_cipher_definition_t *def;
