@@ -745,11 +745,8 @@ int mbedtls_mpi_shift_l( mbedtls_mpi *X, size_t count )
      */
     if( v0 > 0 )
     {
-        for( i = X->n; i > v0; i-- )
-            X->p[i - 1] = X->p[i - v0 - 1];
-
-        for( ; i > 0; i-- )
-            X->p[i - 1] = 0;
+        memmove( X->p + v0, X->p, ciL * ( X->n - v0 ) );
+        memset( X->p, 0, ciL * v0 );
     }
 
     /*
