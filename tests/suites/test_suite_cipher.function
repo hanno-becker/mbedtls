@@ -686,8 +686,8 @@ exit:
 
 /* BEGIN_CASE depends_on:MBEDTLS_CIPHER_MODE_WITH_PADDING */
 void test_vec_crypt( int cipher_id, int operation, char *hex_key,
-                   char *hex_iv, char *hex_input, char *hex_result,
-                   int finish_result, int use_psa )
+                     char *hex_iv, char *hex_input, char *hex_result,
+                     int finish_result, int use_psa )
 {
     unsigned char key[50];
     unsigned char input[16];
