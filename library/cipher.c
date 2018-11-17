@@ -384,7 +384,9 @@ int mbedtls_cipher_set_iv( mbedtls_cipher_context_t *ctx,
 #if defined(MBEDTLS_USE_PSA_CRYPTO)
     if( ctx->psa_enabled == 1 )
     {
-        /* TODO */
+        /* While PSA Crypto has an API for multipart
+         * operations, we currently don't make it
+         * accessible through the cipher layer. */
         return( MBEDTLS_ERR_CIPHER_FEATURE_UNAVAILABLE );
     }
 #endif /* MBEDTLS_USE_PSA_CRYPTO */
@@ -436,7 +438,8 @@ int mbedtls_cipher_reset( mbedtls_cipher_context_t *ctx )
 #if defined(MBEDTLS_USE_PSA_CRYPTO)
     if( ctx->psa_enabled == 1 )
     {
-        /* TODO */
+        /* We don't support resetting PSA-based
+         * cipher contexts, yet. */
         return( MBEDTLS_ERR_CIPHER_FEATURE_UNAVAILABLE );
     }
 #endif /* MBEDTLS_USE_PSA_CRYPTO */
