@@ -69,6 +69,7 @@ SKIPS=0
 
 CONFIG_H='../include/mbedtls/config.h'
 
+HEAP_USAGE=0
 MEMCHECK=0
 FILTER='.*'
 EXCLUDE='^$'
@@ -93,6 +94,7 @@ print_usage() {
     printf "  -n|--number\tExecute only numbered test (comma-separated, e.g. '245,256')\n"
     printf "  -s|--show-numbers\tShow test numbers in front of test names\n"
     printf "  -p|--preserve-logs\tPreserve logs of successful tests as well\n"
+    printf "  -  --heap-usage\tCreate heap usage statistics through valgrind\n"
     printf "     --port\tTCP/UDP port (default: randomish 1xxxx)\n"
     printf "     --proxy-port\tTCP/UDP proxy port (default: randomish 2xxxx)\n"
     printf "     --seed\tInteger seed value to use for this test run\n"
@@ -109,6 +111,9 @@ get_options() {
                 ;;
             -m|--memcheck)
                 MEMCHECK=1
+                ;;
+            --heap-usage)
+                HEAP_USAGE=1
                 ;;
             -n|--number)
                 shift; RUN_TEST_NUMBER=$1
@@ -140,6 +145,11 @@ get_options() {
         esac
         shift
     done
+
+    if [ "$MEMCHECK" -gt 0 ] && [ "$HEAP_USAGE" -gt 0 ]; then
+        echo "Error: -m|--memcheck and --heap-usage cannot be used simultaneously."
+        exit 1
+    fi
 }
 
 # Skip next test; use this macro to skip tests which are legitimate
@@ -298,7 +308,7 @@ requires_full_size_output_buffer() {
 
 # skip the next test if valgrind is in use
 not_with_valgrind() {
-    if [ "$MEMCHECK" -gt 0 ]; then
+    if [ "$MEMCHECK" -gt 0 ] || [ "$HEAP_USAGE" -gt 0 ]; then
         SKIP_NEXT="YES"
     fi
 }
@@ -551,6 +561,8 @@ run_test() {
     # update DTLS variable
     detect_dtls "$SRV_CMD"
 
+    MANGLED_NAME=$( echo "$NAME" | sed s/[^a-zA-Z0-9_]/_/g )
+
     # prepend valgrind to our commands if active
     if [ "$MEMCHECK" -gt 0 ]; then
         if is_polar "$SRV_CMD"; then
@@ -558,6 +570,15 @@ run_test() {
         fi
         if is_polar "$CLI_CMD"; then
             CLI_CMD="valgrind --leak-check=full $CLI_CMD"
+        fi
+    fi
+
+    if [ "$HEAP_USAGE" -gt 0 ]; then
+        if is_polar "$SRV_CMD"; then
+            SRV_CMD="valgrind  --tool=massif --stacks=yes --massif-out-file=massif.$MANGLED_NAME.srv --time-unit=B --detailed-freq=1 --threshold=0.01 $SRV_CMD"
+        fi
+        if is_polar "$CLI_CMD"; then
+            CLI_CMD="valgrind  --tool=massif --stacks=yes --massif-out-file=massif.$MANGLED_NAME.cli --time-unit=B --detailed-freq=1 --threshold=0.01 $CLI_CMD"
         fi
     fi
 
