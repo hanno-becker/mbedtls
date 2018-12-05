@@ -30,6 +30,7 @@
 #if defined(MBEDTLS_CERTS_C)
 
 #if defined(MBEDTLS_ECDSA_C)
+/* This is taken from tests/data_files/test-ca2.crt */
 #define TEST_CA_CRT_EC                                                  \
 "-----BEGIN CERTIFICATE-----\r\n"                                       \
 "MIICUjCCAdegAwIBAgIJAMFD4n5iQ8zoMAoGCCqGSM49BAMCMD4xCzAJBgNVBAYT\r\n"  \
@@ -49,6 +50,7 @@
 const char mbedtls_test_ca_crt_ec[] = TEST_CA_CRT_EC;
 const size_t mbedtls_test_ca_crt_ec_len = sizeof( mbedtls_test_ca_crt_ec );
 
+/* Encrypted form of tests/data_files/test-ca2.key. */
 const char mbedtls_test_ca_key_ec[] =
 "-----BEGIN EC PRIVATE KEY-----\r\n"
 "Proc-Type: 4,ENCRYPTED\r\n"
@@ -64,6 +66,7 @@ const size_t mbedtls_test_ca_key_ec_len = sizeof( mbedtls_test_ca_key_ec );
 const char mbedtls_test_ca_pwd_ec[] = "PolarSSLTest";
 const size_t mbedtls_test_ca_pwd_ec_len = sizeof( mbedtls_test_ca_pwd_ec ) - 1;
 
+/* This is taken from tests/data_files/server5.crt. */
 const char mbedtls_test_srv_crt_ec[] =
 "-----BEGIN CERTIFICATE-----\r\n"
 "MIICHzCCAaWgAwIBAgIBCTAKBggqhkjOPQQDAjA+MQswCQYDVQQGEwJOTDERMA8G\r\n"
@@ -81,6 +84,7 @@ const char mbedtls_test_srv_crt_ec[] =
 "-----END CERTIFICATE-----\r\n";
 const size_t mbedtls_test_srv_crt_ec_len = sizeof( mbedtls_test_srv_crt_ec );
 
+/* This is taken from tests/data_file/server5.key. */
 const char mbedtls_test_srv_key_ec[] =
 "-----BEGIN EC PRIVATE KEY-----\r\n"
 "MHcCAQEEIPEqEyB2AnCoPL/9U/YDHvdqXYbIogTywwyp6/UfDw6noAoGCCqGSM49\r\n"
@@ -89,6 +93,7 @@ const char mbedtls_test_srv_key_ec[] =
 "-----END EC PRIVATE KEY-----\r\n";
 const size_t mbedtls_test_srv_key_ec_len = sizeof( mbedtls_test_srv_key_ec );
 
+/* This is taken from tests/data_files/cli2.crt. */
 const char mbedtls_test_cli_crt_ec[] =
 "-----BEGIN CERTIFICATE-----\r\n"
 "MIICLDCCAbKgAwIBAgIBDTAKBggqhkjOPQQDAjA+MQswCQYDVQQGEwJOTDERMA8G\r\n"
@@ -106,6 +111,7 @@ const char mbedtls_test_cli_crt_ec[] =
 "-----END CERTIFICATE-----\r\n";
 const size_t mbedtls_test_cli_crt_ec_len = sizeof( mbedtls_test_cli_crt_ec );
 
+/* This is taken from tests/data_files/cli2.key. */
 const char mbedtls_test_cli_key_ec[] =
 "-----BEGIN EC PRIVATE KEY-----\r\n"
 "MHcCAQEEIPb3hmTxZ3/mZI3vyk7p3U3wBf+WIop6hDhkFzJhmLcqoAoGCCqGSM49\r\n"
@@ -118,11 +124,12 @@ const size_t mbedtls_test_cli_key_ec_len = sizeof( mbedtls_test_cli_key_ec );
 #if defined(MBEDTLS_RSA_C)
 
 #if defined(MBEDTLS_SHA256_C)
+/* This is taken from tests/data_files/test-ca-sha256.crt. */
 #define TEST_CA_CRT_RSA_SHA256                                          \
 "-----BEGIN CERTIFICATE-----\r\n"                                       \
-"MIIDhzCCAm+gAwIBAgIBADANBgkqhkiG9w0BAQsFADA7MQswCQYDVQQGEwJOTDER\r\n"  \
+"MIIDQTCCAimgAwIBAgIBAzANBgkqhkiG9w0BAQsFADA7MQswCQYDVQQGEwJOTDER\r\n"  \
 "MA8GA1UECgwIUG9sYXJTU0wxGTAXBgNVBAMMEFBvbGFyU1NMIFRlc3QgQ0EwHhcN\r\n"  \
-"MTcwNTA0MTY1NzAxWhcNMjcwNTA1MTY1NzAxWjA7MQswCQYDVQQGEwJOTDERMA8G\r\n"  \
+"MTEwMjEyMTQ0NDAwWhcNMjEwMjEyMTQ0NDAwWjA7MQswCQYDVQQGEwJOTDERMA8G\r\n"  \
 "A1UECgwIUG9sYXJTU0wxGTAXBgNVBAMMEFBvbGFyU1NMIFRlc3QgQ0EwggEiMA0G\r\n"  \
 "CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDA3zf8F7vglp0/ht6WMn1EpRagzSHx\r\n"  \
 "mdTs6st8GFgIlKXsm8WL3xoemTiZhx57wI053zhdcHgH057Zk+i5clHFzqMwUqny\r\n"  \
@@ -130,15 +137,14 @@ const size_t mbedtls_test_cli_key_ec_len = sizeof( mbedtls_test_cli_key_ec );
 "YMPGn8u67GB9t+aEMr5P+1gmIgNb1LTV+/Xjli5wwOQuvfwu7uJBVcA0Ln0kcmnL\r\n"  \
 "R7EUQIN9Z/SG9jGr8XmksrUuEvmEF/Bibyc+E1ixVA0hmnM3oTDPb5Lc9un8rNsu\r\n"  \
 "KNF+AksjoBXyOGVkCeoMbo4bF6BxyLObyavpw/LPh5aPgAIynplYb6LVAgMBAAGj\r\n"  \
-"gZUwgZIwHQYDVR0OBBYEFLRa5KWz3tJS9rnVppUP6z68x/3/MGMGA1UdIwRcMFqA\r\n"  \
-"FLRa5KWz3tJS9rnVppUP6z68x/3/oT+kPTA7MQswCQYDVQQGEwJOTDERMA8GA1UE\r\n"  \
-"CgwIUG9sYXJTU0wxGTAXBgNVBAMMEFBvbGFyU1NMIFRlc3QgQ0GCAQAwDAYDVR0T\r\n"  \
-"BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAHK/HHrTZMnnVMpde1io+voAtql7j\r\n"  \
-"4sRhLrjD7o3THtwRbDa2diCvpq0Sq23Ng2LMYoXsOxoL/RQK3iN7UKxV3MKPEr0w\r\n"  \
-"XQS+kKQqiT2bsfrjnWMVHZtUOMpm6FNqcdGm/Rss3vKda2lcKl8kUnq/ylc1+QbB\r\n"  \
-"G6A6tUvQcr2ZyWfVg+mM5XkhTrOOXus2OLikb4WwEtJTJRNE0f+yPODSUz0/vT57\r\n"  \
-"ApH0CnB80bYJshYHPHHymOtleAB8KSYtqm75g/YNobjnjB6cm4HkW3OZRVIl6fYY\r\n"  \
-"n20NRVA1Vjs6GAROr4NqW4k/+LofY9y0LLDE+p0oIEKXIsIvhPr39swxSA==\r\n"      \
+"UDBOMAwGA1UdEwQFMAMBAf8wHQYDVR0OBBYEFLRa5KWz3tJS9rnVppUP6z68x/3/\r\n"  \
+"MB8GA1UdIwQYMBaAFLRa5KWz3tJS9rnVppUP6z68x/3/MA0GCSqGSIb3DQEBCwUA\r\n"  \
+"A4IBAQB2W2dIy4q4KysbrTL4HIaOqu62RceGuQ/KhyiI6O0ndCtQ/PgCBqHHTP8u\r\n"  \
+"8F1X2ivb60ynHV6baMLPI4Kf1k4MONtLSf/++1qh0Gdycd3A8IDAfy0YnC1F3OPK\r\n"  \
+"vWO/cZGitKoTbEpP4y4Rng3sFCDndRCWIRIDOEEW/H3lCcfL7sOQojdLl85ajFkh\r\n"  \
+"YvcDqjmnTcspUnuq9Y00C7porXJthZwz1S18qVjcFNk0zEhVMUbupSrdXVmKtOJW\r\n"  \
+"MWZjgcA+OXzcnb2hSKWbhjykH/u6/PqkuHPkD723rwXbmHdxRVS9CW57kDkn5ezJ\r\n"  \
+"5pE6Sam4qFsCNFJNBV9FRf3ZBMFi\r\n"                                      \
 "-----END CERTIFICATE-----\r\n"
 
 const char   mbedtls_test_ca_crt_rsa[]   = TEST_CA_CRT_RSA_SHA256;
@@ -150,27 +156,28 @@ static const char mbedtls_test_ca_crt_rsa_sha256[] = TEST_CA_CRT_RSA_SHA256;
 #endif
 
 #if !defined(TEST_CA_CRT_RSA_SOME) || defined(MBEDTLS_SHA1_C)
+
+/* This is taken from tests/data_files/test-ca-sha1.crt. */
 #define TEST_CA_CRT_RSA_SHA1                                            \
 "-----BEGIN CERTIFICATE-----\r\n"                                       \
-"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\r\n"  \
+"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\r\n"  \
-"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\r\n"  \
+"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\r\n"  \
-"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\r\n"      \
+"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\r\n"  \
+"NWqiX9GyusBZjezaCaHabjDLU0qQ\r\n"                                      \
 "-----END CERTIFICATE-----\r\n"
 
 #if !defined (TEST_CA_CRT_RSA_SOME)
@@ -182,6 +189,7 @@ static const char mbedtls_test_ca_crt_rsa_sha1[] = TEST_CA_CRT_RSA_SHA1;
 
 #endif
 
+/* This is taken from tests/data_files/test-ca.key. */
 const char mbedtls_test_ca_key_rsa[] =
 "-----BEGIN RSA PRIVATE KEY-----\r\n"
 "Proc-Type: 4,ENCRYPTED\r\n"
@@ -218,7 +226,7 @@ const size_t mbedtls_test_ca_key_rsa_len = sizeof( mbedtls_test_ca_key_rsa );
 const char mbedtls_test_ca_pwd_rsa[] = "PolarSSLTest";
 const size_t mbedtls_test_ca_pwd_rsa_len = sizeof( mbedtls_test_ca_pwd_rsa ) - 1;
 
-/* tests/data_files/server2.crt */
+/* This is taken from tests/data_files/server2.crt. */
 const char mbedtls_test_srv_crt_rsa[] =
 "-----BEGIN CERTIFICATE-----\r\n"
 "MIIDNzCCAh+gAwIBAgIBAjANBgkqhkiG9w0BAQUFADA7MQswCQYDVQQGEwJOTDER\r\n"
@@ -242,7 +250,7 @@ const char mbedtls_test_srv_crt_rsa[] =
 "-----END CERTIFICATE-----\r\n";
 const size_t mbedtls_test_srv_crt_rsa_len = sizeof( mbedtls_test_srv_crt_rsa );
 
-/* tests/data_files/server2.key */
+/* This is taken from tests/data_files/server2.key. */
 const char mbedtls_test_srv_key_rsa[] =
 "-----BEGIN RSA PRIVATE KEY-----\r\n"
 "MIIEpAIBAAKCAQEAwU2j3efNHdEE10lyuJmsDnjkOjxKzzoTFtBa5M2jAIin7h5r\r\n"
@@ -273,7 +281,7 @@ const char mbedtls_test_srv_key_rsa[] =
 "-----END RSA PRIVATE KEY-----\r\n";
 const size_t mbedtls_test_srv_key_rsa_len = sizeof( mbedtls_test_srv_key_rsa );
 
-/* tests/data_files/cli-rsa-sha256.crt */
+/* This is taken from tests/data_files/cli-rsa-sha256.crt. */
 const char mbedtls_test_cli_crt_rsa[] =
 "-----BEGIN CERTIFICATE-----\r\n"
 "MIIDPzCCAiegAwIBAgIBBDANBgkqhkiG9w0BAQsFADA7MQswCQYDVQQGEwJOTDER\r\n"
@@ -297,7 +305,7 @@ const char mbedtls_test_cli_crt_rsa[] =
 "-----END CERTIFICATE-----\r\n";
 const size_t mbedtls_test_cli_crt_rsa_len = sizeof( mbedtls_test_cli_crt_rsa );
 
-/* tests/data_files/cli-rsa.key */
+/* This is taken from tests/data_files/cli-rsa.key. */
 const char mbedtls_test_cli_key_rsa[] =
 "-----BEGIN RSA PRIVATE KEY-----\r\n"
 "MIIEpAIBAAKCAQEAyHTEzLn5tXnpRdkUYLB9u5Pyax6fM60Nj4o8VmXl3ETZzGaF\r\n"
