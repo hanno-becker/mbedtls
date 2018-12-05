@@ -74,6 +74,20 @@ extern const char   mbedtls_test_cli_crt_ec[];
 extern const size_t mbedtls_test_cli_crt_ec_len;
 extern const char   mbedtls_test_cli_key_ec[];
 extern const size_t mbedtls_test_cli_key_ec_len;
+extern const char   mbedtls_test_ca_crt_ec_der[];
+extern const size_t mbedtls_test_ca_crt_ec_der_len;
+extern const char   mbedtls_test_ca_key_ec_der[];
+extern const size_t mbedtls_test_ca_key_ec_der_len;
+extern const char   mbedtls_test_ca_pwd_ec_der[];
+extern const size_t mbedtls_test_ca_pwd_ec_der_len;
+extern const char   mbedtls_test_srv_crt_ec_der[];
+extern const size_t mbedtls_test_srv_crt_ec_der_len;
+extern const char   mbedtls_test_srv_key_ec_der[];
+extern const size_t mbedtls_test_srv_key_ec_der_len;
+extern const char   mbedtls_test_cli_crt_ec_der[];
+extern const size_t mbedtls_test_cli_crt_ec_der_len;
+extern const char   mbedtls_test_cli_key_ec_der[];
+extern const size_t mbedtls_test_cli_key_ec_der_len;
 #endif
 
 #if defined(MBEDTLS_RSA_C)
@@ -91,6 +105,20 @@ extern const char   mbedtls_test_cli_crt_rsa[];
 extern const size_t mbedtls_test_cli_crt_rsa_len;
 extern const char   mbedtls_test_cli_key_rsa[];
 extern const size_t mbedtls_test_cli_key_rsa_len;
+extern const char   mbedtls_test_ca_crt_rsa_der[];
+extern const size_t mbedtls_test_ca_crt_rsa_der_len;
+extern const char   mbedtls_test_ca_key_rsa_der[];
+extern const size_t mbedtls_test_ca_key_rsa_der_len;
+extern const char   mbedtls_test_ca_pwd_rsa_der[];
+extern const size_t mbedtls_test_ca_pwd_rsa_der_len;
+extern const char   mbedtls_test_srv_crt_rsa_der[];
+extern const size_t mbedtls_test_srv_crt_rsa_der_len;
+extern const char   mbedtls_test_srv_key_rsa_der[];
+extern const size_t mbedtls_test_srv_key_rsa_der_len;
+extern const char   mbedtls_test_cli_crt_rsa_der[];
+extern const size_t mbedtls_test_cli_crt_rsa_der_len;
+extern const char   mbedtls_test_cli_key_rsa_der[];
+extern const size_t mbedtls_test_cli_key_rsa_der_len;
 #endif
 
 #ifdef __cplusplus
