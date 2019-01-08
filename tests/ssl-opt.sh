@@ -752,9 +752,9 @@ run_test() {
     rm -f $SRV_OUT $CLI_OUT $PXY_OUT
 }
 
-run_test_psa() {
+run_test_psa_force_suite() {
     requires_config_enabled MBEDTLS_USE_PSA_CRYPTO
-    run_test    "PSA-supported ciphersuite: $1" \
+    run_test    "PSA - Ciphersuite $1" \
                 "$P_SRV debug_level=1 force_version=tls1_2" \
                 "$P_CLI debug_level=1 force_version=tls1_2 force_ciphersuite=$1" \
                 0 \
@@ -764,6 +764,17 @@ run_test_psa() {
                 -s "Successfully setup PSA-based encryption cipher context" \
                 -C "Failed to setup PSA-based cipher context"\
                 -S "Failed to setup PSA-based cipher context"\
+                -s "Protocol is TLSv1.2" \
+                -S "error" \
+                -C "error"
+}
+
+run_test_psa_force_curve() {
+    requires_config_enabled MBEDTLS_USE_PSA_CRYPTO
+    run_test    "PSA - ECDH with $1" \
+                "$P_SRV debug_level=4 force_version=tls1_2" \
+                "$P_CLI debug_level=4 force_version=tls1_2 force_ciphersuite=TLS-ECDHE-RSA-WITH-AES-128-GCM-SHA256 curves=$1" \
+                0 \
                 -s "Protocol is TLSv1.2" \
                 -S "error" \
                 -C "error"
@@ -917,15 +928,39 @@ run_test    "Opaque key for client authentication" \
 
 # Test ciphersuites which we expect to be fully supported by PSA Crypto
 # and check that we don't fall back to Mbed TLS' internal crypto primitives.
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-128-CCM
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-128-CCM-8
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-256-CCM
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-256-CCM-8
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-128-GCM-SHA256
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA256
-run_test_psa TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA384
+
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-128-CCM
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-128-CCM-8
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-256-CCM
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-256-CCM-8
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-128-GCM-SHA256
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA256
+run_test_psa_force_suite TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA384
+
+requires_config_enabled MBEDTLS_ECP_DP_SECP521R1_ENABLED
+run_test_psa_force_curve "secp521r1"
+requires_config_enabled MBEDTLS_ECP_DP_BP512R1_ENABLED
+run_test_psa_force_curve "brainpoolP512r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP384R1_ENABLED
+run_test_psa_force_curve "secp384r1"
+requires_config_enabled MBEDTLS_ECP_DP_BP384R1_ENABLED
+run_test_psa_force_curve "brainpoolP384r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP256R1_ENABLED
+run_test_psa_force_curve "secp256r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP256K1_ENABLED
+run_test_psa_force_curve "secp256k1"
+requires_config_enabled MBEDTLS_ECP_DP_BP256R1_ENABLED
+run_test_psa_force_curve "brainpoolP256r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP224R1_ENABLED
+run_test_psa_force_curve "secp224r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP224K1_ENABLED
+run_test_psa_force_curve "secp224k1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP192R1_ENABLED
+run_test_psa_force_curve "secp192r1"
+requires_config_enabled MBEDTLS_ECP_DP_SECP192K1_ENABLED
+run_test_psa_force_curve "secp192k1"
 
 # Test current time in ServerHello
 requires_config_enabled MBEDTLS_HAVE_TIME
