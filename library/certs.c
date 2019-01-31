@@ -477,6 +477,8 @@ static const char mbedtls_test_ca_crt_rsa_sha256_der[] =
     "NWqiX9GyusBZjezaCaHabjDLU0qQ\r\n"                                  \
     "-----END CERTIFICATE-----\r\n"
 
+/* This is generated from tests/data_files/test-ca-sha1.crt.der
+ * using `xxd -i`. */
 #define TEST_CA_CRT_RSA_SHA1_DER                                               \
     {  0x30, 0x82, 0x03, 0x41, 0x30, 0x82, 0x02, 0x29, 0xa0, 0x03, 0x02, 0x01, \
        0x02, 0x02, 0x01, 0x03, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, \
