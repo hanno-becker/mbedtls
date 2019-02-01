@@ -36,9 +36,13 @@ extern const char   mbedtls_test_cas_pem[];
 extern const size_t mbedtls_test_cas_pem_len;
 #endif
 
-/* List of all CA certificates, terminated by NULL */
+/* List of all PEM-encoded CA certificates, terminated by NULL */
 extern const char * mbedtls_test_cas[];
 extern const size_t mbedtls_test_cas_len[];
+
+/* List of all DER-encoded CA certificates, terminated by NULL */
+extern const char * mbedtls_test_cas_der[];
+extern const size_t mbedtls_test_cas_der_len[];
 
 /*
  * Convenience for users who just want a certificate:
