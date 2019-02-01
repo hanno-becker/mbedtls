@@ -2110,7 +2110,7 @@ int main( int argc, char *argv[] )
                                             (const unsigned char *) TEST_CRT1,
                                             TEST_CRT1_LEN ) ) != 0 )
         {
-            mbedtls_printf( " failed\n  !  XXXmbedtls_x509_crt_parse returned -0x%x\n\n",
+            mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
                             -ret );
             goto exit;
         }
