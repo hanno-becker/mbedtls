@@ -158,11 +158,16 @@ int mbedtls_ssl_ticket_setup( mbedtls_ssl_ticket_context *ctx,
 
 /*
  * Serialize a session in the following format:
- *  0       .   n-1     session structure, n = sizeof(mbedtls_ssl_session)
- *  n       .   n+2     peer_cert length = m (0 if no certificate)
- *  n+3     .   n+2+m   peer cert ASN.1
- *  n+3+m   .   n+3+m   length of peer certificate digest = k (0 if n digest)
- *  n+4+m   .   n+4+k   peer certificate digest (digest type encoded in session)
+ *
+ * - If MBEDTLS_SSL_KEEP_PEER_CERTIFICATE is enabled:
+ *    0       .   n-1   session structure, n = sizeof(mbedtls_ssl_session)
+ *    n       .   n+2   peer_cert length = m (0 if no certificate)
+ *    n+3     .   n+2+m peer cert ASN.1
+ *
+ * - If MBEDTLS_SSL_KEEP_PEER_CERTIFICATE is disabled:
+ *    0       .   n-1   session structure, n = sizeof(mbedtls_ssl_session)
+ *    n       .   n     length of peer certificate digest = k (0 if n digest)
+ *    n+1     .   n+k   peer certificate digest (digest type encoded in session)
  */
 static int ssl_save_session( const mbedtls_ssl_session *session,
                              unsigned char *buf, size_t buf_len,
@@ -171,8 +176,9 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
     unsigned char *p = buf;
     size_t left = buf_len;
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     size_t cert_len;
-#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+#else
     size_t cert_digest_len;
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
@@ -188,6 +194,7 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
     left -= sizeof( mbedtls_ssl_session );
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     if( session->peer_cert == NULL )
         cert_len = 0;
     else
@@ -206,8 +213,7 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
 
     p += cert_len;
     left -= cert_len;
-
-#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+#else /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
     if( session->peer_cert_digest != NULL )
         cert_digest_len = 0;
     else
@@ -241,8 +247,9 @@ static int ssl_load_session( mbedtls_ssl_session *session,
     const unsigned char *p = buf;
     const unsigned char * const end = buf + len;
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     size_t cert_len;
-#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+#else
     size_t cert_digest_len;
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
@@ -266,6 +273,7 @@ static int ssl_load_session( mbedtls_ssl_session *session,
 #endif /* MBEDTLS_SSL_SESSION_TICKETS && MBEDTLS_SSL_CLI_C */
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     /* Deserialize CRT from the end of the ticket. */
     if( 3 > (size_t)( end - p ) )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
@@ -298,7 +306,7 @@ static int ssl_load_session( mbedtls_ssl_session *session,
 
         p += cert_len;
     }
-#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+#else /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
     /* Deserialize CRT digest from the end of the ticket. */
     if( 1 > (size_t)( end - p ) )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
