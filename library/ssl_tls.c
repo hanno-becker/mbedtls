@@ -276,7 +276,7 @@ int mbedtls_ssl_session_copy( mbedtls_ssl_session *dst,
     mbedtls_ssl_session_free( dst );
     memcpy( dst, src, sizeof( mbedtls_ssl_session ) );
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     if( src->peer_cert != NULL )
@@ -312,7 +312,7 @@ int mbedtls_ssl_session_copy( mbedtls_ssl_session *dst,
     }
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_SESSION_TICKETS) && defined(MBEDTLS_SSL_CLI_C)
     if( src->ticket != NULL )
@@ -5281,7 +5281,7 @@ int mbedtls_ssl_send_alert_message( mbedtls_ssl_context *ssl,
     return( 0 );
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 static void ssl_clear_peer_cert( mbedtls_ssl_session *session )
 {
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
@@ -5302,7 +5302,7 @@ static void ssl_clear_peer_cert( mbedtls_ssl_session *session )
     }
 #endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 /*
  * Handshake functions
@@ -6817,7 +6817,7 @@ static void ssl_handshake_params_init( mbedtls_ssl_handshake_params *handshake )
     handshake->sni_authmode = MBEDTLS_SSL_VERIFY_UNSET;
 #endif
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C) && \
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED) && \
     !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     mbedtls_pk_init( &handshake->peer_pubkey );
 #endif
@@ -7282,7 +7282,7 @@ void mbedtls_ssl_conf_authmode( mbedtls_ssl_config *conf, int authmode )
     conf->authmode   = authmode;
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 void mbedtls_ssl_conf_verify( mbedtls_ssl_config *conf,
                      int (*f_vrfy)(void *, mbedtls_x509_crt *, int, uint32_t *),
                      void *p_vrfy )
@@ -7290,7 +7290,7 @@ void mbedtls_ssl_conf_verify( mbedtls_ssl_config *conf,
     conf->f_vrfy      = f_vrfy;
     conf->p_vrfy      = p_vrfy;
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 void mbedtls_ssl_conf_rng( mbedtls_ssl_config *conf,
                   int (*f_rng)(void *, unsigned char *, size_t),
@@ -7402,7 +7402,7 @@ void mbedtls_ssl_conf_ciphersuites_for_version( mbedtls_ssl_config *conf,
     conf->ciphersuite_list[minor] = ciphersuites;
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 void mbedtls_ssl_conf_cert_profile( mbedtls_ssl_config *conf,
                                     const mbedtls_x509_crt_profile *profile )
 {
@@ -7454,7 +7454,7 @@ void mbedtls_ssl_conf_ca_chain( mbedtls_ssl_config *conf,
     conf->ca_chain   = ca_chain;
     conf->ca_crl     = ca_crl;
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
 int mbedtls_ssl_set_hs_own_cert( mbedtls_ssl_context *ssl,
@@ -7679,7 +7679,7 @@ void mbedtls_ssl_conf_curves( mbedtls_ssl_config *conf,
 }
 #endif /* MBEDTLS_ECP_C */
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 int mbedtls_ssl_set_hostname( mbedtls_ssl_context *ssl, const char *hostname )
 {
     /* Initialize to suppress unnecessary compiler warning */
@@ -7723,7 +7723,7 @@ int mbedtls_ssl_set_hostname( mbedtls_ssl_context *ssl, const char *hostname )
 
     return( 0 );
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
 void mbedtls_ssl_conf_sni( mbedtls_ssl_config *conf,
@@ -8202,7 +8202,7 @@ int mbedtls_ssl_get_max_out_record_payload( const mbedtls_ssl_context *ssl )
     return( (int) max_len );
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 const mbedtls_x509_crt *mbedtls_ssl_get_peer_cert( const mbedtls_ssl_context *ssl )
 {
     if( ssl == NULL || ssl->session == NULL )
@@ -8214,7 +8214,7 @@ const mbedtls_x509_crt *mbedtls_ssl_get_peer_cert( const mbedtls_ssl_context *ss
     return( NULL );
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_CLI_C)
 int mbedtls_ssl_get_session( const mbedtls_ssl_context *ssl,
@@ -8945,7 +8945,7 @@ void mbedtls_ssl_transform_free( mbedtls_ssl_transform *transform )
     mbedtls_platform_zeroize( transform, sizeof( mbedtls_ssl_transform ) );
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 static void ssl_key_cert_free( mbedtls_ssl_key_cert *key_cert )
 {
     mbedtls_ssl_key_cert *cur = key_cert, *next;
@@ -8957,7 +8957,7 @@ static void ssl_key_cert_free( mbedtls_ssl_key_cert *key_cert )
         cur = next;
     }
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
 
@@ -9053,8 +9053,8 @@ void mbedtls_ssl_handshake_free( mbedtls_ssl_context *ssl )
     }
 #endif
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C) && \
-    defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
+#if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
     /*
      * Free only the linked list wrapper, not the keys themselves
      * since the belong to the SNI callback
@@ -9070,7 +9070,7 @@ void mbedtls_ssl_handshake_free( mbedtls_ssl_context *ssl )
             cur = next;
         }
     }
-#endif /* MBEDTLS_X509_CRT_PARSE_C && MBEDTLS_SSL_SERVER_NAME_INDICATION */
+#endif MBEDTLS_SSL_SERVER_NAME_INDICATION */
 
 #if defined(MBEDTLS_SSL__ECP_RESTARTABLE)
     mbedtls_x509_crt_restart_free( &handshake->ecrs_ctx );
@@ -9079,12 +9079,12 @@ void mbedtls_ssl_handshake_free( mbedtls_ssl_context *ssl )
         mbedtls_x509_crt_free( handshake->ecrs_peer_cert );
         mbedtls_free( handshake->ecrs_peer_cert );
     }
-#endif
+#endif /* MBEDTLS_SSL__ECP_RESTARTABLE */
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C) &&        \
-    !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     mbedtls_pk_free( &handshake->peer_pubkey );
-#endif /* MBEDTLS_X509_CRT_PARSE_C && !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
+#endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     mbedtls_free( handshake->verify_cookie );
@@ -9101,9 +9101,9 @@ void mbedtls_ssl_session_free( mbedtls_ssl_session *session )
     if( session == NULL )
         return;
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
     ssl_clear_peer_cert( session );
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_SESSION_TICKETS) && defined(MBEDTLS_SSL_CLI_C)
     mbedtls_free( session->ticket );
@@ -9165,13 +9165,13 @@ void mbedtls_ssl_free( mbedtls_ssl_context *ssl )
         mbedtls_free( ssl->session );
     }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
     if( ssl->hostname != NULL )
     {
         mbedtls_platform_zeroize( ssl->hostname, strlen( ssl->hostname ) );
         mbedtls_free( ssl->hostname );
     }
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_SSL_HW_RECORD_ACCEL)
     if( mbedtls_ssl_hw_record_finish != NULL )
@@ -9343,9 +9343,9 @@ int mbedtls_ssl_config_defaults( mbedtls_ssl_config *conf,
             conf->ciphersuite_list[MBEDTLS_SSL_MINOR_VERSION_3] =
                                    ssl_preset_suiteb_ciphersuites;
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
             conf->cert_profile = &mbedtls_x509_crt_profile_suiteb;
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
             conf->sig_hashes = ssl_preset_suiteb_hashes;
@@ -9382,9 +9382,9 @@ int mbedtls_ssl_config_defaults( mbedtls_ssl_config *conf,
             conf->ciphersuite_list[MBEDTLS_SSL_MINOR_VERSION_3] =
                                    mbedtls_ssl_list_ciphersuites();
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
             conf->cert_profile = &mbedtls_x509_crt_profile_default;
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
             conf->sig_hashes = ssl_preset_default_hashes;
@@ -9430,9 +9430,9 @@ void mbedtls_ssl_config_free( mbedtls_ssl_config *conf )
     }
 #endif
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
     ssl_key_cert_free( conf->key_cert );
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
     mbedtls_platform_zeroize( conf, sizeof( mbedtls_ssl_config ) );
 }

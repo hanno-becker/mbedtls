@@ -311,15 +311,16 @@ struct mbedtls_ssl_handshake_params
         ssl_ecrs_cke_ecdh_calc_secret,  /*!< ClientKeyExchange: ECDH step 2 */
         ssl_ecrs_crt_vrfy_sign,         /*!< CertificateVerify: pk_sign()   */
     } ecrs_state;                       /*!< current (or last) operation    */
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
     mbedtls_x509_crt *ecrs_peer_cert;        /*!< The peer's CRT chain.     */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
     size_t ecrs_n;                      /*!< place for saving a length      */
 #endif
-#if defined(MBEDTLS_X509_CRT_PARSE_C) && \
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED) && \
     !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     mbedtls_pk_context peer_pubkey;     /*!< The public key from the peer.  */
-#endif /* MBEDTLS_X509_CRT_PARSE_C && !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED &&
+          !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     unsigned int out_msg_seq;           /*!<  Outgoing handshake sequence number */
     unsigned int in_msg_seq;            /*!<  Incoming handshake sequence number */

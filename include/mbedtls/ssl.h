@@ -572,7 +572,7 @@ typedef struct mbedtls_ssl_flight_item mbedtls_ssl_flight_item;
 #endif
 
 #if defined(MBEDTLS_SSL_ASYNC_PRIVATE)
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 /**
  * \brief           Callback type: start external signature operation.
  *
@@ -714,7 +714,7 @@ typedef int mbedtls_ssl_async_decrypt_t( mbedtls_ssl_context *ssl,
                                          mbedtls_x509_crt *cert,
                                          const unsigned char *input,
                                          size_t input_len );
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 /**
  * \brief           Callback type: resume external operation.
@@ -783,7 +783,7 @@ typedef int mbedtls_ssl_async_resume_t( mbedtls_ssl_context *ssl,
 typedef void mbedtls_ssl_async_cancel_t( mbedtls_ssl_context *ssl );
 #endif /* MBEDTLS_SSL_ASYNC_PRIVATE */
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #define MBEDTLS_SSL_PEER_CERT_DIGEST_MAX_LEN  48
 #if defined(MBEDTLS_SHA256_C)
 #define MBEDTLS_SSL_PEER_CERT_DIGEST_DFL_TYPE MBEDTLS_MD_SHA256
@@ -797,7 +797,7 @@ typedef void mbedtls_ssl_async_cancel_t( mbedtls_ssl_context *ssl );
 #else
 #error "Bad configuration - need SHA-1, SHA-256 or SHA-512 enabled to compute digest of peer CRT."
 #endif
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 /*
  * This structure is used for storing current session data.
@@ -813,7 +813,7 @@ struct mbedtls_ssl_session
     unsigned char id[32];       /*!< session identifier */
     unsigned char master[48];   /*!< the master secret  */
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     mbedtls_x509_crt *peer_cert;       /*!< peer X.509 cert chain */
 #else /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
@@ -823,7 +823,7 @@ struct mbedtls_ssl_session
     size_t peer_cert_digest_len;
     mbedtls_md_type_t peer_cert_digest_type;
 #endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
     uint32_t verify_result;          /*!<  verification result     */
 
 #if defined(MBEDTLS_SSL_SESSION_TICKETS) && defined(MBEDTLS_SSL_CLI_C)
@@ -878,11 +878,11 @@ struct mbedtls_ssl_config
     void *p_sni;                    /*!< context for SNI callback           */
 #endif
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
     /** Callback to customize X.509 certificate chain verification          */
     int (*f_vrfy)(void *, mbedtls_x509_crt *, int, uint32_t *);
     void *p_vrfy;                   /*!< context for X.509 verify calllback */
-#endif
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 #if defined(MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED)
     /** Callback to retrieve PSK key from identity                          */
@@ -1337,7 +1337,7 @@ void mbedtls_ssl_conf_transport( mbedtls_ssl_config *conf, int transport );
  */
 void mbedtls_ssl_conf_authmode( mbedtls_ssl_config *conf, int authmode );
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 /**
  * \brief          Set the verification callback (Optional).
  *
@@ -1352,7 +1352,7 @@ void mbedtls_ssl_conf_authmode( mbedtls_ssl_config *conf, int authmode );
 void mbedtls_ssl_conf_verify( mbedtls_ssl_config *conf,
                      int (*f_vrfy)(void *, mbedtls_x509_crt *, int, uint32_t *),
                      void *p_vrfy );
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
 /**
  * \brief          Set the random number generator callback

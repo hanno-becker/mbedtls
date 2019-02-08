@@ -175,13 +175,13 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
 {
     unsigned char *p = buf;
     size_t left = buf_len;
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     size_t cert_len;
 #else
     size_t cert_digest_len;
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
     if( left < sizeof( mbedtls_ssl_session ) )
         return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
@@ -193,7 +193,7 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
     p += sizeof( mbedtls_ssl_session );
     left -= sizeof( mbedtls_ssl_session );
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     if( session->peer_cert == NULL )
         cert_len = 0;
@@ -231,7 +231,7 @@ static int ssl_save_session( const mbedtls_ssl_session *session,
     p    += cert_digest_len;
     left -= cert_digest_len;
 #endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
     *olen = p - buf;
 
@@ -246,13 +246,13 @@ static int ssl_load_session( mbedtls_ssl_session *session,
 {
     const unsigned char *p = buf;
     const unsigned char * const end = buf + len;
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     size_t cert_len;
 #else
     size_t cert_digest_len;
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
     if( sizeof( mbedtls_ssl_session ) > (size_t)( end - p ) )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
@@ -262,18 +262,18 @@ static int ssl_load_session( mbedtls_ssl_session *session,
 
     /* Non-NULL pointer fields of `session` are meaningless
      * and potentially harmful. Zeroize them for safety. */
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     session->peer_cert = NULL;
 #else
     session->peer_cert_digest = NULL;
 #endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 #if defined(MBEDTLS_SSL_SESSION_TICKETS) && defined(MBEDTLS_SSL_CLI_C)
     session->ticket = NULL;
 #endif /* MBEDTLS_SSL_SESSION_TICKETS && MBEDTLS_SSL_CLI_C */
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED)
 #if defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     /* Deserialize CRT from the end of the ticket. */
     if( 3 > (size_t)( end - p ) )
@@ -331,7 +331,7 @@ static int ssl_load_session( mbedtls_ssl_session *session,
         p += cert_digest_len;
     }
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
+#endif /* MBEDTLS_KEY_EXCHANGE__WITH_CERT__ENABLED */
 
     if( p != end )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
