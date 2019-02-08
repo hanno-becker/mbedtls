@@ -2222,6 +2222,10 @@ static int ssl_write_encrypted_pms( mbedtls_ssl_context *ssl,
     }
 #endif
 
+#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+    /* We don't need the peer's public key anymore. Free it. */
+    mbedtls_pk_free( peer_pk );
+#endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
     return( 0 );
 }
 #endif /* MBEDTLS_KEY_EXCHANGE_RSA_ENABLED ||
@@ -2330,6 +2334,13 @@ static int ssl_get_ecdh_params_from_cert( mbedtls_ssl_context *ssl )
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad server certificate (ECDH curve)" ) );
         return( MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE );
     }
+
+#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+    /* We don't need the peer's public key anymore. Free it,
+     * so that more RAM is available for upcoming expensive
+     * operations like ECDHE. */
+    mbedtls_pk_free( peer_pk );
+#endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
     return( ret );
 }
@@ -2669,6 +2680,13 @@ start_processing:
 #endif
             return( ret );
         }
+
+#if !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+        /* We don't need the peer's public key anymore. Free it,
+         * so that more RAM is available for upcoming expensive
+         * operations like ECDHE. */
+        mbedtls_pk_free( peer_pk );
+#endif /* !MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
     }
 #endif /* MBEDTLS_KEY_EXCHANGE__WITH_SERVER_SIGNATURE__ENABLED */
 
