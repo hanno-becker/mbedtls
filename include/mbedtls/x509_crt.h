@@ -47,36 +47,23 @@ extern "C" {
  * \{
  */
 
-typedef struct
+typedef struct mbedtls_x509_crt_basic
 {
-    mbedtls_md_type_t sig_md;                 /**< Internal representation of the MD algorithm of the
-                                               *   signature algorithm, e.g. MBEDTLS_MD_SHA256                    */
-    mbedtls_pk_type_t sig_pk;                 /**< Internal representation of the Public Key algorithm
-                                               *   of the signature algorithm, e.g. MBEDTLS_PK_RSA                */
-    void *sig_opts;                           /**< Signature options to be passed to mbedtls_pk_verify_ext(),
-                                               *   e.g. for RSASSA-PSS                                            */
+    uint8_t ca_istrue;
+    uint8_t version;
+    uint8_t ns_cert_type;
+    uint8_t max_pathlen;
 
-#if !defined(MBEDTLS_X509_LAZY_PARSING)
-    mbedtls_x509_buf_raw sig_oid;
-#endif /* !MBEDTLS_X509_LAZY_PARSING */
-
-} mbedtls_x509_crt_sig_info;
-
-typedef struct
-{
-    /* Keep these 8-bit fields at the front of the structure to allow them to
-     * be fetched in a single instruction on Thumb2; putting them at the back
-     * requires an intermediate address calculation. */
-    uint8_t version;                          /**< The X.509 version. (1=v1, 2=v2, 3=v3)                          */
-    unsigned char ca_istrue;                  /**< Optional Basic Constraint extension value: 1 if this
-                                               *   certificate belongs to a CA, 0 otherwise.                      */
-    unsigned char max_pathlen;                /**< Optional Basic Constraint extension value: The maximum path
-                                               *   length to the root certificate. Path length is 1 higher than
-                                               *   RFC 5280 'meaning', so 1+                                      */
-    unsigned char ns_cert_type;               /**< Optional Netscape certificate type extension value:
-                                               *   See the values in x509.h                                       */
-    unsigned int key_usage;                   /**< Optional key usage extension value: See the values in x509.h   */
+    uint16_t key_usage;
     uint32_t ext_types;
+
+    mbedtls_md_type_t sig_md;
+    mbedtls_pk_type_t sig_pk;
+} mbedtls_x509_crt_basic;
+
+typedef struct
+{
+    mbedtls_x509_crt_basic core;
 
     mbedtls_x509_buf_raw tbs;               /**< The raw certificate body (DER). The part that is To Be Signed. */
     mbedtls_x509_buf_raw serial;            /**< Unique id for certificate issued by a specific CA.             */
@@ -90,20 +77,43 @@ typedef struct
     mbedtls_x509_buf_raw subject_id;        /**< Optional X.509 v2/v3 subject unique identifier.                */
     mbedtls_x509_buf_raw subject_raw;       /**< The raw subject data (DER). Used for quick comparison.         */
 
-    mbedtls_x509_buf_raw sig_alg;           /**< Signature algorithm, e.g. ecdsa-with-SHA256                    */
+    mbedtls_asn1_buf sig_params;            /**< Signature algorithm parameters; currently only used for RSASSA. */
+
     mbedtls_x509_buf_raw sig;               /**< Signature: hash of the tbs part signed with the private key.   */
 
     mbedtls_x509_buf_raw subject_alt_raw;   /**< Raw data for optional list of Subject Alternative Names.       */
     mbedtls_x509_buf_raw ext_key_usage_raw; /**< Raw data for optional extended key usage information.          */
 
+#if !defined(MBEDTLS_X509_LAZY_PARSING)
     mbedtls_x509_buf_raw issuer_raw_with_hdr;
     mbedtls_x509_buf_raw subject_raw_with_hdr;
     mbedtls_x509_buf_raw v3_ext;
+#endif /* !MBEDTLS_X509_LAZY_PARSING */
+
 } mbedtls_x509_crt_frame;
 
 /**
  * Container for an X.509 certificate. The certificate may be chained.
  */
+#if defined(MBEDTLS_X509_LAZY_PARSING)
+typedef struct mbedtls_x509_crt_parse_cache
+{
+    /* TODO: Add threading mutex. */
+
+    mbedtls_x509_crt_basic    basic;
+    mbedtls_x509_crt_frame    *frame;
+    mbedtls_pk_context        *pubkey;
+    mbedtls_x509_name         *subject;
+} mbedtls_x509_crt_parse_cache;
+
+typedef struct mbedtls_x509_crt
+{
+    uint8_t own_buffer;
+    mbedtls_x509_buf_raw raw;
+    mbedtls_x509_crt_parse_cache *parsed;
+    struct mbedtls_x509_crt *next;
+} mbedtls_x509_crt;
+#else /* MBEDTLS_X509_LAZY_PARSING */
 typedef struct mbedtls_x509_crt
 {
     int own_buffer;                     /**< Indicates if \c raw is owned
@@ -154,6 +164,8 @@ typedef struct mbedtls_x509_crt
     struct mbedtls_x509_crt *next;     /**< Next certificate in the CA-chain. */
 }
 mbedtls_x509_crt;
+
+#endif /* MBEDTLS_X509_LAZY_PARSING */
 
 /**
  * Build flag from an algorithm/curve identifier (pk, md, ecp)
@@ -892,6 +904,8 @@ int mbedtls_x509write_crt_pem( mbedtls_x509write_cert *ctx, unsigned char *buf, 
                        void *p_rng );
 #endif /* MBEDTLS_PEM_WRITE_C */
 #endif /* MBEDTLS_X509_CRT_WRITE_C */
+
+int mbedtls_x509_crt_shrink( mbedtls_x509_crt const *crt );
 
 #ifdef __cplusplus
 }
