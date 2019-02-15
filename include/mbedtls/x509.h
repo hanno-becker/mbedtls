@@ -188,6 +188,12 @@ extern "C" {
  */
 typedef mbedtls_asn1_buf mbedtls_x509_buf;
 
+typedef struct
+{
+    unsigned char *p;
+    size_t len;
+} mbedtls_x509_buf_raw;
+
 /**
  * Container for ASN1 bit strings.
  */
