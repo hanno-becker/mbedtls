@@ -1661,6 +1661,13 @@
 #define MBEDTLS_VERSION_FEATURES
 
 /**
+ * \def MBEDTLS_X509_LAZY_PARSING
+ *
+ * TODO: Document
+ */
+//#define MBEDTLS_X509_LAZY_PARSING
+
+/**
  * \def MBEDTLS_X509_ALLOW_EXTENSIONS_NON_V3
  *
  * If set, the X509 parser will not break-off when parsing an X509 certificate
