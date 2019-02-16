@@ -5792,7 +5792,7 @@ static int ssl_parse_certificate_verify( mbedtls_ssl_context *ssl,
 
 #if defined(MBEDTLS_ECP_C)
     {
-        const mbedtls_pk_context *pk = &chain->pk;
+        const mbedtls_pk_context *pk = mbedtls_x509_crt_get_pk( chain );
 
         /* If certificate uses an EC key, make sure the curve is OK */
         if( mbedtls_pk_can_do( pk, MBEDTLS_PK_ECKEY ) &&

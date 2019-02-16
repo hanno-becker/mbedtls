@@ -555,6 +555,18 @@ int mbedtls_x509_crt_verify_restartable( mbedtls_x509_crt *crt,
                      void *p_vrfy,
                      mbedtls_x509_crt_restart_ctx *rs_ctx );
 
+/**
+ * \brief          Get reference to public key within the certificate.
+ *
+ * \param crt      The certificate whose public key to obtain. This must
+ *                 be initialized and successfully setup through one of
+ *                 the X.509 parsing APIs.
+ *
+ * \return         The pointer to the PK context within the certificate.
+ *
+ */
+mbedtls_pk_context* mbedtls_x509_crt_get_pk( mbedtls_x509_crt *crt );
+
 #if defined(MBEDTLS_X509_CHECK_KEY_USAGE)
 /**
  * \brief          Check usage of certificate against keyUsage extension.

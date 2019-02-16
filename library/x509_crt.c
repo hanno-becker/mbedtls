@@ -2956,6 +2956,14 @@ void mbedtls_x509_crt_free( mbedtls_x509_crt *crt )
     while( cert_cur != NULL );
 }
 
+mbedtls_pk_context* mbedtls_x509_crt_get_pk( mbedtls_x509_crt *crt )
+{
+    if( crt == NULL || crt->raw.p == NULL )
+        return( NULL );
+
+    return( &crt->pk );
+}
+
 #if defined(MBEDTLS_ECDSA_C) && defined(MBEDTLS_ECP_RESTARTABLE)
 /*
  * Initialize a restart context

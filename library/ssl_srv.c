@@ -725,10 +725,11 @@ static int ssl_pick_cert( mbedtls_ssl_context *ssl,
 
     for( cur = list; cur != NULL; cur = cur->next )
     {
+        mbedtls_pk_context *pk = mbedtls_x509_crt_get_pk( cur->cert );
         MBEDTLS_SSL_DEBUG_CRT( 3, "candidate certificate chain, certificate",
                           cur->cert );
 
-        if( ! mbedtls_pk_can_do( &cur->cert->pk, pk_alg ) )
+        if( ! mbedtls_pk_can_do( pk, pk_alg ) )
         {
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "certificate mismatch: key type" ) );
             continue;
@@ -752,7 +753,7 @@ static int ssl_pick_cert( mbedtls_ssl_context *ssl,
 
 #if defined(MBEDTLS_ECDSA_C)
         if( pk_alg == MBEDTLS_PK_ECDSA &&
-            ssl_check_key_curve( &cur->cert->pk, ssl->handshake->curves ) != 0 )
+            ssl_check_key_curve( pk, ssl->handshake->curves ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "certificate mismatch: elliptic curve" ) );
             continue;
@@ -4054,7 +4055,7 @@ static int ssl_parse_certificate_verify( mbedtls_ssl_context *ssl )
         /* Should never happen */
         return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
     }
-    peer_pk = &ssl->session_negotiate->peer_cert->pk;
+    peer_pk = mbedtls_x509_crt_get_pk( ssl->session_negotiate->peer_cert );
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
     /*

@@ -2190,7 +2190,7 @@ static int ssl_write_encrypted_pms( mbedtls_ssl_context *ssl,
         /* Should never happen */
         return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
     }
-    peer_pk = &ssl->session_negotiate->peer_cert->pk;
+    peer_pk = mbedtls_x509_crt_get_pk( ssl->session_negotiate->peer_cert );
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
     /*
@@ -2311,7 +2311,7 @@ static int ssl_get_ecdh_params_from_cert( mbedtls_ssl_context *ssl )
         /* Should never happen */
         return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
     }
-    peer_pk = &ssl->session_negotiate->peer_cert->pk;
+    peer_pk = mbedtls_x509_crt_get_pk( ssl->session_negotiate->peer_cert );
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
     if( ! mbedtls_pk_can_do( peer_pk, MBEDTLS_PK_ECKEY ) )
@@ -2646,7 +2646,7 @@ start_processing:
             /* Should never happen */
             return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
         }
-        peer_pk = &ssl->session_negotiate->peer_cert->pk;
+        peer_pk = mbedtls_x509_crt_get_pk( ssl->session_negotiate->peer_cert );
 #endif /* MBEDTLS_SSL_KEEP_PEER_CERTIFICATE */
 
         /*
