@@ -3447,8 +3447,7 @@ static int ssl_decrypt_encrypted_pms( mbedtls_ssl_context *ssl,
 {
     int ret;
     mbedtls_pk_context *private_key = mbedtls_ssl_own_key( ssl );
-    mbedtls_pk_context *public_key = &mbedtls_ssl_own_cert( ssl )->pk;
-    size_t len = mbedtls_pk_get_len( public_key );
+    size_t len = mbedtls_pk_get_len( private_key );
 
 #if defined(MBEDTLS_SSL_ASYNC_PRIVATE)
     /* If we have already started decoding the message and there is an ongoing
