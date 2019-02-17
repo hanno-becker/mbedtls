@@ -725,7 +725,7 @@ static int ssl_pick_cert( mbedtls_ssl_context *ssl,
 
     for( cur = list; cur != NULL; cur = cur->next )
     {
-        mbedtls_pk_context *pk = mbedtls_x509_crt_get_pk( cur->cert );
+        mbedtls_pk_context *pk = cur->key;
         MBEDTLS_SSL_DEBUG_CRT( 3, "candidate certificate chain, certificate",
                           cur->cert );
 
