@@ -190,7 +190,7 @@ static int pk_get_ecparams( unsigned char **p, const unsigned char *end,
 {
     int ret;
 
-    if ( end - *p < 1 )
+    if ( end == *p )
         return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT +
                 MBEDTLS_ERR_ASN1_OUT_OF_DATA );
 
@@ -994,7 +994,7 @@ static int pk_parse_key_pkcs8_unencrypted_der(
     if( ( ret = mbedtls_asn1_get_tag( &p, end, &len, MBEDTLS_ASN1_OCTET_STRING ) ) != 0 )
         return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT + ret );
 
-    if( len < 1 )
+    if( len == 0 )
         return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT +
                 MBEDTLS_ERR_ASN1_OUT_OF_DATA );
 

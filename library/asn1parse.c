@@ -192,7 +192,7 @@ int mbedtls_asn1_get_bitstring( unsigned char **p, const unsigned char *end,
         return( ret );
 
     /* Check length, subtract one for actual bit string length */
-    if( bs->len < 1 )
+    if( bs->len == 0 )
         return( MBEDTLS_ERR_ASN1_OUT_OF_DATA );
     bs->len -= 1;
 

@@ -194,7 +194,7 @@ int mbedtls_pk_write_pubkey_der( mbedtls_pk_context *key, unsigned char *buf, si
 
     MBEDTLS_ASN1_CHK_ADD( len, mbedtls_pk_write_pubkey( &c, buf, key ) );
 
-    if( c - buf < 1 )
+    if( c == buf )
         return( MBEDTLS_ERR_ASN1_BUF_TOO_SMALL );
 
     /*
@@ -343,7 +343,7 @@ int mbedtls_pk_write_key_der( mbedtls_pk_context *key, unsigned char *buf, size_
         /* publicKey */
         MBEDTLS_ASN1_CHK_ADD( pub_len, pk_write_ec_pubkey( &c, buf, ec ) );
 
-        if( c - buf < 1 )
+        if( c == buf )
             return( MBEDTLS_ERR_ASN1_BUF_TOO_SMALL );
         *--c = 0;
         pub_len += 1;
