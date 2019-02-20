@@ -228,35 +228,6 @@ static int x509_profile_check_key( const mbedtls_x509_crt_profile *profile,
 }
 
 /*
- * Like memcmp, but case-insensitive and always returns -1 if different
- */
-static int x509_memcasecmp( const void *s1, const void *s2, size_t len )
-{
-    size_t i;
-    unsigned char diff;
-    const unsigned char *n1 = s1, *n2 = s2;
-
-    for( i = 0; i < len; i++ )
-    {
-        diff = n1[i] ^ n2[i];
-
-        if( diff == 0 )
-            continue;
-
-        if( diff == 32 &&
-            ( ( n1[i] >= 'a' && n1[i] <= 'z' ) ||
-              ( n1[i] >= 'A' && n1[i] <= 'Z' ) ) )
-        {
-            continue;
-        }
-
-        return( -1 );
-    }
-
-    return( 0 );
-}
-
-/*
  * Return 0 if name matches wildcard, -1 otherwise
  */
 static int x509_check_wildcard( const char *cn, const mbedtls_x509_buf *name )
@@ -281,7 +252,7 @@ static int x509_check_wildcard( const char *cn, const mbedtls_x509_buf *name )
         return( -1 );
 
     if( cn_len - cn_idx == name->len - 1 &&
-        x509_memcasecmp( name->p + 1, cn + cn_idx, name->len - 1 ) == 0 )
+        mbedtls_x509_memcasecmp( name->p + 1, cn + cn_idx, name->len - 1 ) == 0 )
     {
         return( 0 );
     }
@@ -2570,7 +2541,7 @@ find_parent:
          * These can occur with some strategies for key rollover, see [SIRO],
          * and should be excluded from max_pathlen checks. */
         if( ver_chain->len != 1 &&
-            x509_name_cmp( &child->issuer, &child->subject ) == 0 )
+            mbedtls_x509_name_cmp( &child->issuer, &child->subject ) == 0 )
         {
             self_cnt++;
         }
@@ -2615,7 +2586,7 @@ static int x509_crt_check_cn( const mbedtls_x509_buf *name,
 {
     /* try exact match */
     if( name->len == cn_len &&
-        x509_memcasecmp( cn, name->p, cn_len ) == 0 )
+        mbedtls_x509_memcasecmp( cn, name->p, cn_len ) == 0 )
     {
         return( 0 );
     }
