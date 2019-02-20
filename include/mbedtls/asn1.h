@@ -89,6 +89,30 @@
 #define MBEDTLS_ASN1_CONSTRUCTED             0x20
 #define MBEDTLS_ASN1_CONTEXT_SPECIFIC        0x80
 
+/* Slightly smaller way to check if tag is a string tag
+ * compared to the default implementation below. */
+#define MBEDTLS_ASN1_IS_STRING_TAG( tag )                                     \
+    ( ( tag ) < 32u && (                                                      \
+        ( ( 1u << ( tag ) ) & ( ( 1u << MBEDTLS_ASN1_BMP_STRING )       |     \
+                                ( 1u << MBEDTLS_ASN1_UTF8_STRING )      |     \
+                                ( 1u << MBEDTLS_ASN1_T61_STRING )       |     \
+                                ( 1u << MBEDTLS_ASN1_IA5_STRING )       |     \
+                                ( 1u << MBEDTLS_ASN1_UNIVERSAL_STRING ) |     \
+                                ( 1u << MBEDTLS_ASN1_PRINTABLE_STRING ) |     \
+                                ( 1u << MBEDTLS_ASN1_BIT_STRING ) ) ) != 0 ) )
+
+/* Default way to check that a tag is one of the string tags:
+
+   #define MBEDTLS_ASN1_IS_STRING_TAG( tag )                            \
+      ( ( tag ) == MBEDTLS_ASN1_BMP_STRING        ||                       \
+      ( tag ) == MBEDTLS_ASN1_UTF8_STRING       ||                         \
+      ( tag ) == MBEDTLS_ASN1_T61_STRING        ||                         \
+      ( tag ) == MBEDTLS_ASN1_PRINTABLE_STRING  ||                         \
+      ( tag ) == MBEDTLS_ASN1_IA5_STRING        ||                         \
+      ( tag ) == MBEDTLS_ASN1_UNIVERSAL_STRING  ||                         \
+      ( tag ) == MBEDTLS_ASN1_BIT_STRING )
+*/
+
 /*
  * Bit masks for each of the components of an ASN.1 tag as specified in
  * ITU X.690 (08/2015), section 8.1 "General rules for encoding",
