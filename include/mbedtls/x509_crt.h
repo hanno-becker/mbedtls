@@ -142,6 +142,7 @@ typedef struct mbedtls_x509_crt
     unsigned int key_usage;     /**< Optional key usage extension value: See the values in x509.h */
 
     mbedtls_x509_sequence ext_key_usage; /**< Optional list of extended key usage OIDs. */
+    mbedtls_x509_buf_raw ext_key_usage_raw; /**< Raw data for optional extended key usage information.          */
 
     unsigned char ns_cert_type; /**< Optional Netscape certificate type extension value: See the values in x509.h */
 
