@@ -1157,6 +1157,12 @@ static int x509_crt_parse_der_core( mbedtls_x509_crt *crt,
     crt->subject_raw.p   = frame.subject_raw_with_hdr.p;
     crt->subject_raw.len = frame.subject_raw_with_hdr.len;
 
+    crt->issuer_raw_no_hdr.p   = frame.issuer_raw.p;
+    crt->issuer_raw_no_hdr.len = frame.issuer_raw.len;
+
+    crt->subject_raw_no_hdr.p   = frame.subject_raw.p;
+    crt->subject_raw_no_hdr.len = frame.subject_raw.len;
+
     crt->issuer_id.p   = frame.issuer_id.p;
     crt->issuer_id.len = frame.issuer_id.len;
 
