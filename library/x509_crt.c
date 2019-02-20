@@ -915,6 +915,11 @@ static int x509_crt_parse_frame( unsigned char *start,
     frame->issuer_raw_with_hdr.len = p - frame->issuer_raw_with_hdr.p;
 #endif /* !MBEDTLS_X509_LAZY_PARSING */
 
+    ret = mbedtls_x509_name_cmp_raw( &frame->issuer_raw,
+                                     &frame->issuer_raw );
+    if( ret != 0 )
+        return( ret );
+
     /*
      * Validity ::= SEQUENCE { ...
      */
@@ -949,6 +954,11 @@ static int x509_crt_parse_frame( unsigned char *start,
 #if !defined(MBEDTLS_X509_LAZY_PARSING)
     frame->subject_raw_with_hdr.len = p - frame->subject_raw_with_hdr.p;
 #endif /* !MBEDTLS_X509_LAZY_PARSING */
+
+    ret = mbedtls_x509_name_cmp_raw( &frame->subject_raw,
+                                     &frame->subject_raw );
+    if( ret != 0 )
+        return( ret );
 
     /*
      * SubjectPublicKeyInfo
