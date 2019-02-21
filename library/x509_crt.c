@@ -374,18 +374,20 @@ static int x509_get_uid( unsigned char **p,
 
 static int x509_get_basic_constraints( unsigned char **p,
                                        const unsigned char *end,
-                                       int *ca_istrue,
-                                       int *max_pathlen )
+                                       unsigned char *ca_istrue,
+                                       unsigned char *max_pathlen )
 {
     int ret;
     size_t len;
+    int tmp_ca_istrue;
+    int tmp_max_pathlen;
 
     /*
      * BasicConstraints ::= SEQUENCE {
      *      cA                      BOOLEAN DEFAULT FALSE,
      *      pathLenConstraint       INTEGER (0..MAX) OPTIONAL }
      */
-    *ca_istrue = 0; /* DEFAULT FALSE */
+    *ca_istrue   = 0; /* DEFAULT FALSE */
     *max_pathlen = 0; /* endless */
 
     if( ( ret = mbedtls_asn1_get_tag( p, end, &len,
@@ -395,28 +397,30 @@ static int x509_get_basic_constraints( unsigned char **p,
     if( *p == end )
         return( 0 );
 
-    if( ( ret = mbedtls_asn1_get_bool( p, end, ca_istrue ) ) != 0 )
+    ret = mbedtls_asn1_get_bool( p, end, &tmp_ca_istrue );
+    if( ret != 0 )
     {
         if( ret == MBEDTLS_ERR_ASN1_UNEXPECTED_TAG )
-            ret = mbedtls_asn1_get_int( p, end, ca_istrue );
+            ret = mbedtls_asn1_get_int( p, end, &tmp_ca_istrue );
 
         if( ret != 0 )
             return( ret );
 
-        if( *ca_istrue != 0 )
+        if( tmp_ca_istrue != 0 )
             *ca_istrue = 1;
     }
 
     if( *p == end )
         return( 0 );
 
-    if( ( ret = mbedtls_asn1_get_int( p, end, max_pathlen ) ) != 0 )
+    ret = mbedtls_asn1_get_int( p, end, &tmp_max_pathlen );
+    if( ret != 0 )
         return( ret );
+
+    *max_pathlen = tmp_max_pathlen + 1;
 
     if( *p != end )
         return( MBEDTLS_ERR_ASN1_LENGTH_MISMATCH );
-
-    (*max_pathlen)++;
 
     return( 0 );
 }
@@ -681,18 +685,12 @@ static int x509_crt_parse_v3exts( unsigned char **p,
         {
             case MBEDTLS_X509_EXT_BASIC_CONSTRAINTS:
             {
-                int ca_istrue;
-                int max_pathlen;
-
                 /* Parse basic constraints */
                 ret = x509_get_basic_constraints( p, end_ext_octet,
-                                                  &ca_istrue,
-                                                  &max_pathlen );
+                                                  &frame->ca_istrue,
+                                                  &frame->max_pathlen );
                 if( ret != 0 )
                     goto err;
-
-                frame->ca_istrue   = ca_istrue;
-                frame->max_pathlen = max_pathlen;
                 break;
             }
 
