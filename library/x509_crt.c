@@ -2499,6 +2499,24 @@ static int x509_crt_check_name( void *ctx,
     return( 0 );
 }
 
+static int x509_crt_subject_alt_check_name( void *ctx,
+                                            int tag,
+                                            unsigned char *data,
+                                            size_t data_len )
+{
+    char const* cn = (char const*) ctx;
+    size_t cn_len = strlen( cn );
+
+    /* Skip everything but DNS name */
+    if( tag != ( MBEDTLS_ASN1_CONTEXT_SPECIFIC | 2 ) )
+        return( 0 );
+
+    if( x509_crt_check_cn( data, data_len, cn, cn_len ) == 0 )
+        return( 1 );
+
+    return( 0 );
+}
+
 /*
  * Verify the requested CN - only call this if cn is not NULL!
  */
