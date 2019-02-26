@@ -143,7 +143,7 @@ int main( void )
     mbedtls_printf( " ok\n" );
 
     mbedtls_x509_crl_info( buf, 1024, "CRL: ", &crl );
-    mbedtls_printf("%s\n", buf );
+    mbedtls_printf( "%s\n", buf );
 
     for( i = 0; i < MAX_CLIENT_CERTS; i++ )
     {
@@ -153,12 +153,14 @@ int main( void )
         char    name[512];
         uint32_t flags;
         mbedtls_x509_crt clicert;
-        mbedtls_pk_context pk;
+        mbedtls_pk_context privkey;
+        mbedtls_pk_context pubkey;
 
         mbedtls_x509_crt_init( &clicert );
-        mbedtls_pk_init( &pk );
+        mbedtls_pk_init( &privkey );
+        mbedtls_pk_init( &pubkey );
 
-        mbedtls_snprintf(name, 512, "ssl/test-ca/%s", client_certificates[i]);
+        mbedtls_snprintf( name, 512, "ssl/test-ca/%s", client_certificates[i] );
 
         mbedtls_printf( "  . Loading the client certificate %s...", name );
         fflush( stdout );
@@ -170,6 +172,13 @@ int main( void )
             goto exit;
         }
 
+        ret = mbedtls_x509_crt_get_pk( &clicert, &pubkey );
+        if( ret != 0 )
+        {
+            mbedtls_printf( " failed\n  !  mbedtls_x509_crt_get_pk returned %d\n\n", ret );
+            goto exit;
+        }
+
         mbedtls_printf( " ok\n" );
 
         /*
@@ -178,8 +187,8 @@ int main( void )
         mbedtls_printf( "  . Verify the client certificate with CA certificate..." );
         fflush( stdout );
 
-        ret = mbedtls_x509_crt_verify( &clicert, &cacert, &crl, NULL, &flags, NULL,
-                               NULL );
+        ret = mbedtls_x509_crt_verify( &clicert, &cacert, &crl,
+                                       NULL, &flags, NULL, NULL );
         if( ret != 0 )
         {
             if( ret == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED )
@@ -187,7 +196,8 @@ int main( void )
                  char vrfy_buf[512];
 
                  mbedtls_printf( " failed\n" );
-                 mbedtls_x509_crt_verify_info( vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags );
+                 mbedtls_x509_crt_verify_info( vrfy_buf, sizeof( vrfy_buf ),
+                                               "  ! ", flags );
                  mbedtls_printf( "%s\n", vrfy_buf );
              }
              else
@@ -202,12 +212,12 @@ int main( void )
         /*
          * 1.5. Load own private key
          */
-        mbedtls_snprintf(name, 512, "ssl/test-ca/%s", client_private_keys[i]);
+        mbedtls_snprintf( name, 512, "ssl/test-ca/%s", client_private_keys[i] );
 
         mbedtls_printf( "  . Loading the client private key %s...", name );
         fflush( stdout );
 
-        ret = mbedtls_pk_parse_keyfile( &pk, name, NULL );
+        ret = mbedtls_pk_parse_keyfile( &privkey, name, NULL );
         if( ret != 0 )
         {
             mbedtls_printf( " failed\n  !  mbedtls_pk_parse_keyfile returned %d\n\n", ret );
@@ -222,29 +232,30 @@ int main( void )
         mbedtls_printf( "  . Verify the client certificate with private key..." );
         fflush( stdout );
 
-
-        /* EC NOT IMPLEMENTED YET */
-        if( ! mbedtls_pk_can_do( &clicert.pk, MBEDTLS_PK_RSA ) )
+        /* So far, only RSA certificates are supported here. */
+        if( ! mbedtls_pk_can_do( &pubkey, MBEDTLS_PK_RSA ) )
         {
             mbedtls_printf( " failed\n  !  certificate's key is not RSA\n\n" );
             goto exit;
         }
 
-        ret = mbedtls_mpi_cmp_mpi(&mbedtls_pk_rsa( pk )->N, &mbedtls_pk_rsa( clicert.pk )->N);
+        ret = mbedtls_mpi_cmp_mpi( &mbedtls_pk_rsa( privkey )->N,
+                                   &mbedtls_pk_rsa( pubkey )->N );
         if( ret != 0 )
         {
             mbedtls_printf( " failed\n  !  mbedtls_mpi_cmp_mpi for N returned %d\n\n", ret );
             goto exit;
         }
 
-        ret = mbedtls_mpi_cmp_mpi(&mbedtls_pk_rsa( pk )->E, &mbedtls_pk_rsa( clicert.pk )->E);
+        ret = mbedtls_mpi_cmp_mpi( &mbedtls_pk_rsa( privkey )->E,
+                                   &mbedtls_pk_rsa( pubkey )->E );
         if( ret != 0 )
         {
             mbedtls_printf( " failed\n  !  mbedtls_mpi_cmp_mpi for E returned %d\n\n", ret );
             goto exit;
         }
 
-        ret = mbedtls_rsa_check_privkey( mbedtls_pk_rsa( pk ) );
+        ret = mbedtls_rsa_check_privkey( mbedtls_pk_rsa( privkey ) );
         if( ret != 0 )
         {
             mbedtls_printf( " failed\n  !  mbedtls_rsa_check_privkey returned %d\n\n", ret );
@@ -254,7 +265,8 @@ int main( void )
         mbedtls_printf( " ok\n" );
 
         mbedtls_x509_crt_free( &clicert );
-        mbedtls_pk_free( &pk );
+        mbedtls_pk_free( &privkey );
+        mbedtls_pk_free( &pubkey );
     }
 
     exit_code = MBEDTLS_EXIT_SUCCESS;
