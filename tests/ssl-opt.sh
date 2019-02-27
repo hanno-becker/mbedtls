@@ -1063,7 +1063,7 @@ run_test    "SHA-1 forbidden by default in server certificate" \
             -c "The certificate is signed with an unacceptable hash"
 
 requires_config_enabled MBEDTLS_TLS_DEFAULT_ALLOW_SHA1_IN_CERTIFICATES
-run_test    "SHA-1 forbidden by default in server certificate" \
+run_test    "SHA-1 allowed by deafult in server certificate" \
             "$P_SRV key_file=data_files/server2.key crt_file=data_files/server2.crt" \
             "$P_CLI debug_level=2 allow_sha1=0" \
             0
