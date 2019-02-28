@@ -38,6 +38,11 @@ Bugfix
      Fixes #2190.
    * Fix false failure in all.sh when backup files exist in include/mbedtls
      (e.g. config.h.bak). Fixed by Peter Kolbus (Garmin) #2407.
+   * Fix missing bounds checks in X.509 parsing functions that could
+     lead to successful parsing of ill-formed X.509 CRTs. Fixes #2437.
+   * Fix multiple X.509 functions previously returning ASN.1 low-level error
+     codes to always wrap these codes into X.509 high level error codes before
+     returning. Fixes #2431.
 
 Changes
    * Reduce RAM consumption during session renegotiation by not storing
@@ -60,6 +65,7 @@ Changes
      underlying OS actually guarantees.
    * Fix configuration queries in ssl-opt.h. #2030
    * Ensure that ssl-opt.h can be run in OS X. #2029
+   * Replace multiple uses of MD2 by SHA-256 in X.509 test suite. Fixes #821.
 
 = mbed TLS 2.16.0 branch released 2018-12-21
 
