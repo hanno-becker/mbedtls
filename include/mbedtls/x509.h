@@ -204,6 +204,13 @@ typedef mbedtls_asn1_named_data mbedtls_x509_name;
  */
 typedef mbedtls_asn1_sequence mbedtls_x509_sequence;
 
+/* A statement that does nothing after its built. If `const_expr` is not a
+ * compile-time constant with a nonzero value, cause a compile-time error. */
+#define STATIC_ASSERT( const_expr, msg )                                \
+    struct STATIC_ASSERT##msg {                                         \
+        int STATIC_ASSERT_##msg : 1 - 2 * ! ( const_expr );             \
+    }
+
 /** Container for date and time (precision in seconds). */
 typedef struct mbedtls_x509_time
 {
@@ -211,6 +218,8 @@ typedef struct mbedtls_x509_time
     int hour, min, sec;         /**< Time. */
 }
 mbedtls_x509_time;
+STATIC_ASSERT( sizeof( mbedtls_x509_time ) == 6 * sizeof( int ),
+               MBEDTLS_X509_TIME_PADDING_UNSUPPORTED );
 
 /** \} name Structures for parsing X.509 certificates, CRLs and CSRs */
 /** \} addtogroup x509_module */
