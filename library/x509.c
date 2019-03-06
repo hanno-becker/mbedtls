@@ -468,55 +468,6 @@ int mbedtls_x509_get_name( unsigned char **p, const unsigned char *end,
     }
 }
 
-static int x509_parse_int( unsigned char **p, size_t n, int *res )
-{
-    *res = 0;
-
-    for( ; n > 0; --n )
-    {
-        if( ( **p < '0') || ( **p > '9' ) )
-            return ( MBEDTLS_ERR_X509_INVALID_DATE );
-
-        *res *= 10;
-        *res += ( *(*p)++ - '0' );
-    }
-
-    return( 0 );
-}
-
-static int x509_date_is_valid(const mbedtls_x509_time *t )
-{
-    int ret = MBEDTLS_ERR_X509_INVALID_DATE;
-    int month_len;
-
-    CHECK_RANGE( 0, 9999, t->year );
-    CHECK_RANGE( 0, 23,   t->hour );
-    CHECK_RANGE( 0, 59,   t->min  );
-    CHECK_RANGE( 0, 59,   t->sec  );
-
-    switch( t->mon )
-    {
-        case 1: case 3: case 5: case 7: case 8: case 10: case 12:
-            month_len = 31;
-            break;
-        case 4: case 6: case 9: case 11:
-            month_len = 30;
-            break;
-        case 2:
-            if( ( !( t->year % 4 ) && t->year % 100 ) ||
-                !( t->year % 400 ) )
-                month_len = 29;
-            else
-                month_len = 28;
-            break;
-        default:
-            return( ret );
-    }
-    CHECK_RANGE( 1, month_len, t->day );
-
-    return( 0 );
-}
-
 /*
  * Parse an ASN1_UTC_TIME (yearlen=2) or ASN1_GENERALIZED_TIME (yearlen=4)
  * field.
@@ -524,47 +475,100 @@ static int x509_date_is_valid(const mbedtls_x509_time *t )
 static int x509_parse_time( unsigned char **p, size_t len, size_t yearlen,
                             mbedtls_x509_time *tm )
 {
-    int ret;
+    size_t len_is_odd = len & 1;
+    /* Array to store parsed values for time components. */
+    unsigned vals[ 2 /* year */ + 5 * 1 /* mon,day,hour,min,sec */ ] = { 0 };
+    unsigned *cur_val = vals;
+    /* Array of maximal values for time components. */
+    static uint8_t const max_vals[ 2 + 5 ] = { 99, 99, /* year             */
+                                               12,     /* month            */
+                                               99,     /* day, check later */
+                                               23,     /* hour             */
+                                               59,     /* minute           */
+                                               59      /* second           */ };
+    uint8_t const *cur_max = max_vals;
+    int month_len;
 
     /*
-     * Length must be either yearlen + 5*2 (for mon, day, hr, min, sec)
-     * if the optional 'Z' is omitted, or yearlen + 5*2 + 1 if it is
-     * included.
+     * Length must be either yearlen + 5*2 if the optional 'Z' is omitted,
+     * or yearlen + 5*2 + 1 if it is included.
      */
-    if( ( len & ~1 ) != yearlen + 10 )
-        return ( MBEDTLS_ERR_X509_INVALID_DATE );
+    len -= len_is_odd;
+    if( len != yearlen + 10 )
+        return( MBEDTLS_ERR_X509_INVALID_DATE );
 
-    /*
-     * Parse year, month, day, hour, minute, seconds
-     */
-    CHECK( x509_parse_int( p, yearlen, &tm->year ) );
-    if( 2 == yearlen )
+    cur_max = max_vals;
+    cur_val = vals;
+
+    if( yearlen == 2 )
     {
-        if( tm->year < 50 )
-            tm->year += 100;
-
-        tm->year += 1900;
+        vals[0] = 19; /* Base of 1900 for yearlen == 2 */
+        cur_max++;
+        cur_val++;
     }
-    CHECK( x509_parse_int( p, 2, &tm->mon ) );
-    CHECK( x509_parse_int( p, 2, &tm->day ) );
-    CHECK( x509_parse_int( p, 2, &tm->hour ) );
-    CHECK( x509_parse_int( p, 2, &tm->min ) );
-    CHECK( x509_parse_int( p, 2, &tm->sec ) );
 
-    /*
-     * Parse trailing 'Z' if present
-     */
-    if( len & 1 )
+    while( len-- )
     {
-        if( **p != 'Z' )
+        unsigned char cur_digit = *(*p)++ - '0';
+        if( cur_digit > 9 )
             return( MBEDTLS_ERR_X509_INVALID_DATE );
-        (*p)++;
+
+        *cur_val *= 10;
+        *cur_val += cur_digit;
+
+        if( *cur_val > *cur_max )
+            return( MBEDTLS_ERR_X509_INVALID_DATE );
+
+        if( ( len & 1 ) == 0 )
+        {
+            cur_max++;
+            cur_val++;
+        }
     }
 
-    /*
-     * We should have parsed all characters at this point
-     */
-    CHECK( x509_date_is_valid( tm ) );
+    if( len_is_odd )
+    {
+        if( *(*p)++ != 'Z' )
+            return( MBEDTLS_ERR_X509_INVALID_DATE );
+    }
+
+    /* 00-49 are re-mapped to 2000-2049 for UTC time */
+    if( yearlen == 2 && vals[1] < 50 )
+        vals[1] += 100;
+
+    tm->year = (int)( vals[0] * 100 + vals[1] );
+    tm->mon  = (int) vals[2];
+    tm->day  = (int) vals[3];
+    tm->hour = (int) vals[4];
+    tm->min  = (int) vals[5];
+    tm->sec  = (int) vals[6];
+
+    /* We've checked all on the time fields except the day,
+     * which so far is only known to not be larger than 31. */
+    switch( tm->mon )
+    {
+        case 0:
+            month_len = -1;
+
+        case 4: case 6: case 9: case 11:
+            month_len = 30;
+            break;
+
+        case 2:
+            if( ( !( tm->year % 4 ) && tm->year % 100 ) ||
+                !( tm->year % 400 ) )
+                month_len = 29;
+            else
+                month_len = 28;
+            break;
+
+        default:
+            month_len = 31;
+            break;
+    }
+
+    if( tm->day == 0 || tm->day > month_len )
+        return( MBEDTLS_ERR_X509_INVALID_DATE );
 
     return( 0 );
 }
