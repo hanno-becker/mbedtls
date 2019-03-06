@@ -527,14 +527,15 @@ static int x509_parse_time( unsigned char **p, size_t len, size_t yearlen,
     int ret;
 
     /*
-     * Minimum length is 10 or 12 depending on yearlen
+     * Length must be either yearlen + 5*2 (for mon, day, hr, min, sec)
+     * if the optional 'Z' is omitted, or yearlen + 5*2 + 1 if it is
+     * included.
      */
-    if( len < yearlen + 8 )
+    if( ( len & ~1 ) != yearlen + 10 )
         return ( MBEDTLS_ERR_X509_INVALID_DATE );
-    len -= yearlen + 8;
 
     /*
-     * Parse year, month, day, hour, minute
+     * Parse year, month, day, hour, minute, seconds
      */
     CHECK( x509_parse_int( p, yearlen, &tm->year ) );
     if( 2 == yearlen )
@@ -544,38 +545,25 @@ static int x509_parse_time( unsigned char **p, size_t len, size_t yearlen,
 
         tm->year += 1900;
     }
-
     CHECK( x509_parse_int( p, 2, &tm->mon ) );
     CHECK( x509_parse_int( p, 2, &tm->day ) );
     CHECK( x509_parse_int( p, 2, &tm->hour ) );
     CHECK( x509_parse_int( p, 2, &tm->min ) );
-
-    /*
-     * Parse seconds if present
-     */
-    if( len >= 2 )
-    {
-        CHECK( x509_parse_int( p, 2, &tm->sec ) );
-        len -= 2;
-    }
-    else
-        return( MBEDTLS_ERR_X509_INVALID_DATE );
+    CHECK( x509_parse_int( p, 2, &tm->sec ) );
 
     /*
      * Parse trailing 'Z' if present
      */
-    if( 1 == len && 'Z' == **p )
+    if( len & 1 )
     {
+        if( **p != 'Z' )
+            return( MBEDTLS_ERR_X509_INVALID_DATE );
         (*p)++;
-        len--;
     }
 
     /*
      * We should have parsed all characters at this point
      */
-    if( 0 != len )
-        return( MBEDTLS_ERR_X509_INVALID_DATE );
-
     CHECK( x509_date_is_valid( tm ) );
 
     return( 0 );
