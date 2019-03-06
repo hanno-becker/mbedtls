@@ -910,40 +910,23 @@ static int x509_get_current_time( mbedtls_x509_time *now )
 /*
  * Return 0 if before <= after, 1 otherwise
  */
-static int x509_check_time( const mbedtls_x509_time *before, const mbedtls_x509_time *after )
+int x509_check_time( const mbedtls_x509_time *before, const mbedtls_x509_time *after )
 {
-    if( before->year  > after->year )
-        return( 1 );
+    unsigned idx;
+    int const *pt_before = (int const *) before;
+    int const *pt_after  = (int const *) after;
 
-    if( before->year == after->year &&
-        before->mon   > after->mon )
-        return( 1 );
+    for( idx = 0; idx < sizeof( mbedtls_x509_time ) / sizeof( int ); idx++ )
+    {
+        int diff = *pt_before - *pt_after;
+        if( diff > 0 )
+            return( 1 );
+        if( diff < 0 )
+            return( 0 );
 
-    if( before->year == after->year &&
-        before->mon  == after->mon  &&
-        before->day   > after->day )
-        return( 1 );
-
-    if( before->year == after->year &&
-        before->mon  == after->mon  &&
-        before->day  == after->day  &&
-        before->hour  > after->hour )
-        return( 1 );
-
-    if( before->year == after->year &&
-        before->mon  == after->mon  &&
-        before->day  == after->day  &&
-        before->hour == after->hour &&
-        before->min   > after->min  )
-        return( 1 );
-
-    if( before->year == after->year &&
-        before->mon  == after->mon  &&
-        before->day  == after->day  &&
-        before->hour == after->hour &&
-        before->min  == after->min  &&
-        before->sec   > after->sec  )
-        return( 1 );
+        pt_before++;
+        pt_after++;
+    }
 
     return( 0 );
 }
