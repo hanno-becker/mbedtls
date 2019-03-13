@@ -107,7 +107,7 @@ const char mbedtls_test_ca_crt_ec_der[] = {
 const size_t mbedtls_test_ca_crt_ec_der_len =
     sizeof( mbedtls_test_ca_crt_ec_der );
 
-/* This is taken from tests/data_files/test-ca2.key */
+/* This is taken from tests/data_files/test-ca2.key.enc */
 const char mbedtls_test_ca_key_ec[] =
     "-----BEGIN EC PRIVATE KEY-----\r\n"
     "Proc-Type: 4,ENCRYPTED\r\n"
