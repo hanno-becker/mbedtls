@@ -438,7 +438,7 @@ const char mbedtls_test_cli_crt_ec_secp256r1[] =
     "Sl6kYTNLFkgMMXgiNdb7zlDnIBIwDAYIKoZIzj0EAwIFAANJADBGAiEAg3UsTyLd\r\n" \
     "vCPRG13gbf1R8gb85g4K1VbZ+CKl58HW2VgCIQDXk/8WFrt7vA+m3L1xJxj8iln9\r\n" \
     "wMR16i9Fqykw7cqsRw==\r\n"                                          \
-    "-----END CERTIFICATE-----\r\n"
+    "-----END CERTIFICATE-----\r\n";
 
 const size_t mbedtls_test_cli_crt_ec_secp256r1_len =
     sizeof( mbedtls_test_cli_crt_ec_secp256r1 );
@@ -493,7 +493,7 @@ const char mbedtls_test_cli_key_ec_secp256r1[] =
     "MHcCAQEEIGFE8JJMBKeo1BnPGgzGae1stIrWdEaUvjo9xO8OTC5QoAoGCCqGSM49\r\n" \
     "AwEHoUQDQgAEEm+TJ4LBB85IBjWNcNIodr2L06CZqLbVClmHuxPqiZafsAZDl0lq\r\n" \
     "gL6cCigF/ML2EqFyKW+Oext3uAmNkemj6Q==\r\n"                          \
-    "-----END EC PRIVATE KEY-----\r\n"
+    "-----END EC PRIVATE KEY-----\r\n";
 
 const size_t mbedtls_test_cli_key_ec_secp256r1_len =
     sizeof( mbedtls_test_cli_key_ec_secp256r1 );
