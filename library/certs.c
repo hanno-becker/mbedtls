@@ -100,7 +100,7 @@ const char mbedtls_test_ca_key_ec_secp256r1[] =
     "MHcCAQEEIDlfIVA04pd23r9UJhLf0kt6SkROecrhPbNWtawigBCkoAoGCCqGSM49\r\n" \
     "AwEHoUQDQgAEtkgeCKXPD+ILHWvT2TJmxl9qvPO1fjLWSbRLkzGuwUHrs2NSFcTr\r\n" \
     "9hjdbfyjF5jh4i8RvnXoE5H+Dd7c4vtDxQ==\r\n"                          \
-    "-----END EC PRIVATE KEY-----\r\n"
+    "-----END EC PRIVATE KEY-----\r\n";
 
 const size_t mbedtls_test_ca_key_ec_secp256r1_len =
     sizeof( mbedtls_test_ca_key_ec_secp256r1 );
@@ -121,6 +121,9 @@ const char mbedtls_test_ca_key_ec_secp256r1_der[] = {
 };
 const size_t mbedtls_test_ca_key_ec_secp256r1_der_len =
     sizeof( mbedtls_test_ca_key_ec_secp256r1_der );
+
+const char * mbedtls_test_ca_pwd_ec_secp256r1 = NULL;
+const size_t mbedtls_test_ca_pwd_ec_secp256r1_len = 0;
 
 /* This is taken from tests/data_files/test-ca2.crt */
 #define TEST_CA_CRT_EC                                                     \
