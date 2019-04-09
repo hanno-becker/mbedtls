@@ -2331,6 +2331,19 @@ int main( int argc, char *argv[] )
 #endif /* MBEDTLS_RSA_C */
 #if defined(MBEDTLS_ECDSA_C)
 
+#if defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
+#if defined(MBEDTLS_PEM_PARSE_C)
+#define TEST_CRT2 mbedtls_test_srv_crt_ec_secp256r1
+#define TEST_KEY2 mbedtls_test_srv_key_ec_secp256r1
+#define TEST_CRT2_LEN mbedtls_test_srv_crt_ec_secp256r1_len
+#define TEST_KEY2_LEN mbedtls_test_srv_key_ec_secp256r1_len
+#else
+#define TEST_CRT2 mbedtls_test_srv_crt_ec_secp256r1_der
+#define TEST_KEY2 mbedtls_test_srv_key_ec_secp256r1_der
+#define TEST_CRT2_LEN mbedtls_test_srv_crt_ec_secp256r1_der_len
+#define TEST_KEY2_LEN mbedtls_test_srv_key_ec_secp256r1_der_len
+#endif
+#else
 #if defined(MBEDTLS_PEM_PARSE_C)
 #define TEST_CRT2 mbedtls_test_srv_crt_ec
 #define TEST_KEY2 mbedtls_test_srv_key_ec
@@ -2341,6 +2354,7 @@ int main( int argc, char *argv[] )
 #define TEST_KEY2 mbedtls_test_srv_key_ec_der
 #define TEST_CRT2_LEN mbedtls_test_srv_crt_ec_der_len
 #define TEST_KEY2_LEN mbedtls_test_srv_key_ec_der_len
+#endif
 #endif
 
         if( ( ret = mbedtls_x509_crt_parse( &srvcert2,
