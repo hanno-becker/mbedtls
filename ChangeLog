@@ -86,12 +86,12 @@ API Changes
      `mbedtls_x509_crt_get_frame()` to obtain a frame structure from an
      `mbedtls_x509_crt` CRT. This works both regardless of whether the new
      compile-time option `MBEDTLS_X509_ON_DEMAND_PARSING` is enabled. If
-     if is, users must use this function to obtain basic structure fields
+     it is, users must use this function to obtain basic structure fields
      from the CRT.
    * Add a new X.509 API call `mbedtls_x509_get_pk()` which extracts
      the public key context from an X.509 CRT. Fixes #2294. This works both
      regardless of whether the new compile-time option
-     `MBEDTLS_X509_ON_DEMAND_PARSING` is enabled. If if is, users must use
+     `MBEDTLS_X509_ON_DEMAND_PARSING` is enabled. If it is, users must use
      this function to obtain the PK from a CRT.
    * Add new X.509 API calls `mbedtls_x509_crt_get_issuer()`,
      `mbedtls_x509_crt_get_subject()`, `mbedtls_x509_get_subject_alt_names()`,
@@ -99,7 +99,7 @@ API Changes
      accessing the `issuer`, `subject`, `subject_alt_names` and `ext_key_usage`
      fields from `mbedtls_x509_crt`. These functions are provided regardless
      of whether the new compile-time option `MBEDTLS_X509_ON_DEMAND_PARSING`
-     is enabled. If if is, users must use these functions to extract
+     is enabled. If it is, users must use these functions to extract
      the respective fields from the CRT.
 
 Security
