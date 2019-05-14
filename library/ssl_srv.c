@@ -809,7 +809,7 @@ static int ssl_pick_cert( mbedtls_ssl_context *ssl,
         }
 #endif
 
- #if defined(MBEDTLS_SSL_ASYNC_PRIVATE)
+#if defined(MBEDTLS_SSL_ASYNC_PRIVATE)
         mbedtls_x509_crt_pk_release( cur->cert );
 #endif /* MBEDTLS_SSL_ASYNC_PRIVATE */
 
