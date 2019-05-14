@@ -84,12 +84,12 @@ API Changes
      well as pointers to raw ASN.1 data for more complex structured fields
      (such as issuer and subject name). Further, add the X.509 API call
      `mbedtls_x509_crt_get_frame()` to obtain a frame structure from an
-     `mbedtls_x509_crt` CRT. This works both regardless of whether the new
+     `mbedtls_x509_crt` CRT. This works regardless of whether the new
      compile-time option `MBEDTLS_X509_ON_DEMAND_PARSING` is enabled. If
      it is, users must use this function to obtain basic structure fields
      from the CRT.
    * Add a new X.509 API call `mbedtls_x509_get_pk()` which extracts
-     the public key context from an X.509 CRT. Fixes #2294. This works both
+     the public key context from an X.509 CRT. Fixes #2294. This works
      regardless of whether the new compile-time option
      `MBEDTLS_X509_ON_DEMAND_PARSING` is enabled. If it is, users must use
      this function to obtain the PK from a CRT.
