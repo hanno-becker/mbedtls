@@ -249,7 +249,7 @@ int mbedtls_asn1_traverse_sequence_of(
     const unsigned char *end,
     uint8_t tag_must_mask, uint8_t tag_must_val,
     uint8_t tag_may_mask, uint8_t tag_may_val,
-    int (*cb)( void* ctx, int tag,
+    int (*cb)( void *ctx, int tag,
                unsigned char* start, size_t len ),
     void *ctx )
 {
