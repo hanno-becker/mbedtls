@@ -382,7 +382,13 @@ void mbedtls_debug_print_crt( const mbedtls_ssl_context *ssl, int level,
 
         ret = mbedtls_x509_crt_pk_acquire( crt, &pk );
         if( ret != 0 )
+        {
+            mbedtls_snprintf( str, sizeof( str ),
+                        "mbedtls_x509_crt_pk_acquire() failed with -%#04x\n",
+                        -ret );
+            debug_send_line( ssl, level, file, line, str );
             return;
+        }
         debug_print_pk( ssl, level, file, line, "crt->", pk );
         mbedtls_x509_crt_pk_release( crt );
 
