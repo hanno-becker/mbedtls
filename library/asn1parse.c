@@ -250,7 +250,7 @@ int mbedtls_asn1_traverse_sequence_of(
     uint8_t tag_must_mask, uint8_t tag_must_val,
     uint8_t tag_may_mask, uint8_t tag_may_val,
     int (*cb)( void *ctx, int tag,
-               unsigned char* start, size_t len ),
+               unsigned char *start, size_t len ),
     void *ctx )
 {
     int ret;
@@ -298,9 +298,9 @@ typedef struct
     mbedtls_asn1_sequence *cur;
 } asn1_get_sequence_of_cb_ctx_t;
 
-static int asn1_get_sequence_of_cb( void* ctx,
+static int asn1_get_sequence_of_cb( void *ctx,
                                     int tag,
-                                    unsigned char* start,
+                                    unsigned char *start,
                                     size_t len )
 {
     asn1_get_sequence_of_cb_ctx_t *cb_ctx =
