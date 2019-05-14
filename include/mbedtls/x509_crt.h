@@ -100,13 +100,12 @@ typedef struct mbedtls_x509_crt_frame
 /**
  * Container for an X.509 certificate. The certificate may be chained.
  */
-struct mbedtls_x509_crt_cache;
 typedef struct mbedtls_x509_crt
 {
     int own_buffer;                     /**< Indicates if \c raw is owned
                                          *   by the structure or not.         */
     mbedtls_x509_buf raw;               /**< The raw certificate data (DER).  */
-    struct mbedtls_x509_crt_cache *cache;   /**< Internal parsing cache.      */
+    mbedtls_x509_crt_cache *cache;      /**< Internal parsing cache.      */
 
     struct mbedtls_x509_crt *next;     /**< Next certificate in the CA-chain. */
 
