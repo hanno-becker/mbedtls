@@ -1,4 +1,4 @@
-/* BEGIN_HEADER */
+1/* BEGIN_HEADER */
 #include "mbedtls/bignum.h"
 #include "mbedtls/x509.h"
 #include "mbedtls/x509_crt.h"
@@ -15,6 +15,41 @@
 than the current threshold 19. To test larger values, please \
 adapt the script tests/data_files/dir-max/long.sh."
 #endif
+
+typedef struct
+{
+    mbedtls_x509_crt *crt;
+    mbedtls_x509_crt *ca;
+    uint32_t expected_flags;
+    int expected_result;
+} x509_verify_thread_ctx;
+
+void* x509_verify_thread_worker( void *p )
+{
+    unsigned iter_cnt;
+    static unsigned iter_total = 1;
+    x509_verify_thread_ctx const *ctx = (x509_verify_thread_ctx *) p;
+    int fail = 1, success = 0;
+
+    fprintf( stderr, "Thread start\n" );
+    for( iter_cnt=0; iter_cnt < iter_total; iter_cnt++ )
+    {
+        uint32_t flags;
+        int res;
+
+        fprintf( stderr, "Verification\n" );
+        res = mbedtls_x509_crt_verify( ctx->crt, ctx->ca,
+                                       NULL, NULL,
+                                       &flags, NULL, NULL );
+        if( res   != ctx->expected_result ||
+            flags != ctx->expected_flags )
+        {
+            pthread_exit( &fail );
+        }
+    }
+
+    pthread_exit( &success );
+}
 
 /* Profile for backward compatibility. Allows SHA-1, unlike the default
    profile. */
@@ -403,6 +438,60 @@ void x509_verify_restart( char *crt_file, char *ca_file,
 
 exit:
     mbedtls_x509_crt_restart_free( &rs_ctx );
+    mbedtls_x509_crt_free( &crt );
+    mbedtls_x509_crt_free( &ca );
+}
+/* END_CASE */
+
+/* BEGIN_CASE depends_on:MBEDTLS_THREADING_PTHREAD:MBEDTLS_FS_IO:MBEDTLS_X509_CRT_PARSE_C */
+void x509_verify_thread( char *crt_file, char *ca_file,
+                         int result, int flags_result )
+{
+    static const int thread_total = 1;
+    x509_verify_thread_ctx thread_ctx;
+    pthread_t *threads;
+    int cur_thread;
+
+    mbedtls_x509_crt crt;
+    mbedtls_x509_crt ca;
+
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+    TEST_ASSERT( psa_crypto_init() == 0 );
+#endif
+
+    mbedtls_x509_crt_init( &crt );
+    mbedtls_x509_crt_init( &ca );
+
+    TEST_ASSERT( mbedtls_x509_crt_parse_file( &crt, crt_file ) == 0 );
+    TEST_ASSERT( mbedtls_x509_crt_parse_file( &ca, ca_file ) == 0 );
+
+    thread_ctx.ca  = &ca;
+    thread_ctx.crt = &crt;
+    thread_ctx.expected_result = result;
+    thread_ctx.expected_flags = flags_result;
+
+    threads = mbedtls_calloc( thread_total, sizeof( pthread_t ) );
+    TEST_ASSERT( threads != NULL );
+
+    /* Start all verify threads */
+    for( cur_thread = 0; cur_thread < thread_total; cur_thread++ )
+    {
+        TEST_ASSERT( pthread_create( &threads[ cur_thread ], NULL,
+                                     &x509_verify_thread_worker,
+                                     &thread_ctx ) == 0 );
+    }
+
+    /* Wait for all threads to complete */
+    for( cur_thread = 0; cur_thread < thread_total; cur_thread++ )
+    {
+        int* res;
+        fprintf( stderr, "Wait for thread %u to return...\n", cur_thread );
+        TEST_ASSERT( pthread_join( threads[ cur_thread ],
+                                   (void**) &res ) == 0 );
+        TEST_ASSERT( *res == 0 );
+    }
+
+exit:
     mbedtls_x509_crt_free( &crt );
     mbedtls_x509_crt_free( &ca );
 }

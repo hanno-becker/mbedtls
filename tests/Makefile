@@ -8,6 +8,7 @@ LDFLAGS ?=
 
 LOCAL_CFLAGS = $(WARNING_CFLAGS) -I../include -D_FILE_OFFSET_BITS=64
 LOCAL_LDFLAGS = -L../library			\
+                -lpthread                       \
 		-lmbedtls$(SHARED_SUFFIX)	\
 		-lmbedx509$(SHARED_SUFFIX)	\
 		-lmbedcrypto$(SHARED_SUFFIX)
@@ -191,4 +192,3 @@ $(EMBEDDED_TESTS): embedded_%: suites/$$(firstword $$(subst ., ,$$*)).function s
 		-o ./TESTS/mbedtls/$*
 
 generate-target-tests: $(EMBEDDED_TESTS)
-

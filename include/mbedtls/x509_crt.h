@@ -908,24 +908,28 @@ int mbedtls_x509_crt_flush_cache( mbedtls_x509_crt const *crt );
 static inline int mbedtls_x509_crt_frame_acquire( mbedtls_x509_crt const *crt,
                                     mbedtls_x509_crt_frame const **frame_ptr )
 {
-    int ret;
+    int ret = 0;
 #if defined(MBEDTLS_THREADING_C)
     if( mbedtls_mutex_lock( &crt->cache->frame_mutex ) != 0 )
         return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
-#endif
 
-    ret = mbedtls_x509_crt_cache_provide_frame( crt );
-    if( ret != 0 )
+    fprintf( stderr, "Frame readers: %u\n", crt->cache->frame_readers );
+    if( crt->cache->frame_readers == 0 )
+#endif /* MBEDTLS_THREADING_C */
     {
-#if defined(MBEDTLS_THREADING_C)
-        if( mbedtls_mutex_unlock( &crt->cache->frame_mutex ) != 0 )
-            return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
-#endif
-        return( ret );
+        fprintf( stderr, "Acquire frame...\n" );
+        ret = mbedtls_x509_crt_cache_provide_frame( crt );
     }
 
+#if defined(MBEDTLS_THREADING_C)
+    crt->cache->frame_readers++;
+
+    if( mbedtls_mutex_unlock( &crt->cache->frame_mutex ) != 0 )
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+#endif /* MBEDTLS_THREADING_C */
+
     *frame_ptr = crt->cache->frame;
-    return( 0 );
+    return( ret );
 }
 
 /**
@@ -935,17 +939,30 @@ static inline int mbedtls_x509_crt_frame_acquire( mbedtls_x509_crt const *crt,
  * \param crt    The certificate for which a certificate frame has
  *               previously been acquired.
  */
-static inline void mbedtls_x509_crt_frame_release( mbedtls_x509_crt const *crt )
+static inline int mbedtls_x509_crt_frame_release( mbedtls_x509_crt const *crt )
 {
-    ((void) crt);
+#if defined(MBEDTLS_THREADING_C)
+    if( mbedtls_mutex_lock( &crt->cache->frame_mutex ) != 0 )
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+
+    if( crt->cache->frame_readers == 0 )
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+
+    crt->cache->frame_readers--;
+
+    if( crt->cache->frame_readers == 0 )
+#endif /* MBEDTLS_THREADING_C */
+    {
+#if defined(MBEDTLS_X509_ALWAYS_FLUSH)
+        (void) mbedtls_x509_crt_flush_cache_frame( crt );
+#endif /* MBEDTLS_X509_ALWAYS_FLUSH */
+    }
 
 #if defined(MBEDTLS_THREADING_C)
     mbedtls_mutex_unlock( &crt->cache->frame_mutex );
-#endif
+#endif /* MBEDTLS_THREADING_C */
 
-#if defined(MBEDTLS_X509_ALWAYS_FLUSH)
-    (void) mbedtls_x509_crt_flush_cache_frame( crt );
-#endif /* MBEDTLS_X509_ALWAYS_FLUSH */
+    return( 0 );
 }
 
 /**
@@ -978,24 +995,29 @@ static inline void mbedtls_x509_crt_frame_release( mbedtls_x509_crt const *crt )
 static inline int mbedtls_x509_crt_pk_acquire( mbedtls_x509_crt const *crt,
                                                mbedtls_pk_context **pk_ptr )
 {
-    int ret;
+    int ret = 0;
 #if defined(MBEDTLS_THREADING_C)
     if( mbedtls_mutex_lock( &crt->cache->pk_mutex ) != 0 )
         return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
-#endif
 
-    ret = mbedtls_x509_crt_cache_provide_pk( crt );
-    if( ret != 0 )
+    fprintf( stderr, "PK readers: %u\n", crt->cache->frame_readers );
+    if( crt->cache->pk_readers == 0 )
+#endif /* MBEDTLS_THREADING_C */
     {
-#if defined(MBEDTLS_THREADING_C)
-        if( mbedtls_mutex_unlock( &crt->cache->pk_mutex ) != 0 )
-            return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
-#endif
-        return( ret );
+        fprintf( stderr, "Acquire PK...\n" );
+        ret = mbedtls_x509_crt_cache_provide_pk( crt );
     }
 
+#if defined(MBEDTLS_THREADING_C)
+    crt->cache->pk_readers++;
+
+    if( mbedtls_mutex_unlock( &crt->cache->pk_mutex ) != 0 )
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+#endif /* MBEDTLS_THREADING_C */
+
+    fprintf( stderr, "Done acquiring PK\n" );
     *pk_ptr = crt->cache->pk;
-    return( 0 );
+    return( ret );
 }
 
 /**
@@ -1005,17 +1027,40 @@ static inline int mbedtls_x509_crt_pk_acquire( mbedtls_x509_crt const *crt,
  * \param crt    The certificate for which a certificate frame has
  *               previously been acquired.
  */
-static inline void mbedtls_x509_crt_pk_release( mbedtls_x509_crt const *crt )
+static inline int mbedtls_x509_crt_pk_release( mbedtls_x509_crt const *crt )
 {
-    ((void) crt);
+#if defined(MBEDTLS_THREADING_C)
+    fprintf( stderr, "Release PK reader\n" );
+    if( mbedtls_mutex_lock( &crt->cache->pk_mutex ) != 0 )
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+
+    fprintf( stderr, "PK readers: %u\n", crt->cache->frame_readers );
+
+    if( crt->cache->pk_readers == 0 )
+    {
+        fprintf( stderr, "No PK readers!" );
+        return( MBEDTLS_ERR_THREADING_MUTEX_ERROR );
+    }
+
+    crt->cache->pk_readers--;
+
+    if( crt->cache->pk_readers == 0 )
+#endif /* MBEDTLS_THREADING_C */
+    {
+        fprintf( stderr, "No PK readers remaining!\n" );
+#if defined(MBEDTLS_X509_ALWAYS_FLUSH)
+        (void) mbedtls_x509_crt_flush_cache_pk( crt );
+#endif /* MBEDTLS_X509_ALWAYS_FLUSH */
+        fprintf( stderr, "Done flushing (potentially)!\n" );
+    }
 
 #if defined(MBEDTLS_THREADING_C)
+    fprintf( stderr, "Unlock PK mutex!\n" );
     mbedtls_mutex_unlock( &crt->cache->pk_mutex );
-#endif
+#endif /* MBEDTLS_THREADING_C */
 
-#if defined(MBEDTLS_X509_ALWAYS_FLUSH)
-    (void) mbedtls_x509_crt_flush_cache_pk( crt );
-#endif /* MBEDTLS_X509_ALWAYS_FLUSH */
+    fprintf( stderr, "Done releasing PK\n" );
+    return( 0 );
 }
 
 #endif /* MBEDTLS_X509_CRT_PARSE_C */

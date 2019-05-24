@@ -36,6 +36,8 @@ struct mbedtls_x509_crt_frame;
 typedef struct mbedtls_x509_crt_cache
 {
 #if defined(MBEDTLS_THREADING_C)
+    uint32_t frame_readers;
+    uint32_t pk_readers;
     mbedtls_threading_mutex_t frame_mutex;
     mbedtls_threading_mutex_t pk_mutex;
 #endif
