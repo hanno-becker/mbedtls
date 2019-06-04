@@ -1250,7 +1250,7 @@ X509 Certificate ASN1 (invalid version 3)
 x509parse_crt:"30173015a0030201038204deadbeef30080604cafed00d0500":"":MBEDTLS_ERR_X509_UNKNOWN_VERSION
 
 X509 Certificate ASN1 (invalid version overflow)
-x509parse_crt:"301A3018a00602047FFFFFFF8204deadbeef30080604cafed00d0500":"":MBEDTLS_ERR_X509_UNKNOWN_VERSION
+x509parse_crt:"301a3018a00602047fffffff8204deadbeef30080604cafed00d0500":"":MBEDTLS_ERR_X509_UNKNOWN_VERSION
 
 X509 Certificate ASN1 (invalid SubjectAltNames tag)
 depends_on:MBEDTLS_RSA_C:MBEDTLS_SHA1_C
