@@ -1414,22 +1414,22 @@ static int ssl_write_key_shares_ext( mbedtls_ssl_context *ssl,
 
 
 /* Main entry point; orchestrates the other functions */
-static int ssl_client_hello_process( mbedtls_ssl_context* ssl );
+static int ssl_out_client_hello_process( mbedtls_ssl_context* ssl );
 
-static int ssl_client_hello_prepare( mbedtls_ssl_context* ssl );
-static int ssl_client_hello_write( mbedtls_ssl_context* ssl,
-                                   unsigned char* buf,
-                                   size_t buflen,
-                                   size_t* olen );
+static int ssl_out_client_hello_prepare( mbedtls_ssl_context* ssl );
+static int ssl_out_client_hello_write( mbedtls_ssl_context* ssl,
+                                       unsigned char* buf,
+                                       size_t buflen,
+                                       size_t* olen );
 
-static int ssl_client_hello_process( mbedtls_ssl_context* ssl )
+static int ssl_out_client_hello_process( mbedtls_ssl_context* ssl )
 {
     int ret = 0;
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write client hello" ) );
 
     if( ssl->handshake->state_local.cli_hello_out.preparation_done == 0 )
     {
-        MBEDTLS_SSL_PROC_CHK( ssl_client_hello_prepare( ssl ) );
+        MBEDTLS_SSL_PROC_CHK( ssl_out_client_hello_prepare( ssl ) );
         ssl->handshake->state_local.cli_hello_out.preparation_done = 1;
     }
 
@@ -1437,7 +1437,7 @@ static int ssl_client_hello_process( mbedtls_ssl_context* ssl )
     MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_flush_output( ssl ) );
 
     /* Prepare ClientHello message in output buffer. */
-    MBEDTLS_SSL_PROC_CHK( ssl_client_hello_write( ssl, ssl->out_msg,
+    MBEDTLS_SSL_PROC_CHK( ssl_out_client_hello_write( ssl, ssl->out_msg,
                                                   MBEDTLS_SSL_MAX_CONTENT_LEN,
                                                   &ssl->out_msglen ) );
 
@@ -1474,7 +1474,7 @@ cleanup:
     return( ret );
 }
 
-static int ssl_client_hello_prepare( mbedtls_ssl_context* ssl )
+static int ssl_out_client_hello_prepare( mbedtls_ssl_context* ssl )
 {
     int ret;
     size_t rand_bytes_len;
@@ -1521,7 +1521,7 @@ static int ssl_client_hello_prepare( mbedtls_ssl_context* ssl )
     return( 0 );
 }
 
-static int ssl_client_hello_write( mbedtls_ssl_context* ssl,
+static int ssl_out_client_hello_write( mbedtls_ssl_context* ssl,
                                    unsigned char* buf,
                                    size_t buflen,
                                    size_t* olen )
