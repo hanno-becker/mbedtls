@@ -1415,6 +1415,7 @@ static int ssl_write_key_shares_ext( mbedtls_ssl_context *ssl,
 
 /* Main entry point; orchestrates the other functions */
 static int ssl_out_client_hello_process( mbedtls_ssl_context* ssl );
+static int ssl_out_client_hello_postprocess( mbedtls_ssl_context* ssl );
 
 static int ssl_out_client_hello_prepare( mbedtls_ssl_context* ssl );
 static int ssl_out_client_hello_write( mbedtls_ssl_context* ssl,
@@ -1452,6 +1453,8 @@ static int ssl_out_client_hello_process( mbedtls_ssl_context* ssl )
         mbedtls_ssl_send_flight_completed( ssl );
 #endif
 
+    MBEDTLS_SSL_PROC_CHK( ssl_out_client_hello_postprocess( ssl ) );
+
     /* Dispatch message */
     MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_write_record( ssl ) );
 
@@ -1472,6 +1475,36 @@ cleanup:
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= write client hello" ) );
     return( ret );
+}
+
+static int ssl_out_client_hello_postprocess( mbedtls_ssl_context *ssl )
+{
+    /* Update handshake state machine
+     * There are three possible evolutions:
+     * 1) In Middlebox Compatibility mode, send dummy CCS immediately
+     *    after ClientHello.
+     * 2) Outside of Middlebox Compatibility mode without 0-RTT,
+     *    switch to incoming ServerHello state.
+     * 3) Outside of Middlebox Compatibility mode with 0-RTT,
+     *    send 0-RTT before attempting to read ServerHello.
+     */
+
+#if defined(MBEDTLS_ZERO_RTT)
+    if( ssl->handshake->early_data == MBEDTLS_SSL_EARLY_DATA_ON )
+    {
+#if defined(MBEDTLS_SSL_TLS13_COMPATIBILITY_MODE)
+        mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_CLIENT_CCS_AFTER_CLIENT_HELLO );
+#else
+        mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_EARLY_APP_DATA );
+#endif /* MBEDTLS_SSL_TLS13_COMPATIBILITY_MODE */
+    }
+    else
+#endif /* MBEDTLS_ZERO_RTT */
+    {
+        mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_SERVER_HELLO );
+    }
+
+    return( 0 );
 }
 
 static int ssl_out_client_hello_prepare( mbedtls_ssl_context* ssl )
@@ -3961,20 +3994,6 @@ int mbedtls_ssl_handshake_client_step( mbedtls_ssl_context *ssl )
                 mbedtls_ack_add_record( ssl, MBEDTLS_SSL_HS_CLIENT_HELLO, MBEDTLS_SSL_ACK_RECORDS_SENT );
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
 
-#if defined(MBEDTLS_ZERO_RTT)
-            if( ssl->handshake->early_data == MBEDTLS_SSL_EARLY_DATA_ON )
-            {
-#if defined(MBEDTLS_SSL_TLS13_COMPATIBILITY_MODE)
-                mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_CLIENT_CCS_AFTER_CLIENT_HELLO );
-#else
-                mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_EARLY_APP_DATA );
-#endif /* MBEDTLS_SSL_TLS13_COMPATIBILITY_MODE */
-            }
-            else
-#endif /* MBEDTLS_ZERO_RTT */
-            {
-                mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_SERVER_HELLO );
-            }
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
             if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM )
