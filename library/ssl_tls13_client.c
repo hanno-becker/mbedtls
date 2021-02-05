@@ -103,6 +103,8 @@ int ssl_write_early_data_process( mbedtls_ssl_context* ssl );
 #define SSL_EARLY_DATA_WRITE 0
 #define SSL_EARLY_DATA_SKIP  1
 static int ssl_write_early_data_coordinate( mbedtls_ssl_context* ssl );
+
+#if defined(MBEDTLS_ZERO_RTT)
 static int ssl_write_early_data_prepare( mbedtls_ssl_context* ssl );
 
 /* Write early-data message */
@@ -110,6 +112,7 @@ static int ssl_write_early_data_write( mbedtls_ssl_context* ssl,
     unsigned char* buf,
     size_t buflen,
     size_t* olen );
+#endif /* MBEDTLS_ZERO_RTT */
 
 /* Update the state after handling the outgoing early-data message. */
 static int ssl_write_early_data_postprocess( mbedtls_ssl_context* ssl );
@@ -121,19 +124,21 @@ static int ssl_write_early_data_postprocess( mbedtls_ssl_context* ssl );
 int ssl_write_early_data_process( mbedtls_ssl_context* ssl )
 {
     int ret;
-#if defined(MBEDTLS_SSL_USE_MPS)
-    mbedtls_writer *msg;
-    unsigned char *buf;
-    mbedtls_mps_size_t buf_len, msg_len;
-#endif /* MBEDTLS_SSL_USE_MPS */
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write early data" ) );
 
     MBEDTLS_SSL_PROC_CHK( ssl_write_early_data_coordinate( ssl ) );
     if( ret == SSL_EARLY_DATA_WRITE )
     {
-        MBEDTLS_SSL_PROC_CHK( ssl_write_early_data_prepare( ssl ) );
+#if defined(MBEDTLS_ZERO_RTT)
+        unsigned char *buf;
+        mbedtls_mps_size_t buf_len;
 
 #if defined(MBEDTLS_SSL_USE_MPS)
+        mbedtls_writer *msg;
+        mbedtls_mps_size_t msg_len;
+
+        MBEDTLS_SSL_PROC_CHK( ssl_write_early_data_prepare( ssl ) );
+
         /* Make sure we can write a new message. */
         MBEDTLS_SSL_PROC_CHK( mbedtls_mps_flush( &ssl->mps.l4 ) );
 
@@ -156,6 +161,8 @@ int ssl_write_early_data_process( mbedtls_ssl_context* ssl )
 
 #else  /* MBEDTLS_SSL_USE_MPS */
 
+        MBEDTLS_SSL_PROC_CHK( ssl_write_early_data_prepare( ssl ) );
+
         /* Make sure we can write a new message. */
         MBEDTLS_SSL_PROC_CHK( mbedtls_ssl_flush_output( ssl ) );
 
@@ -171,7 +178,14 @@ int ssl_write_early_data_process( mbedtls_ssl_context* ssl )
 
 #endif /* MBEDTLS_SSL_USE_MPS */
 
+#else /* MBEDTLS_ZERO_RTT */
+
+        /* Should never happen */
+        return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
+
+#endif /* MBEDTLS_ZERO_RTT */
     }
+
 
     /* Update state */
     MBEDTLS_SSL_PROC_CHK( ssl_write_early_data_postprocess( ssl ) );
@@ -183,6 +197,7 @@ cleanup:
 }
 
 #if defined(MBEDTLS_ZERO_RTT)
+
 static int ssl_write_early_data_coordinate( mbedtls_ssl_context* ssl )
 {
     if( ssl->handshake->early_data != MBEDTLS_SSL_EARLY_DATA_ON )
@@ -190,12 +205,6 @@ static int ssl_write_early_data_coordinate( mbedtls_ssl_context* ssl )
 
     return( SSL_EARLY_DATA_WRITE );
 }
-#else /* MBEDTLS_ZERO_RTT */
-static int ssl_write_early_data_coordinate( mbedtls_ssl_context* ssl )
-{
-    return( SSL_EARLY_DATA_SKIP );
-}
-#endif /* MBEDTLS_ZERO_RTT */
 
 static int ssl_write_early_data_prepare( mbedtls_ssl_context* ssl )
 {
@@ -263,13 +272,11 @@ static int ssl_write_early_data_prepare( mbedtls_ssl_context* ssl )
     return( 0 );
 }
 
-
 static int ssl_write_early_data_write( mbedtls_ssl_context* ssl,
     unsigned char* buf,
     size_t buflen,
     size_t* olen )
 {
-
     if ( ssl->conf->early_data_len > buflen )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "buffer too small" ) );
@@ -287,6 +294,15 @@ static int ssl_write_early_data_write( mbedtls_ssl_context* ssl,
     return( 0 );
 }
 
+#else /* MBEDTLS_ZERO_RTT */
+
+static int ssl_write_early_data_coordinate( mbedtls_ssl_context* ssl )
+{
+    ((void) ssl);
+    return( SSL_EARLY_DATA_SKIP );
+}
+
+#endif /* MBEDTLS_ZERO_RTT */
 
 static int ssl_write_early_data_postprocess( mbedtls_ssl_context* ssl )
 {
@@ -4236,8 +4252,6 @@ int mbedtls_ssl_handshake_client_step( mbedtls_ssl_context *ssl )
 #endif
             break;
 
-#if defined(MBEDTLS_ZERO_RTT)
-
             /* ----- WRITE CHANGE CIPHER SPEC ----*/
 
 #if defined(MBEDTLS_SSL_TLS13_COMPATIBILITY_MODE)
@@ -4266,8 +4280,6 @@ int mbedtls_ssl_handshake_client_step( mbedtls_ssl_context *ssl )
             }
 
             break;
-#endif /* MBEDTLS_ZERO_RTT */
-
 
             /* ----- READ SERVER HELLO ----*/
 
@@ -4461,8 +4473,7 @@ int mbedtls_ssl_handshake_client_step( mbedtls_ssl_context *ssl )
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
 
             mbedtls_ssl_handshake_set_state( ssl, MBEDTLS_SSL_END_OF_EARLY_DATA );
-
-#if defined(MBEDTLS_ZERO_RTT)
+            break;
 
             /* ----- WRITE END-OF-EARLY-DATA ----*/
 
@@ -4477,7 +4488,6 @@ int mbedtls_ssl_handshake_client_step( mbedtls_ssl_context *ssl )
             }
 
             break;
-#endif /* MBEDTLS_ZERO_RTT */
 
             /* ----- WRITE CHANGE CIPHER SPEC ----*/
 
