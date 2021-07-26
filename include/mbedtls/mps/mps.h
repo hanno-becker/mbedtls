@@ -833,31 +833,12 @@ struct mbedtls_mps
                                            *   message contributes to an ongoing
                                            *   handshake. */
 
-        /* Note:
-         * This is slightly memory-inefficient because the data
-         * is already stored in the underlying Layer 3 context.
-         * Comments:
-         * - It is unavoidable to use an mps_l3_handshake_in instance
-         *   at some point, because that's how Layer 3 reports the
-         *   handshake contents. For TLS, it might be stack-allocated in
-         *   mbedtls_mps_read_handshake(), setup via mps_l3_read_handshake()
-         *   and used to fill the target structure mbedtls_mps_handshake_in
-         *   in that function.
-         * - For DTLS, it is unavoidable to have a separate instance of
-         *   mps_l3_handshake_in than the one reported by Layer 3, because
-         *   of handshake message reassembly. So, in this case at least,
-         *   we must store it in the MPS context.
-         * Currently, we decided to treat TLS and DTLS uniformly by
-         * having the mps_l3_handshake_in instance in the MPS context
-         * in any case.
-         * Given that choice, it comes at no additional cost to also
-         * have the alert type and reader pointer here.
-         */
+        /* Note: This is slightly memory-inefficient because the data
+         * is already stored in the underlying Layer 3 context. */
         union
         {
             mbedtls_mps_alert_t alert;
             mbedtls_mps_reader*     app;
-            mps_l3_handshake_in hs;
         } data;
 
     } in;
