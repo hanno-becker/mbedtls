@@ -245,10 +245,10 @@ typedef struct mbedtls_ecp_group
                                      mod \p P (see above).*/
     int (*MBEDTLS_PRIVATE(t_pre))(mbedtls_ecp_point *, void *);  /*!< Unused. */
     int (*MBEDTLS_PRIVATE(t_post))(mbedtls_ecp_point *, void *); /*!< Unused. */
-    void *MBEDTLS_PRIVATE(t_data);               /*!< Unused. */
-    mbedtls_ecp_point *MBEDTLS_PRIVATE(T);       /*!< Pre-computed points for ecp_mul_comb(). */
-    size_t MBEDTLS_PRIVATE(T_size);              /*!< The number of dynamic allocated pre-computed points. */
-    mbedtls_mpi MBEDTLS_PRIVATE(tmp_dbl);         /*!< Temporary MPI holding double-width intermediate values. */
+    void *MBEDTLS_PRIVATE(t_data);                   /*!< Unused. */
+    void *MBEDTLS_PRIVATE(T);                        /*!< Pre-computed points for ecp_mul_comb(). */
+    void *MBEDTLS_PRIVATE(Z);                        /*!< Pre-computed points for ecp_mul_comb(). */
+    size_t MBEDTLS_PRIVATE(T_size);                  /*!< The number of dynamic allocated pre-computed points. */
 }
 mbedtls_ecp_group;
 
