@@ -43,17 +43,31 @@
 #define inline __inline
 #endif
 
-#define ECP_MPI_INIT(s, n, p) {s, (n), (mbedtls_mpi_uint *)(p)}
+#define ECP_MPI_INIT(N,P)                         \
+     {                                            \
+        .s = 1,                                   \
+        .p = (mbedtls_mpi_uint*) (P),             \
+        .n = (N),                                 \
+        .external = 1,                            \
+        .readonly = 1,                            \
+        .fixedbuf = 1,                            \
+     }
 
-#define ECP_MPI_INIT_ARRAY(x)   \
-    ECP_MPI_INIT(1, sizeof(x) / sizeof(mbedtls_mpi_uint), x)
+#define ECP_MPI_INIT_STATIC(x)   \
+    ECP_MPI_INIT(sizeof(x) / sizeof(mbedtls_mpi_uint), x)
 
-#define ECP_POINT_INIT_XY_Z0(x, y) { \
-    ECP_MPI_INIT_ARRAY(x), ECP_MPI_INIT_ARRAY(y), ECP_MPI_INIT(1, 0, NULL) }
-#define ECP_POINT_INIT_XY_Z1(x, y) { \
-        ECP_MPI_INIT_ARRAY(x), \
-        ECP_MPI_INIT_ARRAY(y), \
-        ECP_MPI_INIT(1, sizeof(x) / sizeof(mbedtls_mpi_uint), mpi_one) }
+#define ECP_POINT_INIT_XY_Z0(x, y) \
+      {                                                 \
+        .X = ECP_MPI_INIT_STATIC(x),                    \
+        .Y = ECP_MPI_INIT_STATIC(y),                    \
+        .Z = ECP_MPI_INIT(0, NULL)                      \
+      }
+#define ECP_POINT_INIT_XY_Z1(x, y)                      \
+      {                                                 \
+        .X = ECP_MPI_INIT_STATIC(x),                    \
+        .Y = ECP_MPI_INIT_STATIC(y),                    \
+        .Z = ECP_MPI_INIT(sizeof(x) / sizeof(mbedtls_mpi_uint), mpi_one) \
+      }
 
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
@@ -4546,6 +4560,10 @@ static inline void ecp_mpi_load( mbedtls_mpi *X, const mbedtls_mpi_uint *p, size
     X->s = 1;
     X->n = len / sizeof( mbedtls_mpi_uint );
     X->p = (mbedtls_mpi_uint *) p;
+
+    X->readonly = 1;
+    X->external = 1;
+    X->fixedbuf = 1;
 }
 
 /*
@@ -4572,8 +4590,6 @@ static int ecp_group_load( mbedtls_ecp_group *grp,
 
     grp->pbits = mbedtls_mpi_bitlen( &grp->P );
     grp->nbits = mbedtls_mpi_bitlen( &grp->N );
-
-    grp->h = 1;
 
     grp->T = (mbedtls_ecp_point *) T;
     /*
@@ -5211,6 +5227,9 @@ static int ecp_mod_p521( mbedtls_mpi *N )
     if( M.n > P521_WIDTH + 1 )
         M.n = P521_WIDTH + 1;
     M.p = Mp;
+    M.external = 1;
+    M.fixedbuf = 1;
+    M.readonly = 0;
     memcpy( Mp, N->p + P521_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, 521 % ( 8 * sizeof( mbedtls_mpi_uint ) ) ) );
 
@@ -5223,6 +5242,7 @@ static int ecp_mod_p521( mbedtls_mpi *N )
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
 
 cleanup:
+    mbedtls_mpi_free( &M );
     return( ret );
 }
 
@@ -5263,6 +5283,9 @@ static int ecp_mod_p255( mbedtls_mpi *N )
     }
 
     M.p = Mp;
+    M.external = 1;
+    M.fixedbuf = 1;
+    M.readonly = 0;
     memset( Mp, 0, sizeof Mp );
     memcpy( Mp, N->p + P255_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, 255 % ( 8 * sizeof( mbedtls_mpi_uint ) ) ) );
@@ -5278,6 +5301,7 @@ static int ecp_mod_p255( mbedtls_mpi *N )
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
 
 cleanup:
+    mbedtls_mpi_free( &M );
     return( ret );
 }
 #endif /* MBEDTLS_ECP_DP_CURVE25519_ENABLED */
@@ -5328,6 +5352,9 @@ static int ecp_mod_p448( mbedtls_mpi *N )
         M.n = P448_WIDTH;
     }
     M.p = Mp;
+    M.external = 1;
+    M.fixedbuf = 1;
+    M.readonly = 0;
     memset( Mp, 0, sizeof( Mp ) );
     memcpy( Mp, N->p + P448_WIDTH, M.n * sizeof( mbedtls_mpi_uint ) );
 
@@ -5356,6 +5383,7 @@ static int ecp_mod_p448( mbedtls_mpi *N )
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( N, N, &M ) );
 
 cleanup:
+    mbedtls_mpi_free( &M );
     return( ret );
 }
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
@@ -5391,6 +5419,9 @@ static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t 
     /* Common setup for M */
     M.s = 1;
     M.p = Mp;
+    M.external = 1;
+    M.fixedbuf = 1;
+    M.readonly = 0;
 
     /* M = A1 */
     M.n = N->n - ( p_limbs - adjust );
@@ -5435,6 +5466,7 @@ static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t 
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
 
 cleanup:
+    mbedtls_mpi_free( &M );
     return( ret );
 }
 #endif /* MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||
