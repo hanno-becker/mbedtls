@@ -5228,8 +5228,14 @@ static int ecp_mod_p255( mbedtls_mpi *N )
     /* M = A1 */
     M.s = 1;
     M.n = N->n - ( P255_WIDTH - 1 );
-    if( M.n > P255_WIDTH + 1 )
+    if( mbedtls_mpi_bitlen( N ) > 2*255 )
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
+    if( M.n > P255_WIDTH + 1 )
+    {
+        /* Safe to truncate because we have just checked bitlength. */
+        M.n = P255_WIDTH + 1;
+    }
+
     M.p = Mp;
     memset( Mp, 0, sizeof Mp );
     memcpy( Mp, N->p + P255_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
@@ -5285,9 +5291,16 @@ static int ecp_mod_p448( mbedtls_mpi *N )
     /* M = A1 */
     M.s = 1;
     M.n = N->n - ( P448_WIDTH );
-    if( M.n > P448_WIDTH )
+    if( mbedtls_mpi_bitlen( N ) > 2 * 448 )
+    {
         /* Shouldn't be called with N larger than 2^896! */
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
+    }
+    if( M.n > P448_WIDTH )
+    {
+        /* Safe to truncate because we have just checked bitlength. */
+        M.n = P448_WIDTH;
+    }
     M.p = Mp;
     memset( Mp, 0, sizeof( Mp ) );
     memcpy( Mp, N->p + P448_WIDTH, M.n * sizeof( mbedtls_mpi_uint ) );
