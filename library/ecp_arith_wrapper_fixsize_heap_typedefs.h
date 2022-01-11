@@ -43,11 +43,14 @@ typedef struct
 #define MBEDTLS_ECP_MAX_LIMBS_DOUBLE 2*MBEDTLS_ECP_MAX_LIMBS + 1
 
 /* Internal structure representing EC groups */
+#define ECP_GROUP_INTERNAL_TMP_MAX 6
 typedef struct
 {
     mbedtls_ecp_group  *src;
     mbedtls_mpi  tmp_single;
     mbedtls_mpi  tmp_double;
+    mbedtls_mpi  tmp_arr[ECP_GROUP_INTERNAL_TMP_MAX];
+    unsigned  alloc;
 } mbedtls_ecp_group_internal;
 
 #define ECP_POINT_INIT_XY_Z1( x, y )                          \

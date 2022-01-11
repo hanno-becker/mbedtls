@@ -35,8 +35,9 @@
 #define getG(grp) ((mbedtls_ecp_point_internal const*)(&((grp)->src->G)))
 
 #define getGrp(grp)       ((grp)->src)
-#define getTmpDouble(grp) (mbedtls_mpi*)&(grp->tmp_single)
-#define getTmpSingle(grp) (mbedtls_mpi*)&(grp->tmp_double)
+#define getTmpDouble(grp) (mbedtls_mpi*)&(grp->tmp_double)
+
+#define getTmp(grp,idx)   (mbedtls_mpi*)&(grp->tmp_arr[(idx)])
 
 #define mbedtls_ecp_mpi_internal_init( x ) \
     mbedtls_mpi_init( (mbedtls_mpi*)( x ) )
@@ -154,25 +155,22 @@ cleanup:
     mbedtls_ecp_point_internal * const x = &ECP_DECL_TEMP_POINT_TMP(x); \
     mbedtls_ecp_point_init( (mbedtls_ecp_point*) x )
 #define ECP_DECL_TEMP_MPI_TMP(x) x ## _tmp
-#define ECP_DECL_TEMP_MPI(x)                                        \
-    mbedtls_ecp_mpi_internal ECP_DECL_TEMP_MPI_TMP(x);              \
-    mbedtls_ecp_mpi_internal * const x = &ECP_DECL_TEMP_MPI_TMP(x); \
-    mbedtls_mpi_init( (mbedtls_mpi*) x )
+#define ECP_DECL_TEMP_MPI(x)                                         \
+    mbedtls_ecp_mpi_internal * const x =                             \
+        (mbedtls_ecp_mpi_internal*)&grp->tmp_arr[cur_alloc];         \
+    cur_alloc++
 #define ECP_DECL_TEMP_MPI_STATIC_ARRAY(x,n)                          \
-    mbedtls_ecp_mpi_internal (x)[(n)];                               \
-    mpi_init_many( (mbedtls_mpi*) x, (n) )
+    mbedtls_ecp_mpi_internal * const x =                             \
+        (mbedtls_ecp_mpi_internal*) &grp->tmp_arr[cur_alloc];        \
+    cur_alloc += (n)
 #define ECP_DECL_TEMP_MPI_DYNAMIC_ARRAY(x)                           \
     mbedtls_ecp_mpi_internal *x = NULL;
 
 #define ECP_SETUP_TEMP_POINT(x)                                      \
     MBEDTLS_MPI_CHK( ecp_point_force_single( getGrp(grp),            \
                                   (mbedtls_ecp_point*) x ) )
-#define ECP_SETUP_TEMP_MPI(x)                                        \
-    MBEDTLS_MPI_CHK( mpi_force_single( getGrp(grp),                  \
-                                       (mbedtls_mpi*) x ) )
-#define ECP_SETUP_TEMP_MPI_STATIC_ARRAY(x,n)                         \
-    MBEDTLS_MPI_CHK( mpi_force_single_many( getGrp(grp),             \
-                                            (mbedtls_mpi*) x, (n) ) )
+#define ECP_SETUP_TEMP_MPI(x) do {} while( 0 )
+#define ECP_SETUP_TEMP_MPI_STATIC_ARRAY(x,n) do {} while( 0 )
 #define ECP_SETUP_TEMP_MPI_DYNAMIC_ARRAY(x,n)                        \
     do {                                                             \
         x = mbedtls_calloc( (n), sizeof( mbedtls_mpi ) );            \
@@ -189,10 +187,8 @@ cleanup:
 
 #define ECP_FREE_TEMP_POINT(x)                                       \
     mbedtls_ecp_point_free( (mbedtls_ecp_point*) x )
-#define ECP_FREE_TEMP_MPI(x)                                         \
-    mbedtls_mpi_free( (mbedtls_mpi*) x )
-#define ECP_FREE_TEMP_MPI_STATIC_ARRAY(x,n)                          \
-    mpi_free_many( (mbedtls_mpi*) x, (n) )
+#define ECP_FREE_TEMP_MPI(x) do {} while( 0 )
+#define ECP_FREE_TEMP_MPI_STATIC_ARRAY(x,n) do {} while( 0 )
 #define ECP_FREE_TEMP_MPI_DYNAMIC_ARRAY(x,n)                         \
     do {                                                             \
         mpi_free_many( (mbedtls_mpi*) x, (n) );                      \
@@ -296,15 +292,17 @@ static void mbedtls_ecp_group_internal_init(
     mbedtls_ecp_group_internal *grp, mbedtls_ecp_group *src )
 {
     grp->src = src;
-    mbedtls_mpi_init( getTmpSingle( grp ) );
     mbedtls_mpi_init( getTmpDouble( grp ) );
+
+    mpi_init_many( &grp->tmp_arr[0], ECP_GROUP_INTERNAL_TMP_MAX );
+    grp->alloc = 0;
 }
 
 static void mbedtls_ecp_group_internal_free(
     mbedtls_ecp_group_internal *grp )
 {
-    mbedtls_mpi_free( getTmpSingle( grp ) );
     mbedtls_mpi_free( getTmpDouble( grp ) );
+    mpi_free_many( &grp->tmp_arr[0], ECP_GROUP_INTERNAL_TMP_MAX );
 }
 
 static int mbedtls_ecp_group_internal_setup(
@@ -312,8 +310,9 @@ static int mbedtls_ecp_group_internal_setup(
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     MBEDTLS_MPI_CHK( mbedtls_ecp_group_check_single_size( getGrp(grp ) ) );
-    MBEDTLS_MPI_CHK( mpi_force_single( getGrp(grp), getTmpSingle( grp ) ) );
     MBEDTLS_MPI_CHK( mpi_force_double( getGrp(grp), getTmpDouble( grp ) ) );
+    MBEDTLS_MPI_CHK( mpi_force_single_many( getGrp(grp), &grp->tmp_arr[0],
+                                            ECP_GROUP_INTERNAL_TMP_MAX ) );
 cleanup:
     return( ret );
 }
@@ -335,9 +334,20 @@ cleanup:
  * Currently, these wrappers are defined via the bignum module.
  */
 
-#define ECP_ARITH_INIT()  do {} while( 0 )
-#define ECP_ARITH_START() do {} while( 0 )
-#define ECP_ARITH_END()   do {} while( 0 )
+#define ECP_ARITH_INIT()                              \
+    unsigned const alloc_at_entry = grp->alloc;       \
+    unsigned cur_alloc = alloc_at_entry
+
+#define ECP_ARITH_START()                                           \
+    do {                                                            \
+        if( alloc_at_entry != cur_alloc )                           \
+            grp->alloc = cur_alloc;                                 \
+    } while( 0 )
+#define ECP_ARITH_END()                                             \
+    do {                                                            \
+        if( alloc_at_entry != cur_alloc )                           \
+            grp->alloc = alloc_at_entry;                            \
+    } while( 0 )
 
 #define ECP_MPI_ADD( X, A, B )                                                 \
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_mod( grp, &((X)->v), &((A)->v), &((B)->v) ) )
@@ -366,6 +376,10 @@ cleanup:
 #define ECP_MOV( d, s )                                                        \
     MBEDTLS_MPI_CHK( mbedtls_ecp_copy( (mbedtls_ecp_point*)(d),         \
                                        (mbedtls_ecp_point*) (s) ) )
+
+#define ECP_CMP( d, s )                                                \
+    mbedtls_ecp_point_cmp( (mbedtls_ecp_point*) (d),                         \
+                           (mbedtls_ecp_point*) (s) )
 
 #define ECP_ZERO( X )                                                   \
     do {                                                                \
@@ -466,7 +480,7 @@ cleanup:
 #define INC_MUL_COUNT
 #endif
 
-static int mbedtls_mpi_mul_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_mul_mod( mbedtls_ecp_group_internal *grp,
                                 mbedtls_mpi *X,
                                 const mbedtls_mpi *A,
                                 const mbedtls_mpi *B )
@@ -482,7 +496,7 @@ cleanup:
     return( ret );
 }
 
-static int mbedtls_mpi_mod_after_sub( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_mod_after_sub( mbedtls_ecp_group_internal *grp,
                                       mbedtls_mpi *dst, mbedtls_mpi *src )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
@@ -498,7 +512,7 @@ cleanup:
  * Reduce a mbedtls_mpi mod p in-place, to use after mbedtls_mpi_sub_mpi
  * N->s < 0 is a very fast test, which fails only if N is 0
  */
-static int mbedtls_mpi_sub_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_sub_mod( mbedtls_ecp_group_internal *grp,
                                 mbedtls_mpi *X,
                                 const mbedtls_mpi *A,
                                 const mbedtls_mpi *B )
@@ -518,7 +532,7 @@ cleanup:
  * a bit faster.
  */
 
-static int mbedtls_mpi_mod_after_add( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_mod_after_add( mbedtls_ecp_group_internal *grp,
                                       mbedtls_mpi *dst, mbedtls_mpi *src )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
@@ -531,7 +545,7 @@ cleanup:
     return( ret );
 }
 
-static int mbedtls_mpi_add_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_add_mod( mbedtls_ecp_group_internal *grp,
                                 mbedtls_mpi *X,
                                 const mbedtls_mpi *A,
                                 const mbedtls_mpi *B )
@@ -544,7 +558,7 @@ cleanup:
     return( ret );
 }
 
-static int mbedtls_mpi_mul_int_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_mul_int_mod( mbedtls_ecp_group_internal *grp,
                                     mbedtls_mpi *X,
                                     const mbedtls_mpi *A,
                                     mbedtls_mpi_uint c )
@@ -557,7 +571,7 @@ cleanup:
     return( ret );
 }
 
-static int mbedtls_mpi_sub_int_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_sub_int_mod( mbedtls_ecp_group_internal *grp,
                                     mbedtls_mpi *X,
                                     const mbedtls_mpi *A,
                                     mbedtls_mpi_uint c )
@@ -571,7 +585,7 @@ cleanup:
 }
 
 #if defined(ECP_MPI_NEED_SHIFT_L_MOD)
-static int mbedtls_mpi_shift_l_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_shift_l_mod( mbedtls_ecp_group_internal *grp,
                                     mbedtls_mpi *X,
                                     size_t count )
 {
@@ -585,7 +599,7 @@ cleanup:
 }
 #endif /* ECP_MPI_NEED_SHIFT_L_MOD */
 
-static int mbedtls_mpi_inv_mod_internal( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_inv_mod_internal( mbedtls_ecp_group_internal *grp,
                                          mbedtls_mpi *dst,
                                          mbedtls_mpi const *src,
                                          mbedtls_mpi const *P )
@@ -600,22 +614,27 @@ cleanup:
     return( ret );
 }
 
-static int mbedtls_mpi_cond_neg_mod( const mbedtls_ecp_group_internal *grp,
+static int mbedtls_mpi_cond_neg_mod( mbedtls_ecp_group_internal *grp,
                                      mbedtls_mpi *X,
                                      unsigned cond )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi * const tmp = getTmpSingle(grp);
+
+    ECP_ARITH_INIT();
+    ECP_DECL_TEMP_MPI(tmp);
+    ECP_ARITH_START();
+    ECP_SETUP_TEMP_MPI(tmp);
 
     unsigned char nonzero =
         mbedtls_mpi_cmp_int( X, 0 ) != 0;
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi(
-                         tmp, &getGrp(grp)->P, X ) );
+                         (mbedtls_mpi*)tmp, &getGrp(grp)->P, X ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_safe_cond_assign(
-                         X, tmp, nonzero & (cond) ) );
+                         X, (mbedtls_mpi*)tmp, nonzero & (cond) ) );
 
 cleanup:
+    ECP_ARITH_END();
     return( ret );
 }
 
