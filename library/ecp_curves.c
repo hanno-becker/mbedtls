@@ -5043,9 +5043,8 @@ static inline unsigned char is_neg( int32_t c )
     signed char c = 0, cc, last_c;                                      \
     uint32_t cur;                                                       \
     size_t i = 0, bits = (b);                                           \
-    /* N is the size of the product of two b-bit numbers, plus one */   \
-    /* limb for fix_negative */                                         \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL + 1 ) );      \
+    /* N is the size of the product of two b-bit numbers */             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL ) );          \
     LOAD32;
 
 #define NEXT                    \
@@ -5060,44 +5059,9 @@ static inline unsigned char is_neg( int32_t c )
 
 #define LAST                                    \
     STORE32; i++;                               \
-    cur = c > 0 ? c : 0; STORE32;               \
-    cur = 0; while( ++i < MAX32 ) { STORE32; }  \
-    if( c < 0 ) mbedtls_ecp_fix_negative( N, c, bits );
-
-/*
- * If the result is negative, we get it in the form
- * c * 2^bits + N, with c negative and N positive shorter than 'bits'
- */
-MBEDTLS_STATIC_TESTABLE
-void mbedtls_ecp_fix_negative( mbedtls_mpi *N, signed char c, size_t bits )
-{
-    size_t i;
-
-    /* Set N := 2^bits - 1 - N. We know that 0 <= N < 2^bits, so
-     * set the absolute value to 0xfff...fff - N. There is no carry
-     * since we're subtracting from all-bits-one.  */
-    for( i = 0; i <= bits / 8 / sizeof( mbedtls_mpi_uint ); i++ )
-    {
-        N->p[i] = ~(mbedtls_mpi_uint)0 - N->p[i];
-    }
-    /* Add 1, taking care of the carry. */
-    i = 0;
-    do
-        ++N->p[i];
-    while( N->p[i++] == 0 && i <= bits / 8 / sizeof( mbedtls_mpi_uint ) );
-    /* Invert the sign.
-     * Now N = N0 - 2^bits where N0 is the initial value of N. */
-    N->s = -1;
-
-    /* Add |c| * 2^bits to the absolute value. Since c and N are
-    * negative, this adds c * 2^bits. */
-    mbedtls_mpi_uint msw = (mbedtls_mpi_uint) -c;
-#if defined(MBEDTLS_HAVE_INT64)
-    if( bits == 224 )
-        msw <<= 32;
-#endif
-    N->p[bits / 8 / sizeof( mbedtls_mpi_uint)] += msw;
-}
+    if( c != 0 )                                \
+        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );       \
+    while( i < MAX32 ) { STORE0; i++; }
 
 #if defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
 /*
@@ -5114,6 +5078,16 @@ static int ecp_mod_p224( mbedtls_mpi *N )
     SUB( 11 ); ADD(  8 ); ADD( 12 );    NEXT; // A4 += -A11 + A8 + A12
     SUB( 12 ); ADD(  9 ); ADD( 13 );    NEXT; // A5 += -A12 + A9 + A13
     SUB( 13 ); ADD( 10 );                     // A6 += -A13 + A10
+
+    RESET;
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
 
     RESET;
 
@@ -5175,6 +5149,18 @@ static int ecp_mod_p256( mbedtls_mpi *N )
     SUB_LAST; NEXT;                                               // A6
     ADD_LAST;                                                     // A7
 
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+
     LAST;
 
 cleanup:
@@ -5225,6 +5211,21 @@ static int ecp_mod_p384( mbedtls_mpi *N )
 
     ADD( 23 ); ADD( 20 ); ADD( 19 );
     SUB( 22 );                                                    // A11
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
 
     RESET;
 
