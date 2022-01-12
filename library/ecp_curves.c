@@ -4962,29 +4962,6 @@ cleanup:
 #define STORE32     N->p[i] = cur;
 #define STORE0      N->p[i] = 0;
 
-#else                               /* 64-bit */
-
-#define MAX32       N->n * 2
-#define A( j ) (j) % 2 ? (uint32_t)( N->p[(j)/2] >> 32 ) : \
-                         (uint32_t)( N->p[(j)/2] )
-#define STORE32                                   \
-    if( i % 2 ) {                                 \
-        N->p[i/2] &= 0x00000000FFFFFFFF;          \
-        N->p[i/2] |= ((mbedtls_mpi_uint) cur) << 32;        \
-    } else {                                      \
-        N->p[i/2] &= 0xFFFFFFFF00000000;          \
-        N->p[i/2] |= (mbedtls_mpi_uint) cur;                \
-    }
-
-#define STORE0                                    \
-    if( i % 2 ) {                                 \
-        N->p[i/2] &= 0x00000000FFFFFFFF;          \
-    } else {                                      \
-        N->p[i/2] &= 0xFFFFFFFF00000000;          \
-    }
-
-#endif /* sizeof( mbedtls_mpi_uint ) */
-
 /*
  * Helpers for addition and subtraction of chunks, with signed carry.
  */
@@ -5062,6 +5039,74 @@ static inline unsigned char is_neg( int32_t c )
     if( c != 0 )                                \
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );       \
     while( i < MAX32 ) { STORE0; i++; }
+
+#else                               /* 64-bit */
+
+#define MAX32       N->n * 2
+#define A( j ) (j) % 2 ? (uint32_t)( N->p[(j)/2] >> 32 ) : \
+                         (uint32_t)( N->p[(j)/2] )
+#define STORE32                                   \
+    if( i % 2 ) {                                 \
+        N->p[i/2] &= 0x00000000FFFFFFFF;          \
+        N->p[i/2] |= cur << 32;                   \
+    } else {                                      \
+        N->p[i/2] &= 0xFFFFFFFF00000000;          \
+        N->p[i/2] |= (uint32_t) cur;              \
+    }
+
+#define STORE0                                    \
+    if( i % 2 ) {                                 \
+        N->p[i/2] &= 0x00000000FFFFFFFF;          \
+    } else {                                      \
+        N->p[i/2] &= 0xFFFFFFFF00000000;          \
+    }
+
+static inline signed char extract_carry( uint64_t cur )
+{
+    return( (signed char)(cur >> 32) );
+}
+
+#define ADD( j )    cur += A(j)
+#define SUB( j )    cur -= A(j)
+
+#define ADD_CARRY(cc) cur += (cc)
+#define SUB_CARRY(cc) cur -= (cc)
+
+#define ADD_LAST ADD_CARRY(last_c)
+#define SUB_LAST SUB_CARRY(last_c)
+
+#define ciL    (sizeof(mbedtls_mpi_uint))         /* chars in limb  */
+#define biL    (ciL << 3)                         /* bits  in limb  */
+
+/*
+ * Helpers for the main 'loop'
+ */
+#define INIT( b )                                                       \
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                    \
+    signed char c = 0, last_c;                                          \
+    uint64_t cur;                                                       \
+    size_t i = 0, bits = (b);                                           \
+    /* N is the size of the product of two b-bit numbers */             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL ) );      \
+    LOAD32;
+
+#define NEXT                    \
+    c = extract_carry(cur);     \
+    STORE32; i++; LOAD32;       \
+    ADD_CARRY(c);
+
+#define RESET                                   \
+    last_c = extract_carry(cur);                \
+    STORE32; i=0; LOAD32;
+
+#define LAST                                      \
+    c = extract_carry(cur);                       \
+    STORE32; i++;                                 \
+    if( c != 0 )                                  \
+        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA ); \
+    while( i < MAX32 ) { STORE0; i++; }
+
+#endif /* sizeof( mbedtls_mpi_uint ) */
 
 #if defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
 /*
