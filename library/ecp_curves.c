@@ -4980,20 +4980,44 @@ cleanup:
 /*
  * Helpers for addition and subtraction of chunks, with signed carry.
  */
-static inline void add32( uint32_t *dst, uint32_t src, signed char *carry )
+static inline unsigned char add32( uint32_t *dst, uint32_t src )
 {
     *dst += src;
-    *carry += ( *dst < src );
+    return( *dst < src );
 }
 
-static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
+static inline unsigned char sub32( uint32_t *dst, uint32_t src )
 {
-    *carry -= ( *dst < src );
+    unsigned char carry = ( *dst < src );
     *dst -= src;
+    return( carry );
 }
 
-#define ADD( j )    add32( &cur, A( j ), &c );
-#define SUB( j )    sub32( &cur, A( j ), &c );
+/* This works except for c == -2^{31} */
+static inline signed char sign( int32_t c )
+{
+    return(
+        (signed char)( ((uint32_t) -c) >> 31 ) -
+        (signed char)( ((uint32_t) +c) >> 31 ) );
+}
+
+static inline unsigned char is_neg( int32_t c )
+{
+    return( ((uint32_t) c) >> 31 );
+}
+
+#define ADD( j )    c +=  add32( &cur, A( j ) );
+#define SUB( j )    c -=  sub32( &cur, A( j ) );
+
+#define ADD_CARRY(cc)                                         \
+    {                                                         \
+        signed   char const sig = sign(cc);                   \
+        unsigned char const neg = is_neg(cc);                 \
+        unsigned char  overflow = add32( &cur, (cc) );        \
+                                                              \
+        overflow = (!neg && overflow) || (neg && !overflow);  \
+        c += sig * overflow;                                  \
+    }
 
 #define ciL    (sizeof(mbedtls_mpi_uint))         /* chars in limb  */
 #define biL    (ciL << 3)                         /* bits  in limb  */
@@ -5014,10 +5038,7 @@ static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
 #define NEXT                    \
     STORE32; i++; LOAD32;       \
     cc = c; c = 0;              \
-    if( cc < 0 )                \
-        sub32( &cur, -cc, &c ); \
-    else                        \
-        add32( &cur, cc, &c );  \
+    ADD_CARRY(cc);
 
 #define LAST                                    \
     STORE32; i++;                               \
