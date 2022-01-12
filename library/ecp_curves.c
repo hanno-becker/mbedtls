@@ -4960,6 +4960,7 @@ cleanup:
 #define MAX32       N->n
 #define A( j )      N->p[j]
 #define STORE32     N->p[i] = cur;
+#define STORE0      N->p[i] = 0;
 
 #else                               /* 64-bit */
 
@@ -4973,6 +4974,13 @@ cleanup:
     } else {                                      \
         N->p[i/2] &= 0xFFFFFFFF00000000;          \
         N->p[i/2] |= (mbedtls_mpi_uint) cur;                \
+    }
+
+#define STORE0                                    \
+    if( i % 2 ) {                                 \
+        N->p[i/2] &= 0x00000000FFFFFFFF;          \
+    } else {                                      \
+        N->p[i/2] &= 0xFFFFFFFF00000000;          \
     }
 
 #endif /* sizeof( mbedtls_mpi_uint ) */
@@ -5019,6 +5027,11 @@ static inline unsigned char is_neg( int32_t c )
         c += sig * overflow;                                  \
     }
 
+#define SUB_CARRY(cc) ADD_CARRY(-cc)
+
+#define ADD_LAST ADD_CARRY(last_c)
+#define SUB_LAST SUB_CARRY(last_c)
+
 #define ciL    (sizeof(mbedtls_mpi_uint))         /* chars in limb  */
 #define biL    (ciL << 3)                         /* bits  in limb  */
 
@@ -5027,7 +5040,7 @@ static inline unsigned char is_neg( int32_t c )
  */
 #define INIT( b )                                                       \
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                    \
-    signed char c = 0, cc;                                              \
+    signed char c = 0, cc, last_c;                                      \
     uint32_t cur;                                                       \
     size_t i = 0, bits = (b);                                           \
     /* N is the size of the product of two b-bit numbers, plus one */   \
@@ -5039,6 +5052,11 @@ static inline unsigned char is_neg( int32_t c )
     STORE32; i++; LOAD32;       \
     cc = c; c = 0;              \
     ADD_CARRY(cc);
+
+#define RESET                   \
+    last_c = c;                 \
+    STORE32; i=0; LOAD32;       \
+    c = 0;                      \
 
 #define LAST                                    \
     STORE32; i++;                               \
@@ -5095,7 +5113,19 @@ static int ecp_mod_p224( mbedtls_mpi *N )
     SUB( 10 ); ADD(  7 ); ADD( 11 );    NEXT; // A3 += -A10 + A7 + A11
     SUB( 11 ); ADD(  8 ); ADD( 12 );    NEXT; // A4 += -A11 + A8 + A12
     SUB( 12 ); ADD(  9 ); ADD( 13 );    NEXT; // A5 += -A12 + A9 + A13
-    SUB( 13 ); ADD( 10 );               LAST; // A6 += -A13 + A10
+    SUB( 13 ); ADD( 10 );                     // A6 += -A13 + A10
+
+    RESET;
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
+
+    LAST;
 
 cleanup:
     return( ret );
@@ -5132,7 +5162,20 @@ static int ecp_mod_p256( mbedtls_mpi *N )
     SUB(  8 ); SUB(  9 );                                   NEXT; // A6
 
     ADD( 15 ); ADD( 15 ); ADD( 15 ); ADD( 8 );
-    SUB( 10 ); SUB( 11 ); SUB( 12 ); SUB( 13 );             LAST; // A7
+    SUB( 10 ); SUB( 11 ); SUB( 12 ); SUB( 13 );                   // A7
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+    LAST;
 
 cleanup:
     return( ret );
@@ -5151,7 +5194,7 @@ static int ecp_mod_p384( mbedtls_mpi *N )
     SUB( 23 );                                              NEXT; // A0
 
     ADD( 13 ); ADD( 22 ); ADD( 23 );
-    SUB( 12 ); SUB( 20 );                                   NEXT; // A2
+    SUB( 12 ); SUB( 20 );                                   NEXT; // A1
 
     ADD( 14 ); ADD( 23 );
     SUB( 13 ); SUB( 21 );                                   NEXT; // A2
@@ -5181,7 +5224,24 @@ static int ecp_mod_p384( mbedtls_mpi *N )
     SUB( 21 );                                              NEXT; // A10
 
     ADD( 23 ); ADD( 20 ); ADD( 19 );
-    SUB( 22 );                                              LAST; // A11
+    SUB( 22 );                                                    // A11
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
+
+    LAST;
 
 cleanup:
     return( ret );
