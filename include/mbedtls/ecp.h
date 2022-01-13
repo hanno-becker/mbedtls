@@ -243,6 +243,8 @@ typedef struct mbedtls_ecp_group
     unsigned int MBEDTLS_PRIVATE(h);             /*!< \internal 1 if the constants are static. */
     int (*MBEDTLS_PRIVATE(modp))(mbedtls_mpi *); /*!< The function for fast pseudo-reduction
                                      mod \p P (see above).*/
+    int (*MBEDTLS_PRIVATE(modp_single))(mbedtls_mpi_uint *, signed char);
+    int (*MBEDTLS_PRIVATE(modp_double))(mbedtls_mpi_uint *);
     int (*MBEDTLS_PRIVATE(t_pre))(mbedtls_ecp_point *, void *);  /*!< Unused. */
     int (*MBEDTLS_PRIVATE(t_post))(mbedtls_ecp_point *, void *); /*!< Unused. */
     void *MBEDTLS_PRIVATE(t_data);                   /*!< Unused. */

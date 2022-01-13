@@ -42,6 +42,7 @@
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
 #include "constant_time_internal.h"
+#include "bignum_internal.h"
 
 #include <limits.h>
 #include <string.h>
@@ -1393,7 +1394,7 @@ int mbedtls_mpi_sub_int( mbedtls_mpi *X, const mbedtls_mpi *A, mbedtls_mpi_sint 
  *                      is not known a priori.
  * \param b             A scalar to multiply.
  */
-static
+/*static*/
 #if defined(__APPLE__) && defined(__arm__)
 /*
  * Apple LLVM version 4.2 (clang-425.0.24) (based on LLVM 3.2svn)

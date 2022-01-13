@@ -4595,20 +4595,30 @@ static int ecp_mod_p192( mbedtls_mpi * );
 #endif
 #if defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
 static int ecp_mod_p224( mbedtls_mpi * );
+static int ecp_mod_p224_single( mbedtls_mpi_uint *, signed char );
+static int ecp_mod_p224_full( mbedtls_mpi_uint *);
 #endif
 #if defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
 static int ecp_mod_p256( mbedtls_mpi * );
+static int ecp_mod_p256_single( mbedtls_mpi_uint *, signed char );
+static int ecp_mod_p256_full( mbedtls_mpi_uint *);
 #endif
 #if defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED)
 static int ecp_mod_p384( mbedtls_mpi * );
+static int ecp_mod_p384_single( mbedtls_mpi_uint *, signed char );
+static int ecp_mod_p384_full( mbedtls_mpi_uint *);
 #endif
 #if defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED)
 static int ecp_mod_p521( mbedtls_mpi * );
 #endif
 
-#define NIST_MODP( P )      grp->modp = ecp_mod_ ## P;
+#define NIST_MODP( P )             grp->modp        = ecp_mod_ ## P;
+#define NIST_MODP_SINGLE( P )      grp->modp_single = ecp_mod_ ## P ## _single;
+#define NIST_MODP_DOUBLE( P )      grp->modp_double = ecp_mod_ ## P ## _full;
 #else
 #define NIST_MODP( P )
+#define NIST_MODP_SINGLE( P )
+#define NIST_MODP_DOUBLE( P )
 #endif /* MBEDTLS_ECP_NIST_OPTIM */
 
 /* Additional forward declarations */
@@ -4778,18 +4788,24 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
 #if defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
         case MBEDTLS_ECP_DP_SECP224R1:
             NIST_MODP( p224 );
+            NIST_MODP_SINGLE( p224 );
+            NIST_MODP_DOUBLE( p224 );
             return( LOAD_GROUP( secp224r1 ) );
 #endif /* MBEDTLS_ECP_DP_SECP224R1_ENABLED */
 
 #if defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
         case MBEDTLS_ECP_DP_SECP256R1:
             NIST_MODP( p256 );
+            NIST_MODP_SINGLE( p256 );
+            NIST_MODP_DOUBLE( p256 );
             return( LOAD_GROUP( secp256r1 ) );
 #endif /* MBEDTLS_ECP_DP_SECP256R1_ENABLED */
 
 #if defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED)
         case MBEDTLS_ECP_DP_SECP384R1:
             NIST_MODP( p384 );
+            NIST_MODP_SINGLE( p384 );
+            NIST_MODP_DOUBLE( p384 );
             return( LOAD_GROUP( secp384r1 ) );
 #endif /* MBEDTLS_ECP_DP_SECP384R1_ENABLED */
 
@@ -5079,14 +5095,18 @@ static int ecp_mod_p224_double( mbedtls_mpi_uint *Np )
     LAST_DOUBLE;
 }
 
+static int ecp_mod_p224_full( mbedtls_mpi_uint *Np )
+{
+    signed char carry = ecp_mod_p224_double( Np );
+    return( ecp_mod_p224_single( Np, carry ) );
+}
+
 static int ecp_mod_p224( mbedtls_mpi *N )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     const int bits = 224;
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
-    signed char carry = ecp_mod_p224_double( N->p );
-    MBEDTLS_MPI_CHK( ecp_mod_p224_single( N->p, carry ) );
-    ret = 0;
+    MBEDTLS_MPI_CHK( ecp_mod_p224_full( N->p ) );
 cleanup:
     return( ret );
 }
@@ -5155,14 +5175,18 @@ static signed char ecp_mod_p256_double( mbedtls_mpi_uint *Np )
     LAST_DOUBLE;
 }
 
+static int ecp_mod_p256_full( mbedtls_mpi_uint *Np )
+{
+    signed char carry = ecp_mod_p256_double( Np );
+    return( ecp_mod_p256_single( Np, carry ) );
+}
+
 static int ecp_mod_p256( mbedtls_mpi *N )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     const int bits = 256;
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
-    signed char carry = ecp_mod_p256_double( N->p );
-    MBEDTLS_MPI_CHK( ecp_mod_p256_single( N->p, carry ) );
-    ret = 0;
+    MBEDTLS_MPI_CHK( ecp_mod_p256_full( N->p ) );
 cleanup:
     return( ret );
 }
@@ -5251,14 +5275,18 @@ static int ecp_mod_p384_double( mbedtls_mpi_uint *Np )
     LAST_DOUBLE;
 }
 
+static int ecp_mod_p384_full( mbedtls_mpi_uint *Np )
+{
+    signed char carry = ecp_mod_p384_double( Np );
+    return( ecp_mod_p384_single( Np, carry ) );
+}
+
 static int ecp_mod_p384( mbedtls_mpi *N )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     const int bits = 384;
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
-    signed char carry = ecp_mod_p384_double( N->p );
-    MBEDTLS_MPI_CHK( ecp_mod_p384_single( N->p, carry ) );
-    ret = 0;
+    MBEDTLS_MPI_CHK( ecp_mod_p384_full( N->p ) );
 cleanup:
     return( ret );
 }

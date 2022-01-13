@@ -93,7 +93,19 @@ cleanup:
 static int mpi_force_double( const mbedtls_ecp_group *grp,
                                  mbedtls_mpi *X )
 {
-    return( mpi_force_size_and_lock( X, 2 * grp->P.n + 1 ) );
+    size_t limbs;
+    if( grp->id == MBEDTLS_ECP_DP_SECP224R1 ||
+        grp->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        grp->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        limbs = 2 * grp->P.n;
+    }
+    else
+    {
+        limbs = 2 * grp->P.n + 1;
+    }
+
+    return( mpi_force_size_and_lock( X, limbs ) );
 }
 
 #define MPI_GROW_SINGLE( X ) \
@@ -439,21 +451,26 @@ static int ecp_modp( mbedtls_mpi *dst, mbedtls_mpi *N, const mbedtls_ecp_group *
     }
 
     /* N->s < 0 is a much faster test, which fails only if N is 0 */
-    if( ( N->s < 0 && mbedtls_mpi_cmp_int( N, 0 ) != 0 ) ||
-        mbedtls_mpi_bitlen( N ) > 2 * grp->pbits )
-    {
-        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
-    }
+    /* if( ( N->s < 0 && mbedtls_mpi_cmp_int( N, 0 ) != 0 ) || */
+    /*     mbedtls_mpi_bitlen( N ) > 2 * grp->pbits ) */
+    /* { */
+    /*     return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA ); */
+    /* } */
 
     MBEDTLS_MPI_CHK( grp->modp( N ) );
 
-    /* N->s < 0 is a much faster test, which fails only if N is 0 */
-    while( N->s < 0 && mbedtls_mpi_cmp_int( N, 0 ) != 0 )
-        MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( N, N, &grp->P ) );
+    if( grp->id != MBEDTLS_ECP_DP_SECP224R1 &&
+        grp->id != MBEDTLS_ECP_DP_SECP256R1 &&
+        grp->id != MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        /* N->s < 0 is a much faster test, which fails only if N is 0 */
+        while( N->s < 0 && mbedtls_mpi_cmp_int( N, 0 ) != 0 )
+            MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( N, N, &grp->P ) );
 
-    while( mbedtls_mpi_cmp_mpi( N, &grp->P ) >= 0 )
-        /* we known P, N and the result are positive */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_sub_abs( N, N, &grp->P ) );
+        while( mbedtls_mpi_cmp_mpi( N, &grp->P ) >= 0 )
+            /* we known P, N and the result are positive */
+            MBEDTLS_MPI_CHK( mbedtls_mpi_sub_abs( N, N, &grp->P ) );
+    }
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_copy( dst, N ) );
 
@@ -487,8 +504,25 @@ static int mbedtls_mpi_mul_mod( mbedtls_ecp_group_internal *grp,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( tmp, A, B ) );
-    MBEDTLS_MPI_CHK( ecp_modp( X, tmp, getGrp(grp) ) );
+
+    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        size_t Psize = getGrp(grp)->P.n;
+        size_t j;
+        memset( tmp->p, 0, 2 * sizeof( mbedtls_mpi_uint) * Psize );
+        for( j = Psize; j > 0; j-- )
+            mpi_mul_hlp( Psize, A->p, tmp->p + j - 1, B->p[j - 1] );
+        getGrp(grp)->modp_double( tmp->p );
+        memcpy( X->p, tmp->p, sizeof( mbedtls_mpi_uint) * Psize );
+        ret = 0;
+    }
+    else
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( tmp, A, B ) );
+        MBEDTLS_MPI_CHK( ecp_modp( X, tmp, getGrp(grp) ) );
+    }
 
     INC_MUL_COUNT
 
@@ -507,6 +541,62 @@ cleanup:
     return( ret );
 }
 
+__attribute__((unused))
+static mbedtls_mpi_uint mpi_sub_hlp( size_t n,
+                                     mbedtls_mpi_uint *d,
+                                     const mbedtls_mpi_uint *l,
+                                     const mbedtls_mpi_uint *r )
+{
+    size_t i;
+    mbedtls_mpi_uint c = 0, t, z;
+
+    for( i = 0; i < n; i++ )
+    {
+        z = ( l[i] <  c );    t = l[i] - c;
+        c = ( t < r[i] ) + z; d[i] = t - r[i];
+    }
+
+    return( c );
+}
+
+__attribute__((unused))
+static mbedtls_mpi_uint mpi_sub_int_hlp( size_t n,
+                                         mbedtls_mpi_uint *d,
+                                         const mbedtls_mpi_uint *l,
+                                         mbedtls_mpi_uint r )
+{
+    size_t i;
+    mbedtls_mpi_uint c = 0, z;
+
+    c = ( l[0] < r ); d[0] = l[0] - r;
+    for( i = 1; i < n; i++ )
+    {
+        z = (l[i] == 0) && (c != 0 );
+        d[i] = l[i] - c;
+        c = z;
+    }
+
+    return( c );
+}
+
+__attribute__((unused))
+static mbedtls_mpi_uint mpi_add_hlp( size_t n,
+                                     mbedtls_mpi_uint *d,
+                                     const mbedtls_mpi_uint *l,
+                                     const mbedtls_mpi_uint *r )
+{
+    size_t i;
+    mbedtls_mpi_uint c = 0, t;
+
+    for( i = 0; i < n; i++ )
+    {
+        t = l[i] + c; c = ( t < c );
+        d[i] = t + r[i]; c += ( d[i] < t );
+    }
+
+    return( c );
+}
+
 #if defined(ECP_MPI_NEED_SUB_MOD)
 /*
  * Reduce a mbedtls_mpi mod p in-place, to use after mbedtls_mpi_sub_mpi
@@ -518,9 +608,29 @@ static int mbedtls_mpi_sub_mod( mbedtls_ecp_group_internal *grp,
                                 const mbedtls_mpi *B )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi( tmp, A, B ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_sub( grp, X, tmp ) );
+
+    if( !mpi_is_single_size( getGrp(grp), X ) ||
+        !mpi_is_single_size( getGrp(grp), A ) ||
+        !mpi_is_single_size( getGrp(grp), B ) )
+    {
+        MBEDTLS_MPI_CHK( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
+    }
+
+    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        size_t Psize = getGrp(grp)->P.n;
+        signed char c = -mpi_sub_hlp( Psize, X->p, A->p, B->p );
+        getGrp(grp)->modp_single( X->p, c );
+        ret = 0;
+    }
+    else
+    {
+        mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
+        MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi( tmp, A, B ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_sub( grp, X, tmp ) );
+    }
 cleanup:
     return( ret );
 }
@@ -551,9 +661,23 @@ static int mbedtls_mpi_add_mod( mbedtls_ecp_group_internal *grp,
                                 const mbedtls_mpi *B )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( tmp, A, B ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, X, tmp ) );
+
+    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        size_t Psize = getGrp(grp)->P.n;
+        signed char c = mpi_add_hlp( Psize, X->p, A->p, B->p );
+        getGrp(grp)->modp_single( X->p, c );
+        ret = 0;
+    }
+    else
+    {
+        mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
+        MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( tmp, A, B ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, X, tmp ) );
+    }
+
 cleanup:
     return( ret );
 }
@@ -565,8 +689,24 @@ static int mbedtls_mpi_mul_int_mod( mbedtls_ecp_group_internal *grp,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_int( tmp, A, c ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, X, tmp ) );
+
+    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        size_t Psize = getGrp(grp)->P.n;
+        memset( tmp->p, 0, sizeof( mbedtls_mpi_uint) * Psize );
+        mpi_mul_hlp( Psize, A->p, tmp->p, c );
+        getGrp(grp)->modp_single( tmp->p, tmp->p[Psize] );
+        memcpy( X->p, tmp->p, sizeof( mbedtls_mpi_uint) * Psize );
+        ret = 0;
+    }
+    else
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_int( tmp, A, c ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, X, tmp ) );
+    }
+
 cleanup:
     return( ret );
 }
@@ -577,9 +717,23 @@ static int mbedtls_mpi_sub_int_mod( mbedtls_ecp_group_internal *grp,
                                     mbedtls_mpi_uint c )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int( tmp, A, c ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_sub( grp, X, tmp ) );
+
+    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    {
+        size_t Psize = getGrp(grp)->P.n;
+        signed char carry = mpi_sub_int_hlp( Psize, X->p, A->p, c );
+        getGrp(grp)->modp_single( X->p, carry );
+        ret = 0;
+    }
+    else
+    {
+        mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
+        MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int( tmp, A, c ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_sub( grp, X, tmp ) );
+    }
+
 cleanup:
     return( ret );
 }

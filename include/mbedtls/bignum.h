@@ -53,7 +53,9 @@
     do                           \
     {                            \
         if( ( ret = (f) ) != 0 ) \
+        { /**((volatile int*)0x1234);*/         \
             goto cleanup;        \
+        }\
     } while( 0 )
 
 /*

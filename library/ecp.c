@@ -549,6 +549,8 @@ void mbedtls_ecp_group_init( mbedtls_ecp_group *grp )
     grp->pbits = 0;
     grp->nbits = 0;
     grp->modp = NULL;
+    grp->modp_single = NULL;
+    grp->modp_double = NULL;
     grp->t_pre = NULL;
     grp->t_post = NULL;
     grp->t_data = NULL;

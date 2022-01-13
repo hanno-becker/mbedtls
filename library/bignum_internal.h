@@ -23,6 +23,11 @@
 #include "mbedtls/build_info.h"
 #include "mbedtls/bignum.h"
 
+void mpi_mul_hlp( size_t i,
+                  const mbedtls_mpi_uint *s,
+                  mbedtls_mpi_uint *d,
+                  mbedtls_mpi_uint b );
+
 #define MPI_FROM_RAW_REF_RO( P, N )                     \
     {                                                   \
         .s = 1,                                         \
