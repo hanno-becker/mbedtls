@@ -4957,108 +4957,28 @@ cleanup:
 
 #if defined(MBEDTLS_HAVE_INT32)  /* 32 bit */
 
-#define MAX32       N->n
-#define A( j )      N->p[j]
-#define STORE32     N->p[i] = cur;
-#define STORE0      N->p[i] = 0;
-
-/*
- * Helpers for addition and subtraction of chunks, with signed carry.
- */
-static inline unsigned char add32( uint32_t *dst, uint32_t src )
-{
-    *dst += src;
-    return( *dst < src );
-}
-
-static inline unsigned char sub32( uint32_t *dst, uint32_t src )
-{
-    unsigned char carry = ( *dst < src );
-    *dst -= src;
-    return( carry );
-}
-
-/* This works except for c == -2^{31} */
-static inline signed char sign( int32_t c )
-{
-    return(
-        (signed char)( ((uint32_t) -c) >> 31 ) -
-        (signed char)( ((uint32_t) +c) >> 31 ) );
-}
-
-static inline unsigned char is_neg( int32_t c )
-{
-    return( ((uint32_t) c) >> 31 );
-}
-
-#define ADD( j )    c +=  add32( &cur, A( j ) );
-#define SUB( j )    c -=  sub32( &cur, A( j ) );
-
-#define ADD_CARRY(cc)                                         \
-    {                                                         \
-        signed   char const sig = sign(cc);                   \
-        unsigned char const neg = is_neg(cc);                 \
-        unsigned char  overflow = add32( &cur, (cc) );        \
-                                                              \
-        overflow = (!neg && overflow) || (neg && !overflow);  \
-        c += sig * overflow;                                  \
-    }
-
-#define SUB_CARRY(cc) ADD_CARRY(-cc)
-
-#define ADD_LAST ADD_CARRY(last_c)
-#define SUB_LAST SUB_CARRY(last_c)
-
-#define ciL    (sizeof(mbedtls_mpi_uint))         /* chars in limb  */
-#define biL    (ciL << 3)                         /* bits  in limb  */
-
-/*
- * Helpers for the main 'loop'
- */
-#define INIT( b )                                                       \
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                    \
-    signed char c = 0, cc, last_c;                                      \
-    uint32_t cur;                                                       \
-    size_t i = 0, bits = (b);                                           \
-    /* N is the size of the product of two b-bit numbers */             \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL ) );          \
-    LOAD32;
-
-#define NEXT                    \
-    STORE32; i++; LOAD32;       \
-    cc = c; c = 0;              \
-    ADD_CARRY(cc);
-
-#define RESET                   \
-    last_c = c;                 \
-    STORE32; i=0; LOAD32;       \
-    c = 0;                      \
-
-#define LAST                                    \
-    STORE32; i++;                               \
-    if( c != 0 )                                \
-        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );       \
-    while( i < MAX32 ) { STORE0; i++; }
+#error Unsupported for the moment
 
 #else                               /* 64-bit */
 
-#define MAX32       N->n * 2
-#define A( j ) (j) % 2 ? (uint32_t)( N->p[(j)/2] >> 32 ) : \
-                         (uint32_t)( N->p[(j)/2] )
+#define LIMBS       2 * ((bits + biL - 1)/biL)
+#define MAX32       2 * LIMBS
+#define A( j ) (j) % 2 ? (uint32_t)( Np[(j)/2] >> 32 ) : \
+                         (uint32_t)( Np[(j)/2] )
 #define STORE32                                   \
     if( i % 2 ) {                                 \
-        N->p[i/2] &= 0x00000000FFFFFFFF;          \
-        N->p[i/2] |= cur << 32;                   \
+        Np[i/2] &= 0x00000000FFFFFFFF;          \
+        Np[i/2] |= cur << 32;                   \
     } else {                                      \
-        N->p[i/2] &= 0xFFFFFFFF00000000;          \
-        N->p[i/2] |= (uint32_t) cur;              \
+        Np[i/2] &= 0xFFFFFFFF00000000;          \
+        Np[i/2] |= (uint32_t) cur;              \
     }
 
 #define STORE0                                    \
     if( i % 2 ) {                                 \
-        N->p[i/2] &= 0x00000000FFFFFFFF;          \
+        Np[i/2] &= 0x00000000FFFFFFFF;          \
     } else {                                      \
-        N->p[i/2] &= 0xFFFFFFFF00000000;          \
+        Np[i/2] &= 0xFFFFFFFF00000000;          \
     }
 
 static inline signed char extract_carry( uint64_t cur )
@@ -5081,13 +5001,12 @@ static inline signed char extract_carry( uint64_t cur )
 /*
  * Helpers for the main 'loop'
  */
+
 #define INIT( b )                                                       \
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                    \
-    signed char c = 0, last_c;                                          \
+    signed char c = 0;                                                  \
     uint64_t cur;                                                       \
     size_t i = 0, bits = (b);                                           \
-    /* N is the size of the product of two b-bit numbers */             \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL ) );      \
+    ((void)bits);                                                       \
     LOAD32;
 
 #define NEXT                    \
@@ -5095,16 +5014,23 @@ static inline signed char extract_carry( uint64_t cur )
     STORE32; i++; LOAD32;       \
     ADD_CARRY(c);
 
-#define RESET                                   \
-    last_c = extract_carry(cur);                \
-    STORE32; i=0; LOAD32;
+#define LAST_DOUBLE                               \
+    c = extract_carry(cur);                       \
+    STORE32; i++;                                 \
+    while( i < MAX32 ) { STORE0; i++; }           \
+    return( c );
 
-#define LAST                                      \
+#define RESET_SINGLE                              \
+    last_c = extract_carry(cur);                  \
+    STORE32; i = 0; LOAD32;
+
+#define LAST_SINGLE                               \
     c = extract_carry(cur);                       \
     STORE32; i++;                                 \
     if( c != 0 )                                  \
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA ); \
-    while( i < MAX32 ) { STORE0; i++; }
+    return( 0 );
+
 
 #endif /* sizeof( mbedtls_mpi_uint ) */
 
@@ -5112,7 +5038,33 @@ static inline signed char extract_carry( uint64_t cur )
 /*
  * Fast quasi-reduction modulo p224 (FIPS 186-3 D.2.2)
  */
-static int ecp_mod_p224( mbedtls_mpi *N )
+static int ecp_mod_p224_single( mbedtls_mpi_uint *Np,
+                                signed char last_c )
+{
+    INIT( 224 );
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
+
+    RESET_SINGLE;
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
+
+    LAST_SINGLE;
+}
+
+static int ecp_mod_p224_double( mbedtls_mpi_uint *Np )
 {
     INIT( 224 );
 
@@ -5124,28 +5076,17 @@ static int ecp_mod_p224( mbedtls_mpi *N )
     SUB( 12 ); ADD(  9 ); ADD( 13 );    NEXT; // A5 += -A12 + A9 + A13
     SUB( 13 ); ADD( 10 );                     // A6 += -A13 + A10
 
-    RESET;
+    LAST_DOUBLE;
+}
 
-    SUB_LAST; NEXT;                           // A0
-              NEXT;                           // A1
-              NEXT;                           // A2
-    ADD_LAST; NEXT;                           // A3
-              NEXT;                           // A4
-              NEXT;                           // A5
-                                              // A6
-
-    RESET;
-
-    SUB_LAST; NEXT;                           // A0
-              NEXT;                           // A1
-              NEXT;                           // A2
-    ADD_LAST; NEXT;                           // A3
-              NEXT;                           // A4
-              NEXT;                           // A5
-                                              // A6
-
-    LAST;
-
+static int ecp_mod_p224( mbedtls_mpi *N )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    const int bits = 224;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
+    signed char carry = ecp_mod_p224_double( N->p );
+    MBEDTLS_MPI_CHK( ecp_mod_p224_single( N->p, carry ) );
+    ret = 0;
 cleanup:
     return( ret );
 }
@@ -5155,7 +5096,35 @@ cleanup:
 /*
  * Fast quasi-reduction modulo p256 (FIPS 186-3 D.2.3)
  */
-static int ecp_mod_p256( mbedtls_mpi *N )
+static int ecp_mod_p256_single( mbedtls_mpi_uint *Np,
+                                signed char last_c )
+{
+    INIT( 256 );
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+    RESET_SINGLE;
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+    LAST_SINGLE;
+}
+
+static signed char ecp_mod_p256_double( mbedtls_mpi_uint *Np )
 {
     INIT( 256 );
 
@@ -5183,31 +5152,17 @@ static int ecp_mod_p256( mbedtls_mpi *N )
     ADD( 15 ); ADD( 15 ); ADD( 15 ); ADD( 8 );
     SUB( 10 ); SUB( 11 ); SUB( 12 ); SUB( 13 );                   // A7
 
-    RESET;
+    LAST_DOUBLE;
+}
 
-    ADD_LAST; NEXT;                                               // A0
-              NEXT;                                               // A1
-              NEXT;                                               // A2
-    SUB_LAST; NEXT;                                               // A3
-              NEXT;                                               // A4
-              NEXT;                                               // A5
-    SUB_LAST; NEXT;                                               // A6
-    ADD_LAST;                                                     // A7
-
-    RESET;
-
-    ADD_LAST; NEXT;                                               // A0
-              NEXT;                                               // A1
-              NEXT;                                               // A2
-    SUB_LAST; NEXT;                                               // A3
-              NEXT;                                               // A4
-              NEXT;                                               // A5
-    SUB_LAST; NEXT;                                               // A6
-    ADD_LAST;                                                     // A7
-
-
-    LAST;
-
+static int ecp_mod_p256( mbedtls_mpi *N )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    const int bits = 256;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
+    signed char carry = ecp_mod_p256_double( N->p );
+    MBEDTLS_MPI_CHK( ecp_mod_p256_single( N->p, carry ) );
+    ret = 0;
 cleanup:
     return( ret );
 }
@@ -5217,7 +5172,43 @@ cleanup:
 /*
  * Fast quasi-reduction modulo p384 (FIPS 186-3 D.2.4)
  */
-static int ecp_mod_p384( mbedtls_mpi *N )
+static int ecp_mod_p384_single( mbedtls_mpi_uint *Np,
+                                signed char last_c )
+{
+    INIT( 384 );
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
+
+    RESET_SINGLE;
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
+
+    LAST_SINGLE;
+}
+
+static int ecp_mod_p384_double( mbedtls_mpi_uint *Np )
 {
     INIT( 384 );
 
@@ -5257,38 +5248,17 @@ static int ecp_mod_p384( mbedtls_mpi *N )
     ADD( 23 ); ADD( 20 ); ADD( 19 );
     SUB( 22 );                                                    // A11
 
-    RESET;
+    LAST_DOUBLE;
+}
 
-    ADD_LAST; NEXT;                                               // A0
-    SUB_LAST; NEXT;                                               // A1
-              NEXT;                                               // A2
-    ADD_LAST; NEXT;                                               // A3
-    ADD_LAST; NEXT;                                               // A4
-              NEXT;                                               // A5
-              NEXT;                                               // A6
-              NEXT;                                               // A7
-              NEXT;                                               // A8
-              NEXT;                                               // A9
-              NEXT;                                               // A10
-                                                                  // A11
-
-    RESET;
-
-    ADD_LAST; NEXT;                                               // A0
-    SUB_LAST; NEXT;                                               // A1
-              NEXT;                                               // A2
-    ADD_LAST; NEXT;                                               // A3
-    ADD_LAST; NEXT;                                               // A4
-              NEXT;                                               // A5
-              NEXT;                                               // A6
-              NEXT;                                               // A7
-              NEXT;                                               // A8
-              NEXT;                                               // A9
-              NEXT;                                               // A10
-                                                                  // A11
-
-    LAST;
-
+static int ecp_mod_p384( mbedtls_mpi *N )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    const int bits = 384;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, LIMBS ) );
+    signed char carry = ecp_mod_p384_double( N->p );
+    MBEDTLS_MPI_CHK( ecp_mod_p384_single( N->p, carry ) );
+    ret = 0;
 cleanup:
     return( ret );
 }
