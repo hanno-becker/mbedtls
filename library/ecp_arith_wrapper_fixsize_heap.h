@@ -400,8 +400,11 @@ cleanup:
         ECP_MPI_LSET( getZ(X), 1 );                             \
     } while( 0 )
 
+/* #define ECP_MPI_SHIFT_L( X, count )                                            \ */
+/*     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l_mod( grp, &((X)->v), count ) ) */
+
 #define ECP_MPI_SHIFT_L( X, count )                                            \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l_mod( grp, &((X)->v), count ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_int_mod( grp, &((X)->v), &((X)->v), (1u<<count) ) )
 
 #define ECP_MPI_LSET( X, c )                                                   \
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &((X)->v), c ) )
@@ -497,6 +500,113 @@ cleanup:
 #define INC_MUL_COUNT
 #endif
 
+#define UMAAL(a,b, r_lo, r_hi)                                         \
+    do {                                                               \
+        tmp = ((mbedtls_t_udbl) a) * ((mbedtls_t_udbl) b);             \
+        tmp += r_lo;                                                   \
+        tmp += r_hi;                                                   \
+        r_lo = (mbedtls_mpi_uint) tmp;                                 \
+        r_hi = (mbedtls_mpi_uint)( tmp >> (sizeof(mbedtls_mpi_uint)<<3) ); \
+    } while( 0 )
+
+#define MAKE_SCHOOLBOOK(DIM)                                    \
+void schoolbook_mul_ ## DIM( mbedtls_mpi_uint *x,               \
+                                    mbedtls_mpi_uint *a,        \
+                                    mbedtls_mpi_uint *b )       \
+{                                                               \
+    mbedtls_t_udbl tmp;                                         \
+    size_t i,j=0;                                               \
+                                                                \
+    for( i=0; i<2*(DIM); i++ )                                  \
+        x[i] = 0;                                               \
+                                                                \
+    for( i=0; i < (DIM); i++ )                                  \
+    {                                                           \
+        mbedtls_mpi_uint c = a[i];                              \
+        mbedtls_mpi_uint hi = 0;                                \
+        for( j=0; j < (DIM); j++ )                              \
+        {                                                       \
+            UMAAL( c, b[j], x[i+j], hi );                       \
+        }                                                       \
+        x[i+(DIM)] = hi;                                        \
+    }                                                           \
+}
+
+MAKE_SCHOOLBOOK(4)
+
+#define MULADDC(a,b,d,carry_bit, carry_inout)                          \
+    do {                                                               \
+        tmp = ((mbedtls_t_udbl) a) * ((mbedtls_t_udbl) b);             \
+        d = (mbedtls_mpi_uint) tmp;                                    \
+        mbedtls_mpi_uint carry_inout_tmp = tmp >> 64;                  \
+        ADDC( carry_inout, d, carry_bit );                             \
+        carry_inout = carry_inout_tmp;                                 \
+    } while( 0 )
+
+#define MULADDC_(a,b,d,carry_inout)                                    \
+    do {                                                               \
+        tmp = ((mbedtls_t_udbl) a) * ((mbedtls_t_udbl) b);             \
+        tmp += carry_inout;                                            \
+        d = (mbedtls_mpi_uint) tmp;                                    \
+        carry_inout = (mbedtls_mpi_uint)( tmp >> 64 );                 \
+    } while( 0 )
+
+#define MAKE_SCHOOLBOOK_ALT(DIM)                                  \
+void mul_int_ ## DIM ( mbedtls_mpi_uint *x,                       \
+                       mbedtls_mpi_uint *a,                       \
+                       mbedtls_mpi_uint c )                       \
+{                                                                 \
+    size_t i;                                                     \
+    mbedtls_t_udbl tmp;                                           \
+    unsigned char carry = 0;                                      \
+    mbedtls_mpi_uint tmp_lo, hi = 0;                              \
+    for( i=0; i<(DIM); i++ )                                      \
+    {                                                             \
+    /*  MULADDC( a[i], c, x[i], carry , hi );                    */     \
+         MULADDC_( a[i], c, x[i], hi );                       \
+    }                                                             \
+    x[(DIM)] = hi + carry;                                        \
+}                                                                 \
+                                                                  \
+void add_int_ ## DIM ( mbedtls_mpi_uint *x,                       \
+                       mbedtls_mpi_uint *a )                      \
+{                                                                 \
+    size_t i;                                                     \
+    unsigned char carry = 0;                                      \
+    for( i=0; i<=(DIM); i++ )                                     \
+        ADDC(a[i],x[i],carry);                                    \
+}                                                                 \
+                                                                  \
+void schoolbook_mul_alt_ ## DIM( mbedtls_mpi_uint *x,           \
+                                    mbedtls_mpi_uint *a,        \
+                                    mbedtls_mpi_uint *b )       \
+{                                                               \
+    size_t i;                                                   \
+    mbedtls_mpi_uint acc[DIM+1];                                \
+                                                                \
+    for( i=0; i<2*(DIM); i++ )                                  \
+        x[i] = 0;                                               \
+                                                                \
+    for( i=0; i < (DIM); i++ )                                  \
+    {                                                           \
+        mul_int_ ## DIM ( acc, a, b[i] );                       \
+        add_int_ ## DIM ( x + i, acc );                         \
+    }                                                           \
+}
+
+#define ADDC(a,x,carry)                                           \
+    do {                                                          \
+        mbedtls_t_udbl t =                                              \
+            ((mbedtls_t_udbl) x) +                                      \
+            ((mbedtls_t_udbl) a) +                                      \
+            ((mbedtls_t_udbl) carry);                                   \
+        x     = (mbedtls_mpi_uint) t;                                   \
+        carry = (mbedtls_mpi_uint)( t >> 64 );                          \
+    } while( 0 )                                                        \
+
+
+MAKE_SCHOOLBOOK_ALT(4)
+
 static int mbedtls_mpi_mul_mod( mbedtls_ecp_group_internal *grp,
                                 mbedtls_mpi *X,
                                 const mbedtls_mpi *A,
@@ -505,9 +615,20 @@ static int mbedtls_mpi_mul_mod( mbedtls_ecp_group_internal *grp,
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
 
-    if( /*getGrp(grp)->id == MBEDTLS_ECP_DP_SECP224R1 ||*/
-        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
-        getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
+    if( getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 )
+    {
+        size_t Psize = 4;//getGrp(grp)->P.n;
+        schoolbook_mul_alt_4( tmp->p, A->p, B->p );
+        getGrp(grp)->modp_double( tmp->p );
+        X->p[0] = tmp->p[0];
+        X->p[1] = tmp->p[1];
+        X->p[2] = tmp->p[2];
+        X->p[3] = tmp->p[3];
+//        memcpy( X->p, tmp->p, sizeof( mbedtls_mpi_uint) * Psize );
+        ret = 0;
+    }
+    else if( getGrp(grp)->id == MBEDTLS_ECP_DP_SECP256R1 ||
+             getGrp(grp)->id == MBEDTLS_ECP_DP_SECP384R1 )
     {
         size_t Psize = getGrp(grp)->P.n;
         size_t j;
