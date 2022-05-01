@@ -719,9 +719,8 @@ int MPI_CORE(exp_mod)( mbedtls_mpi_uint *X,
             if( window_bits == 0 )
                 break;
             /* Select table entry, square and multiply */
-            mbedtls_ct_table_lookup( (unsigned char*) Wselect,
-                                     (unsigned char*) Wtbl,
-                                     n * ciL, welem, window );
+            mbedtls_ct_uint_table_lookup( Wselect, Wtbl,
+                                          n, welem, window );
             MPI_CORE(montmul_d)( X, Wselect, N, n, mm, temp );
             window = window_bits = 0;
             continue;

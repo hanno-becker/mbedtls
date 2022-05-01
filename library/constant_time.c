@@ -404,8 +404,54 @@ static void mbedtls_ct_mem_move_to_left( void *start,
 
 #endif /* MBEDTLS_PKCS1_V15 && MBEDTLS_RSA_C && ! MBEDTLS_RSA_ALT */
 
-#if defined(MBEDTLS_SSL_SOME_SUITES_USE_TLS_CBC)
+void mbedtls_ct_uint_table_lookup( mbedtls_mpi_uint *dest,
+                                   const mbedtls_mpi_uint *table,
+                                   size_t limbs_per_element,
+                                   size_t elements_in_table,
+                                   size_t secret_idx )
+{
+    size_t l=limbs_per_element;
+    mbedtls_mpi_uint const *base = table;
 
+    for( ; l >= 8; l -= 8, base += 8 )
+    {
+        mbedtls_mpi_uint res[8] = { 0 };
+        mbedtls_mpi_uint const *cur = base;
+        for( size_t i=0; i < elements_in_table; i++, cur += limbs_per_element )
+        {
+            unsigned match = ( i == secret_idx );
+            res[0] |= match * cur[0];
+            res[1] |= match * cur[1];
+            res[2] |= match * cur[2];
+            res[3] |= match * cur[3];
+            res[4] |= match * cur[4];
+            res[5] |= match * cur[5];
+            res[6] |= match * cur[6];
+            res[7] |= match * cur[7];
+        }
+        dest[0] = res[0]; dest[1] = res[1];
+        dest[2] = res[2]; dest[3] = res[3];
+        dest[4] = res[4]; dest[5] = res[5];
+        dest[6] = res[6]; dest[7] = res[7];
+        dest += 8;
+    }
+
+    for( ; l >= 1; l--, base++ )
+    {
+        mbedtls_mpi_uint res = 0;
+        mbedtls_mpi_uint const *cur = base;
+        for( size_t i=0; i < elements_in_table; i++, cur += limbs_per_element )
+        {
+            unsigned match = ( i == secret_idx );
+            res |= match * (*cur);
+        }
+        dest[0] = res;
+        dest++;
+    }
+}
+
+
+#if defined(MBEDTLS_SSL_SOME_SUITES_USE_TLS_CBC)
 void mbedtls_ct_memcpy_if_eq( unsigned char *dest,
                               const unsigned char *src,
                               size_t len,
