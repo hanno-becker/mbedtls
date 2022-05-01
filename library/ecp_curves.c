@@ -27,6 +27,7 @@
 
 #include "bn_mul.h"
 #include "bignum_internal.h"
+#include "bignum_core.h"
 #include "ecp_invasive.h"
 #include "ecp_arith_typedefs.h"
 
@@ -4947,8 +4948,9 @@ cleanup:
 #define MAX32       N->n
 #define A( j )      N->p[j]
 #define STORE32     N->p[i] = cur;
+#define STORE0      N->p[i] = 0;
 
-#else                               /* 64-bit */
+#else /* 64 bit */
 
 #define MAX32       N->n * 2
 #define A( j ) (j) % 2 ? (uint32_t)( N->p[(j)/2] >> 32 ) : \
@@ -4956,31 +4958,34 @@ cleanup:
 #define STORE32                                   \
     if( i % 2 ) {                                 \
         N->p[i/2] &= 0x00000000FFFFFFFF;          \
-        N->p[i/2] |= ((mbedtls_mpi_uint) cur) << 32;        \
+        N->p[i/2] |= (uint64_t)( cur ) << 32;     \
     } else {                                      \
         N->p[i/2] &= 0xFFFFFFFF00000000;          \
-        N->p[i/2] |= (mbedtls_mpi_uint) cur;                \
+        N->p[i/2] |= (uint32_t) cur;              \
     }
 
-#endif /* sizeof( mbedtls_mpi_uint ) */
+#define STORE0                                    \
+    if( i % 2 ) {                                 \
+        N->p[i/2] &= 0x00000000FFFFFFFF;          \
+    } else {                                      \
+        N->p[i/2] &= 0xFFFFFFFF00000000;          \
+    }
 
-/*
- * Helpers for addition and subtraction of chunks, with signed carry.
- */
-static inline void add32( uint32_t *dst, uint32_t src, signed char *carry )
+#endif
+
+static inline int8_t extract_carry( int64_t cur )
 {
-    *dst += src;
-    *carry += ( *dst < src );
+    return( (int8_t)( cur >> 32 ) );
 }
 
-static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
-{
-    *carry -= ( *dst < src );
-    *dst -= src;
-}
+#define ADD( j )    cur += A(j)
+#define SUB( j )    cur -= A(j)
 
-#define ADD( j )    add32( &cur, A( j ), &c );
-#define SUB( j )    sub32( &cur, A( j ), &c );
+#define ADD_CARRY(cc) cur += (cc)
+#define SUB_CARRY(cc) cur -= (cc)
+
+#define ADD_LAST ADD_CARRY(last_c)
+#define SUB_LAST SUB_CARRY(last_c)
 
 #define ciL    (sizeof(mbedtls_mpi_uint))         /* chars in limb  */
 #define biL    (ciL << 3)                         /* bits  in limb  */
@@ -4990,62 +4995,30 @@ static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
  */
 #define INIT( b )                                                       \
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                    \
-    signed char c = 0, cc;                                              \
-    uint32_t cur;                                                       \
-    size_t i = 0, bits = (b);                                           \
-    /* N is the size of the product of two b-bit numbers, plus one */   \
-    /* limb for fix_negative */                                         \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL + 1 ) );      \
+    int8_t c = 0, last_c;                                               \
+    int64_t cur;                                                        \
+    size_t i = 0;                                                       \
+    /* N is the size of the product of two b-bit numbers */             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, ( b ) * 2 / biL ) );          \
     LOAD32;
 
-#define NEXT                    \
-    STORE32; i++; LOAD32;       \
-    cc = c; c = 0;              \
-    if( cc < 0 )                \
-        sub32( &cur, -cc, &c ); \
-    else                        \
-        add32( &cur, cc, &c );  \
+#define NEXT                                            \
+    c = extract_carry(cur);                             \
+    STORE32; i++; LOAD32;                               \
+    ADD_CARRY(c);
 
-#define LAST                                    \
-    STORE32; i++;                               \
-    cur = c > 0 ? c : 0; STORE32;               \
-    cur = 0; while( ++i < MAX32 ) { STORE32; }  \
-    if( c < 0 ) mbedtls_ecp_fix_negative( N, c, bits );
+#define RESET                                           \
+    c = extract_carry(cur);                             \
+    last_c = c;                                         \
+    STORE32; i=0; LOAD32;                               \
+    c = 0;                                              \
 
-/*
- * If the result is negative, we get it in the form
- * c * 2^bits + N, with c negative and N positive shorter than 'bits'
- */
-MBEDTLS_STATIC_TESTABLE
-void mbedtls_ecp_fix_negative( mbedtls_mpi *N, signed char c, size_t bits )
-{
-    size_t i;
-
-    /* Set N := 2^bits - 1 - N. We know that 0 <= N < 2^bits, so
-     * set the absolute value to 0xfff...fff - N. There is no carry
-     * since we're subtracting from all-bits-one.  */
-    for( i = 0; i <= bits / 8 / sizeof( mbedtls_mpi_uint ); i++ )
-    {
-        N->p[i] = ~(mbedtls_mpi_uint)0 - N->p[i];
-    }
-    /* Add 1, taking care of the carry. */
-    i = 0;
-    do
-        ++N->p[i];
-    while( N->p[i++] == 0 && i <= bits / 8 / sizeof( mbedtls_mpi_uint ) );
-    /* Invert the sign.
-     * Now N = N0 - 2^bits where N0 is the initial value of N. */
-    N->s = -1;
-
-    /* Add |c| * 2^bits to the absolute value. Since c and N are
-    * negative, this adds c * 2^bits. */
-    mbedtls_mpi_uint msw = (mbedtls_mpi_uint) -c;
-#if defined(MBEDTLS_HAVE_INT64)
-    if( bits == 224 )
-        msw <<= 32;
-#endif
-    N->p[bits / 8 / sizeof( mbedtls_mpi_uint)] += msw;
-}
+#define LAST                                            \
+    c = extract_carry(cur);                             \
+    STORE32; i++;                                       \
+    if( c != 0 )                                        \
+        return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );       \
+    while( i < MAX32 ) { STORE0; i++; }
 
 #if defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
 /*
@@ -5061,7 +5034,29 @@ static int ecp_mod_p224( mbedtls_mpi *N )
     SUB( 10 ); ADD(  7 ); ADD( 11 );    NEXT; // A3 += -A10 + A7 + A11
     SUB( 11 ); ADD(  8 ); ADD( 12 );    NEXT; // A4 += -A11 + A8 + A12
     SUB( 12 ); ADD(  9 ); ADD( 13 );    NEXT; // A5 += -A12 + A9 + A13
-    SUB( 13 ); ADD( 10 );               LAST; // A6 += -A13 + A10
+    SUB( 13 ); ADD( 10 );                     // A6 += -A13 + A10
+
+    RESET;
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
+
+    RESET;
+
+    SUB_LAST; NEXT;                           // A0
+              NEXT;                           // A1
+              NEXT;                           // A2
+    ADD_LAST; NEXT;                           // A3
+              NEXT;                           // A4
+              NEXT;                           // A5
+                                              // A6
+
+    LAST;
 
 cleanup:
     return( ret );
@@ -5098,7 +5093,32 @@ static int ecp_mod_p256( mbedtls_mpi *N )
     SUB(  8 ); SUB(  9 );                                   NEXT; // A6
 
     ADD( 15 ); ADD( 15 ); ADD( 15 ); ADD( 8 );
-    SUB( 10 ); SUB( 11 ); SUB( 12 ); SUB( 13 );             LAST; // A7
+    SUB( 10 ); SUB( 11 ); SUB( 12 ); SUB( 13 );                   // A7
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+              NEXT;                                               // A1
+              NEXT;                                               // A2
+    SUB_LAST; NEXT;                                               // A3
+              NEXT;                                               // A4
+              NEXT;                                               // A5
+    SUB_LAST; NEXT;                                               // A6
+    ADD_LAST;                                                     // A7
+
+
+    LAST;
 
 cleanup:
     return( ret );
@@ -5117,7 +5137,7 @@ static int ecp_mod_p384( mbedtls_mpi *N )
     SUB( 23 );                                              NEXT; // A0
 
     ADD( 13 ); ADD( 22 ); ADD( 23 );
-    SUB( 12 ); SUB( 20 );                                   NEXT; // A2
+    SUB( 12 ); SUB( 20 );                                   NEXT; // A1
 
     ADD( 14 ); ADD( 23 );
     SUB( 13 ); SUB( 21 );                                   NEXT; // A2
@@ -5147,7 +5167,39 @@ static int ecp_mod_p384( mbedtls_mpi *N )
     SUB( 21 );                                              NEXT; // A10
 
     ADD( 23 ); ADD( 20 ); ADD( 19 );
-    SUB( 22 );                                              LAST; // A11
+    SUB( 22 );                                                    // A11
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
+
+    RESET;
+
+    ADD_LAST; NEXT;                                               // A0
+    SUB_LAST; NEXT;                                               // A1
+              NEXT;                                               // A2
+    ADD_LAST; NEXT;                                               // A3
+    ADD_LAST; NEXT;                                               // A4
+              NEXT;                                               // A5
+              NEXT;                                               // A6
+              NEXT;                                               // A7
+              NEXT;                                               // A8
+              NEXT;                                               // A9
+              NEXT;                                               // A10
+                                                                  // A11
+
+    LAST;
 
 cleanup:
     return( ret );
@@ -5167,11 +5219,6 @@ cleanup:
           MBEDTLS_ECP_DP_SECP384R1_ENABLED */
 
 #if defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED)
-/*
- * Here we have an actual Mersenne prime, so things are more straightforward.
- * However, chunks are aligned on a 'weird' boundary (521 bits).
- */
-
 /* Size of p521 in terms of mbedtls_mpi_uint */
 #define P521_WIDTH      ( 521 / 8 / sizeof( mbedtls_mpi_uint ) + 1 )
 
@@ -5179,44 +5226,46 @@ cleanup:
 #define P521_MASK       0x01FF
 
 /*
- * Fast quasi-reduction modulo p521 (FIPS 186-3 D.2.5)
- * Write N as A1 + 2^521 A0, return A0 + A1
+ * Fast quasi-reduction modulo p521 = 2^521 - 1 (FIPS 186-3 D.2.5)
  */
 static int ecp_mod_p521( mbedtls_mpi *N )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    size_t i;
-    mbedtls_mpi M;
-    mbedtls_mpi_uint Mp[P521_WIDTH + 1];
-    /* Worst case for the size of M is when mbedtls_mpi_uint is 16 bits:
-     * we need to hold bits 513 to 1056, which is 34 limbs, that is
-     * P521_WIDTH + 1. Otherwise P521_WIDTH is enough. */
+    mbedtls_mpi_uint carry = 0;
 
-    if( N->n < P521_WIDTH )
+    mbedtls_mpi_uint* N_p = N->p;
+    size_t N_n = N->n;
+
+    if( N_n > 2*P521_WIDTH )
+        N_n = 2*P521_WIDTH;
+    if( N_n < P521_WIDTH )
         return( 0 );
 
-    /* M = A1 */
-    M.s = 1;
-    M.n = N->n - ( P521_WIDTH - 1 );
-    if( M.n > P521_WIDTH + 1 )
-        M.n = P521_WIDTH + 1;
-    M.p = Mp;
-    memcpy( Mp, N->p + P521_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, 521 % ( 8 * sizeof( mbedtls_mpi_uint ) ) ) );
+    /* Step 1: Reduction to P521_WIDTH limbs */
+    if( N_n > P521_WIDTH )
+    {
+        /* Helper references for top part of N */
+        mbedtls_mpi_uint * NT_p = N_p + P521_WIDTH;
+        size_t NT_n = N_n - P521_WIDTH;
 
-    /* N = A0 */
-    N->p[P521_WIDTH - 1] &= P521_MASK;
-    for( i = P521_WIDTH; i < N->n; i++ )
-        N->p[i] = 0;
+        /* Split N as A0 + 2^(512+biL) A1 and compute A0 + 2^(biL - 9)*A1.
+         * This can be done in place. */
+        mbedtls_mpi_uint shift = ((mbedtls_mpi_uint) 1u) << (biL - 9);
+        carry = MPI_CORE(mla)(N_p, P521_WIDTH, NT_p, NT_n, shift );
 
-    /* N = A0 + A1 */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
+        /* Clear top part */
+        memset( NT_p, 0, sizeof( mbedtls_mpi_uint ) * NT_n );
+    }
 
-cleanup:
-    return( ret );
+    /* Step 2: Reduction to < 2p.
+     * Now split as A0 + 2^521 * c, with c a scalar, and compute A0 + c. */
+    carry <<= (biL - 9);
+    carry  += ( N_p[P521_WIDTH-1] >> 9 );
+    N_p[P521_WIDTH-1] &= P521_MASK;
+    (void) MPI_CORE(add_int)( N_p, N_p, carry, P521_WIDTH );
+
+    return( 0 );
 }
 
-#undef P521_WIDTH
 #undef P521_MASK
 #endif /* MBEDTLS_ECP_DP_SECP521R1_ENABLED */
 
@@ -5229,30 +5278,41 @@ cleanup:
 
 /*
  * Fast quasi-reduction modulo p255 = 2^255 - 19
- * Write N as A0 + 2^256 A1, return A0 + 38 * A1
  */
 static int ecp_mod_p255( mbedtls_mpi *N )
 {
-    mbedtls_mpi_uint Mp[P255_WIDTH];
+    mbedtls_mpi_uint carry = 0;
 
-    /* Helper references for top part of N */
-    mbedtls_mpi_uint * const NT_p = N->p + P255_WIDTH;
-    size_t NT_n = N->n - P255_WIDTH;
-    if( N->n <= P255_WIDTH )
+    mbedtls_mpi_uint* N_p = N->p;
+    size_t N_n = N->n;
+
+    if( N_n > 2*P255_WIDTH )
+        N_n = 2*P255_WIDTH;
+    else if( N_n < P255_WIDTH )
         return( 0 );
 
-    /* TODO: This truncation needs some justification */
-    if( NT_n > P255_WIDTH )
-        NT_n = P255_WIDTH;
+    /* Step 1: Reduction to P255_WIDTH limbs */
+    if( N_n > P255_WIDTH )
+    {
+        /* Helper references for top part of N */
+        mbedtls_mpi_uint * const NT_p = N_p + P255_WIDTH;
+        const size_t NT_n = N_n - P255_WIDTH;
 
-    /* Split N as N + 2^256 M */
-    memcpy( Mp,   NT_p, sizeof( mbedtls_mpi_uint ) * NT_n );
-    memset( NT_p, 0,    sizeof( mbedtls_mpi_uint ) * NT_n );
+        /* N = A0 + 38 * A1, capture carry out */
+        carry = MPI_CORE(mla)( N_p, P255_WIDTH, NT_p, NT_n, 38 );
+        /* Clear top part */
+        memset( NT_p, 0, sizeof( mbedtls_mpi_uint ) * NT_n );
+    }
 
-    /* N = A0 + 38 * A1 */
-    mbedtls_mpi_core_mla( N->p, P255_WIDTH + 1,
-                          Mp, NT_n,
-                          38 );
+    /* Step 2: Reduce to <p
+     * Split as A0 + 2^255*c, with c a scalar, and compute A0 + 19*c */
+    carry <<= 1;
+    carry  += ( N_p[P255_WIDTH-1] >> ( biL - 1 ) );
+    carry *= 19;
+
+    /* Clear top bit */
+    N_p[P255_WIDTH-1] <<= 1; N_p[P255_WIDTH-1] >>= 1;
+    (void) MPI_CORE(add_int)( N_p, N_p, carry, P255_WIDTH );
 
     return( 0 );
 }
