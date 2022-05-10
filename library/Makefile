@@ -140,6 +140,7 @@ OBJS_CRYPTO= \
 	     ripemd160.o \
 	     rsa.o \
 	     rsa_alt_helpers.o \
+	     secp384r1_aarch64.o \
 	     sha1.o \
 	     sha256.o \
 	     sha512.o \
@@ -288,6 +289,10 @@ libmbedcrypto.dll: $(OBJS_CRYPTO)
 .c.o:
 	echo "  CC    $<"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) -o $@ -c $<
+
+.s.o:
+	echo "  AS    $<"
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) -x assembler-with-cpp -o $@ -c $<
 
 .PHONY: generated_files
 GENERATED_FILES = \

@@ -237,25 +237,99 @@
 
 #if defined(__aarch64__)
 
-#define MULADDC_X1_INIT             \
-    asm(
+#define MPI_UINT_ADC_X4_V0(d0,d1,d2,d3,s0,s1,s2,s3,c_in)                                    \
+    asm ( "adds %[rd0], %[rd0], %[rs0] \n\t "                                               \
+          "adcs %[rd1], %[rd1], %[rs1] \n\t "                                               \
+          "adcs %[rd2], %[rd2], %[rs2] \n\t "                                               \
+          "adcs %[rd3], %[rd3], %[rs3] \n\t "                                               \
+          "adc  %[rs0], %[rc_i], xzr   \n\t "                                               \
+    : [rs0] "+r" (s0), [rd0] "+r" (d0), [rd1] "+r" (d1), [rd2] "+r" (d2), [rd3] "+r" (d3)   \
+    : [rs1] "r" (s1), [rs2] "r" (s2), [rs3] "r" (s3), [rc_i] "r" (c_in) : "cc" );
 
-#define MULADDC_X1_CORE             \
-        "ldr x4, [%2], #8   \n\t"   \
-        "ldr x5, [%1]       \n\t"   \
-        "mul x6, x4, %4     \n\t"   \
-        "umulh x7, x4, %4   \n\t"   \
-        "adds x5, x5, x6    \n\t"   \
-        "adc x7, x7, xzr    \n\t"   \
-        "adds x5, x5, %0    \n\t"   \
-        "adc %0, x7, xzr    \n\t"   \
-        "str x5, [%1], #8   \n\t"
+#define MPI_UINT_ADC_X6_V0(d0,d1,d2,d3,d4,d5,s0,s1,s2,s3,s4,s5,c_in)    \
+    asm ( "adds %[rd0], %[rd0], %[rs0] \n\t "                                               \
+          "adcs %[rd1], %[rd1], %[rs1] \n\t "                                               \
+          "adcs %[rd2], %[rd2], %[rs2] \n\t "                                               \
+          "adcs %[rd3], %[rd3], %[rs3] \n\t "                                               \
+          "adcs %[rd4], %[rd4], %[rs4] \n\t "                                               \
+          "adcs %[rd5], %[rd5], %[rs5] \n\t "                                               \
+          "adc  %[rs0], %[rc_i], xzr   \n\t "                                               \
+    : [rs0] "+r" (s0), [rd0] "+r" (d0), [rd1] "+r" (d1), [rd2] "+r" (d2), [rd3] "+r" (d3),  \
+              [rd4] "+r" (d4), [rd5] "+r" (d5)                                              \
+    : [rs1] "r" (s1), [rs2] "r" (s2), [rs3] "r" (s3), [rs4] "r" (s4), [rs5] "r" (s5),       \
+              [rc_i] "r" (c_in) : "cc" );
 
-#define MULADDC_X1_STOP                                                 \
-         : "+r" (c),  "+r" (d), "+r" (s), "+m" (*(uint64_t (*)[16]) d)  \
-         : "r" (b), "m" (*(const uint64_t (*)[16]) s)                   \
-         : "x4", "x5", "x6", "x7", "cc"                                 \
-    );
+#define MPI_UINT_ADC_X4_V1(d0,d1,d2,d3,s0,s1,s2,s3,c)                                       \
+    asm ( "adds %[rd0], %[rd0], %[rs0] \n\t "                                               \
+          "adcs %[rd1], %[rd1], %[rs1] \n\t "                                               \
+          "adcs %[rd2], %[rd2], %[rs2] \n\t "                                               \
+          "adcs %[rd3], %[rd3], %[rs3] \n\t "                                               \
+          "adc  %[rc],  %[rc],   xzr   \n\t "                                               \
+    : [rd0] "+r" (d0), [rd1] "+r" (d1), [rd2] "+r" (d2), [rd3] "+r" (d3), [rc] "+r" (c)     \
+    : [rs0] "r" (s0), [rs1] "r" (s1), [rs2] "r" (s2), [rs3] "r" (s3) : "cc" );
+
+#define MPI_UINT_ADC_X6_V1(d0,d1,d2,d3,d4,d5,s0,s1,s2,s3,s4,s5,c)       \
+    asm ( "adds %[rd0], %[rd0], %[rs0] \n\t "                                               \
+          "adcs %[rd1], %[rd1], %[rs1] \n\t "                                               \
+          "adcs %[rd2], %[rd2], %[rs2] \n\t "                                               \
+          "adcs %[rd3], %[rd3], %[rs3] \n\t "                                               \
+          "adcs %[rd4], %[rd4], %[rs4] \n\t "                                               \
+          "adcs %[rd5], %[rd5], %[rs5] \n\t "                                               \
+          "adc  %[rc],  %[rc],   xzr   \n\t "                                               \
+    : [rd0] "+r" (d0), [rd1] "+r" (d1), [rd2] "+r" (d2), [rd3] "+r" (d3),                   \
+              [rd4] "+r" (d4), [rd5] "+r" (d5), [rc] "+r" (c)                               \
+    : [rs0] "r" (s0), [rs1] "r" (s1), [rs2] "r" (s2), [rs3] "r" (s3),                       \
+              [rs4] "r" (s4), [rs5] "r" (s5) : "cc" );
+
+#define MPI_UINT_VMAAL_X4(d0,d1,d2,d3,c,s0,s1,s2,s3,b)       \
+    { mbedtls_mpi_uint _t[4];                                \
+      MPI_UINT_MUL_HIGH(_t[0], s0, b );                      \
+      MPI_UINT_MUL_HIGH(_t[1], s1, b );                      \
+      MPI_UINT_MUL_HIGH(_t[2], s2, b );                      \
+      MPI_UINT_MUL_HIGH(_t[3], s3, b );                      \
+      MPI_UINT_ADC_X4_V0(d0,d1,d2,d3,                        \
+                      c, _t[0],_t[1],_t[2], _t[3] );         \
+      MPI_UINT_MUL_LOW(_t[0], s0, b );                       \
+      MPI_UINT_MUL_LOW(_t[1], s1, b );                       \
+      MPI_UINT_MUL_LOW(_t[2], s2, b );                       \
+      MPI_UINT_MUL_LOW(_t[3], s3, b );                       \
+      MPI_UINT_ADC_X4_V1(d0,d1,d2,d3,                        \
+                         _t[0],_t[1],_t[2], _t[3], c );  \
+    }
+
+#define MPI_UINT_VMAAL_X6(d0,d1,d2,d3,d4,d5,c,s0,s1,s2,s3,s4,s5,b)      \
+    { mbedtls_mpi_uint _t[6];                                \
+      MPI_UINT_MUL_HIGH(_t[0], s0, b );                      \
+      MPI_UINT_MUL_HIGH(_t[1], s1, b );                      \
+      MPI_UINT_MUL_HIGH(_t[2], s2, b );                      \
+      MPI_UINT_MUL_HIGH(_t[3], s3, b );                      \
+      MPI_UINT_MUL_HIGH(_t[4], s4, b );                      \
+      MPI_UINT_MUL_HIGH(_t[5], s5, b );                      \
+      MPI_UINT_ADC_X6_V0(d0,d1,d2,d3,d4,d5,                  \
+                c, _t[0],_t[1],_t[2], _t[3], _t[4], _t[5] ); \
+      MPI_UINT_MUL_LOW(_t[0], s0, b );                       \
+      MPI_UINT_MUL_LOW(_t[1], s1, b );                       \
+      MPI_UINT_MUL_LOW(_t[2], s2, b );                       \
+      MPI_UINT_MUL_LOW(_t[3], s3, b );                       \
+      MPI_UINT_MUL_LOW(_t[4], s4, b );                       \
+      MPI_UINT_MUL_LOW(_t[5], s5, b );                       \
+      MPI_UINT_ADC_X6_V1(d0,d1,d2,d3,d4,d5,                  \
+             _t[0],_t[1],_t[2], _t[3], _t[4], _t[5], c );    \
+    }
+
+#define MPI_UINT_VMULL_X4(d0,d1,d2,d3,c,s0,s1,s2,s3,b)       \
+    { mbedtls_mpi_uint _t[4];                                \
+      MPI_UINT_MUL_LOW(d0, s0, b );                          \
+      MPI_UINT_MUL_LOW(d1, s1, b );                          \
+      MPI_UINT_MUL_LOW(d2, s2, b );                          \
+      MPI_UINT_MUL_LOW(d3, s3, b );                          \
+      MPI_UINT_MUL_HIGH(_t[0], s0, b );                      \
+      MPI_UINT_MUL_HIGH(_t[1], s1, b );                      \
+      MPI_UINT_MUL_HIGH(_t[2], s2, b );                      \
+      MPI_UINT_MUL_HIGH(_t[3], s3, b );                      \
+      MPI_UINT_ADC_X4_V0(d0,d1,d2,d3,                        \
+                      c, _t[0],_t[1],_t[2], _t[3] );         \
+    }
 
 #endif /* Aarch64 */
 
@@ -979,53 +1053,92 @@
 
 #endif /* MBEDTLS_HAVE_ASM */
 
-#if !defined(MULADDC_X1_CORE)
+#if !defined(MPI_UINT_UMAAL)
 #if defined(MBEDTLS_HAVE_UDBL)
 
-#define MULADDC_X1_INIT                 \
-{                                       \
-    mbedtls_t_udbl r;                           \
-    mbedtls_mpi_uint r0, r1;
-
-#define MULADDC_X1_CORE                 \
-    r   = *(s++) * (mbedtls_t_udbl) b;          \
-    r0  = (mbedtls_mpi_uint) r;                   \
-    r1  = (mbedtls_mpi_uint)( r >> biL );         \
-    r0 += c;  r1 += (r0 <  c);          \
-    r0 += *d; r1 += (r0 < *d);          \
-    c = r1; *(d++) = r0;
-
-#define MULADDC_X1_STOP                 \
-}
+#define MPI_UINT_UMAAL(acc0,acc1,a,b)             \
+    {                                             \
+        mbedtls_t_udbl r;                         \
+        r   = a * (mbedtls_t_udbl) b;             \
+        r += acc0; r += acc1;                     \
+        acc0  = (mbedtls_mpi_uint) r;             \
+        acc1  = (mbedtls_mpi_uint)( r >> biL );   \
+    }
 
 #else /* MBEDTLS_HAVE_UDBL */
 
-#define MULADDC_X1_INIT                 \
-{                                       \
-    mbedtls_mpi_uint s0, s1, b0, b1;              \
-    mbedtls_mpi_uint r0, r1, rx, ry;              \
-    b0 = ( b << biH ) >> biH;           \
-    b1 = ( b >> biH );
+#define MPI_UINT_UMAAL(acc0,acc1,a,b)                 \
+    {                                                 \
+        mbedtls_mpi_uint s0, s1, b0, b1;              \
+        mbedtls_mpi_uint r0, r1, rx, ry;              \
+        b0 = ( b << biH ) >> biH;                     \
+        b1 = ( b >> biH );                            \
+        s0 = ( a << biH ) >> biH;                     \
+        s1 = ( a >> biH );                            \
+        rx = s0 * b1; r0 = s0 * b0;                   \
+        ry = s1 * b0; r1 = s1 * b1;                   \
+        r1 += ( rx >> biH );                          \
+        r1 += ( ry >> biH );                          \
+        rx <<= biH; ry <<= biH;                       \
+        r0 += rx;   r1 += (r0 < rx);                  \
+        r0 += ry;   r1 += (r0 < ry);                  \
+        r0 += acc0; r1 += (r0 < acc0);                \
+        r0 += acc1; r1 += (r0 < acc1);                \
+        acc1 = r1; acc0 = r0;                         \
+    }
 
-#define MULADDC_X1_CORE                 \
-    s0 = ( *s << biH ) >> biH;          \
-    s1 = ( *s >> biH ); s++;            \
-    rx = s0 * b1; r0 = s0 * b0;         \
-    ry = s1 * b0; r1 = s1 * b1;         \
-    r1 += ( rx >> biH );                \
-    r1 += ( ry >> biH );                \
-    rx <<= biH; ry <<= biH;             \
-    r0 += rx; r1 += (r0 < rx);          \
-    r0 += ry; r1 += (r0 < ry);          \
-    r0 +=  c; r1 += (r0 <  c);          \
-    r0 += *d; r1 += (r0 < *d);          \
-    c = r1; *(d++) = r0;
+#endif /* MBEDTLS_HAVE_UDBL */
+#endif /* MPI_UINT_UMAAL */
 
-#define MULADDC_X1_STOP                 \
-}
+#if !defined(MPI_UINT_MUL_HIGH)
+#if defined(MBEDTLS_HAVE_UDBL)
 
-#endif /* C (longlong) */
-#endif /* C (generic)  */
+#define MPI_UINT_MUL_HIGH(d,a,b)                  \
+    {                                             \
+        mbedtls_t_udbl r;                         \
+        r   = a * (mbedtls_t_udbl) b;             \
+        d  = (mbedtls_mpi_uint)( r >> biL );      \
+    }
+
+#else /* MBEDTLS_HAVE_UDBL */
+
+#define MPI_UINT_MUL_HIGH(d,a,b)                      \
+    {                                                 \
+        mbedtls_mpi_uint s0, s1, b0, b1;              \
+        mbedtls_mpi_uint r0, r1, rx, ry;              \
+        b0 = ( b << biH ) >> biH;                     \
+        b1 = ( b >> biH );                            \
+        s0 = ( a << biH ) >> biH;                     \
+        s1 = ( a >> biH );                            \
+        rx = s0 * b1; r0 = s0 * b0;                   \
+        ry = s1 * b0; r1 = s1 * b1;                   \
+        r1 += ( rx >> biH );                          \
+        r1 += ( ry >> biH );                          \
+        rx <<= biH; ry <<= biH;                       \
+        r0 += rx;   r1 += (r0 < rx);                  \
+        r0 += ry;   r1 += (r0 < ry);                  \
+        d = r1;                                       \
+    }
+
+#endif /* MBEDTLS_HAVE_UDBL */
+#endif /* MPI_UINT_MUL_HIGH */
+
+#if !defined(MPI_UINT_MUL_LOW)
+#define MPI_UINT_MUL_LOW(d,a,b)                  \
+    d = (a) * (b);
+#endif /* MPI_UINT_MUL_LOW */
+
+#if !defined(MULADDC_X1_CORE)
+#define MULADDC_X1_INIT                         \
+    {                                           \
+        mbedtls_mpi_uint cur_d, cur_s;
+#define MULADDC_X1_CORE                         \
+        cur_d = *d; cur_s = *s++;               \
+        MPI_UINT_UMAAL(cur_d,c,cur_s,b);        \
+        *d++ = cur_d;
+#define MULADDC_X1_STOP                         \
+    }
+#endif /* MULADDC_X1_CORE */
 
 #if !defined(MULADDC_X2_CORE)
 #define MULADDC_X2_INIT MULADDC_X1_INIT
@@ -1044,5 +1157,13 @@
 #define MULADDC_X8_STOP MULADDC_X4_STOP
 #define MULADDC_X8_CORE MULADDC_X4_CORE MULADDC_X4_CORE
 #endif /* MULADDC_X8_CORE */
+
+#if !defined(MPI_UINT_VMAAL_X4)
+#define MPI_UINT_VMAAL_X4(d0,d1,d2,d3,c,s0,s1,s2,s3,b)     \
+    MPI_UINT_UMAAL(d0, c, s0, b );                         \
+    MPI_UINT_UMAAL(d1, c, s1, b );                         \
+    MPI_UINT_UMAAL(d2, c, s2, b );                         \
+    MPI_UINT_UMAAL(d3, c, s3, b );
+#endif /* MPI_UINT_VMAAL_X4 */
 
 #endif /* bn_mul.h */

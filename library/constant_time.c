@@ -81,8 +81,6 @@ unsigned mbedtls_ct_uint_mask( unsigned value )
 #endif
 }
 
-#if defined(MBEDTLS_SSL_SOME_SUITES_USE_TLS_CBC)
-
 size_t mbedtls_ct_size_mask( size_t value )
 {
     /* MSVC has a warning about unary minus on unsigned integer types,
@@ -96,8 +94,6 @@ size_t mbedtls_ct_size_mask( size_t value )
 #pragma warning( pop )
 #endif
 }
-
-#endif /* MBEDTLS_SSL_SOME_SUITES_USE_TLS_CBC */
 
 #if defined(MBEDTLS_BIGNUM_C)
 

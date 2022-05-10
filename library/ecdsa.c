@@ -30,6 +30,8 @@
 #include "mbedtls/ecdsa.h"
 #include "mbedtls/asn1write.h"
 
+#include "bignum_core.h"
+
 #include <string.h>
 
 #if defined(MBEDTLS_ECDSA_DETERMINISTIC)
@@ -260,7 +262,7 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
     int ret, key_tries, sign_tries;
     int *p_sign_tries = &sign_tries, *p_key_tries = &key_tries;
     mbedtls_ecp_point R;
-    mbedtls_mpi k, e, t;
+    mbedtls_mpi k, e, t, RN;
     mbedtls_mpi *pk = &k, *pr = r;
 
     /* Fail cleanly on curves such as Curve25519 that can't be used for ECDSA */
@@ -273,6 +275,8 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
 
     mbedtls_ecp_point_init( &R );
     mbedtls_mpi_init( &k ); mbedtls_mpi_init( &e ); mbedtls_mpi_init( &t );
+
+    mbedtls_mpi_init( &RN );
 
     ECDSA_RS_ENTER( sig );
 
@@ -358,12 +362,25 @@ modn:
         /*
          * Step 6: compute s = (e + r * d) / k = t (e + rd) / (kt) mod n
          */
+
+        /* Static computation -- should be precomputed in stored in ROM */
+//        MBEDTLS_MPI_CHK( mbedtls_mpi_shrink( &grp->N, 0 ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_get_montgomery_constant_unsafe( &RN, &grp->N ) );
+
         MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( s, pr, d ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( &e, &e, s ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &e, &e, &t ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( pk, pk, &t ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( pk, pk, &grp->N ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod( s, pk, &grp->N ) );
+
+        MBEDTLS_MPI_CHK( mbedtls_mpi_lset( s, 0 ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shrink( pk, grp->N.n ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shrink( &RN, grp->N.n ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shrink( s, grp->N.n ) );
+        MBEDTLS_MPI_CHK( MPI_CORE(inv_mod_prime)(
+                             s->p, pk->p, grp->N.p, grp->N.n, RN.p ) );
+        s->n = grp->N.n;
+//        MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod( s, pk, &grp->N ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( s, s, &e ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( s, s, &grp->N ) );
     }
@@ -377,6 +394,7 @@ modn:
 cleanup:
     mbedtls_ecp_point_free( &R );
     mbedtls_mpi_free( &k ); mbedtls_mpi_free( &e ); mbedtls_mpi_free( &t );
+    mbedtls_mpi_free( &RN );
 
     ECDSA_RS_LEAVE( sig );
 

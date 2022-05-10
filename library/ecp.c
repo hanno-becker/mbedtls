@@ -1576,10 +1576,10 @@ cleanup:
 }
 
 //__attribute__((noinline))
-static int ecp_add_mixed( mbedtls_ecp_group *grp,
-                          mbedtls_ecp_point *R,
-                          const mbedtls_ecp_point *P,
-                          const mbedtls_ecp_point *Q )
+int ecp_add_mixed( mbedtls_ecp_group *grp,
+                   mbedtls_ecp_point *R,
+                   const mbedtls_ecp_point *P,
+                   const mbedtls_ecp_point *Q )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 

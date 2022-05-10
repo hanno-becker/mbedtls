@@ -528,7 +528,7 @@ static int mbedtls_ecp_group_internal_setup(
     mbedtls_mpi_uint *mempool = NULL;
     grp->src = src;
 
-    grp->montgomery = ( getGrp(grp)->modp_raw == NULL );
+    grp->montgomery = 1 /* ( getGrp(grp)->modp_raw == NULL ) */;
 
     size_t Pn  = getGrp(grp)->P.n;
     int have_A = ( getGrp(grp)->A.p != NULL );
@@ -655,13 +655,16 @@ static int ecp_mpi_mul( mbedtls_ecp_mpi_internal *X,
 {
     if( grp->montgomery )
     {
-        MPI_CORE(montmul)( *X, *A, *B, grp->Pn, *grp->P, grp->Pn, grp->mm, grp->T );
+        montmul_p384( *X, *A, *B, *grp->P, grp->mm );
+        //MPI_CORE(montmul)( *X, *A, *B, grp->Pn, *grp->P, grp->Pn, grp->mm, grp->T );
         return( 0 );
     }
 
     /* Schoolbook multiplication followed by dedicated reduction */
-    MPI_CORE(mul)( grp->T, *A, grp->Pn, *B, grp->Pn );
-    getGrp(grp)->modp_raw( grp->T, 2 * grp->Pn );
+    mul_384_384( grp->T, *A, *B );
+    ecp_mod_p384_raw( grp->T, 12 );
+    //MPI_CORE(mul)( grp->T, *A, grp->Pn, *B, grp->Pn );
+    //getGrp(grp)->modp_raw( grp->T, 2 * grp->Pn );
 
     mbedtls_mpi_uint borrow, fixup, carry;
     carry = grp->T[grp->Pn];
@@ -685,12 +688,13 @@ static int ecp_mpi_inv( mbedtls_ecp_mpi_internal *D,
                         mbedtls_ecp_mpi_internal const *S,
                         mbedtls_ecp_group_internal const *grp )
 {
-    MPI_CORE(inv_mod_prime)( *D, *S, *grp->P, grp->Pn, *grp->RP );
-    if( grp->montgomery )
-    {
-        mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D );
-        mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D );
-    }
+    MPI_CORE(inv_mod_p384r1_mont)( *D, *S, *grp->P, grp->Pn );
+    /* MPI_CORE(inv_mod_prime)( *D, *S, *grp->P, grp->Pn, *grp->RP ); */
+    /* if( grp->montgomery ) */
+    /* { */
+    /*     mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D ); */
+    /*     mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D ); */
+    /* } */
     return( 0 );
 }
 
@@ -848,10 +852,7 @@ static int ecp_group_internal_selftest( mbedtls_ecp_group_internal *grp )
     int cmp;
     ECP_MPI_CMP(t2,t3,&cmp);
     if( cmp != 0 )
-    {
-        fprintf( stderr, "SELF TEST FAIL!\n" );
         return( 1 );
-    }
 
 cleanup:
     ECP_FREE_TEMP_MPI(t0);

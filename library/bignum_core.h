@@ -351,6 +351,20 @@ int MPI_CORE(exp_mod)( mbedtls_mpi_uint *X,
                        const mbedtls_mpi_uint *E, size_t E_len,
                        const mbedtls_mpi_uint *RR );
 
+/* TODO: Document */
+int MPI_CORE(exp_mod_pubexp)( mbedtls_mpi_uint *X,
+                              mbedtls_mpi_uint const *A,
+                              const mbedtls_mpi_uint *N,
+                              size_t n,
+                              const mbedtls_mpi_uint *E,
+                              size_t E_len,
+                              const mbedtls_mpi_uint *RR );
+
+void MPI_CORE(inv_mod_p384r1_mont)( mbedtls_mpi_uint *X,
+                                    mbedtls_mpi_uint const *A,
+                                    const mbedtls_mpi_uint *N,
+                                    size_t n );
+
 /* Forward CRT */
 /* TODO: Document */
 int MPI_CORE(crt_fwd)( mbedtls_mpi_uint *TP, mbedtls_mpi_uint *TQ,

@@ -285,11 +285,124 @@ mbedtls_mpi_uint MPI_CORE(mla)( mbedtls_mpi_uint *d, size_t d_len,
     return( c );
 }
 
+mbedtls_mpi_uint MPI_CORE(mmla)(
+           mbedtls_mpi_uint *d, size_t d_len,
+           const mbedtls_mpi_uint *s, const mbedtls_mpi_uint *t, size_t st_len,
+           mbedtls_mpi_uint b, mbedtls_mpi_uint a )
+{
+    size_t n6 = st_len / 6, nr = st_len % 6;
+    size_t excess_len = d_len - ( st_len + 1 );
+
+    mbedtls_mpi_uint c0, c1;
+    mbedtls_mpi_uint d0, d1, d2, d3, d4, d5;
+    mbedtls_mpi_uint s0, s1, s2, s3, s4, s5;
+    mbedtls_mpi_uint t0, t1, t2, t3, t4, t5;
+
+    c0 = c1 = 0;
+    while( n6-- )
+    {
+        d0 = d[0]; d1 = d[1]; d2 = d[2]; d3 = d[3]; d4 = d[4]; d5 = d[5];
+        s0 = s[0]; s1 = s[1]; s2 = s[2]; s3 = s[3]; s4 = s[4]; s5 = s[5];
+        MPI_UINT_VMAAL_X6( d0, d1, d2, d3, d4, d5, c0,
+                           s0, s1, s2, s3, s4, s5, b );
+        t0 = t[0]; t1 = t[1]; t2 = t[2]; t3 = t[3]; t4 = t[4]; t5 = t[5];
+        MPI_UINT_VMAAL_X6( d0, d1, d2, d3, d4, d5, c1,
+                           t0, t1, t2, t3, t4, t5, a );
+        d[0] = d0; d[1] = d1; d[2] = d2; d[3] = d3; d[4] = d4; d[5] = d5;
+        s += 6; t += 6; d += 6;
+    }
+
+    while( nr-- )
+    {
+        d0 = *d;
+        s0 = *s++;
+        MPI_UINT_UMAAL( d0, c0, s0, b );
+        t0 = *t++;
+        MPI_UINT_UMAAL( d0, c1, t0, a );
+        *d++ = d0;
+    }
+
+    d0 = *d;
+    d0 += c0; c0  = ( d0 < c0 );
+    d0 += c1; c0 += ( d0 < c1 );
+    *d++ = d0;
+
+    while( excess_len-- )
+    {
+        d0 = *d;
+        d0 += c0; c0 = ( d0 < c0 );
+        *d++ = d0;
+    }
+
+    return( c0 );
+}
+
+mbedtls_mpi_uint MPI_CORE(mmla_x4)(
+           mbedtls_mpi_uint *d, size_t d_len,
+           const mbedtls_mpi_uint *s, const mbedtls_mpi_uint *t, size_t st_len,
+           mbedtls_mpi_uint b, mbedtls_mpi_uint a )
+{
+    size_t n4 = st_len / 4, nr = st_len % 4;
+    size_t excess_len = d_len - ( st_len + 1 );
+
+    mbedtls_mpi_uint c0, c1;
+    mbedtls_mpi_uint d0, d1, d2, d3;
+    mbedtls_mpi_uint s0, s1, s2, s3;
+    mbedtls_mpi_uint t0, t1, t2, t3;
+
+    c0 = c1 = 0;
+    while( n4-- )
+    {
+        d0 = d[0]; d1 = d[1]; d2 = d[2]; d3 = d[3];
+        s0 = s[0]; s1 = s[1]; s2 = s[2]; s3 = s[3];
+        MPI_UINT_VMAAL_X4( d0, d1, d2, d3, c0,
+                           s0, s1, s2, s3, b );
+        t0 = t[0]; t1 = t[1]; t2 = t[2]; t3 = t[3];
+        MPI_UINT_VMAAL_X4( d0, d1, d2, d3, c1,
+                           t0, t1, t2, t3, a );
+        d[0] = d0; d[1] = d1; d[2] = d2; d[3] = d3;
+        s += 4; t += 4; d += 4;
+    }
+
+    while( nr-- )
+    {
+        d0 = *d;
+        s0 = *s++;
+        MPI_UINT_UMAAL( d0, c0, s0, b );
+        t0 = *t++;
+        MPI_UINT_UMAAL( d0, c1, t0, a );
+        *d++ = d0;
+    }
+
+    d0 = *d;
+    d0 += c0; c0  = ( d0 < c0 );
+    d0 += c1; c0 += ( d0 < c1 );
+    *d++ = d0;
+
+    while( excess_len-- )
+    {
+        d0 = *d;
+        d0 += c0; c0 = ( d0 < c0 );
+        *d++ = d0;
+    }
+
+    return( c0 );
+}
+
+
+
+extern void mul_384_384( mbedtls_mpi_uint *, mbedtls_mpi_uint const *, mbedtls_mpi_uint const * );
+
 void MPI_CORE(mul)( mbedtls_mpi_uint *X,
                     const mbedtls_mpi_uint *A, size_t a,
                     const mbedtls_mpi_uint *B, size_t b )
 {
     memset( X, 0, ( a + b ) * ciL );
+    if( a == 6 && b == 6 )
+    {
+        mul_384_384( X, A, B );
+        return;
+    }
     for( size_t i=0; i < b; i++ )
         (void) MPI_CORE(mla)( X + i, a + 1, A, a, B[i] );
 }
@@ -363,7 +476,7 @@ cleanup:
     return( ret );
 }
 
-void MPI_CORE(montmul)( mbedtls_mpi_uint *X,
+void MPI_CORE(montmul_var)( mbedtls_mpi_uint *X,
                         const mbedtls_mpi_uint *A,
                         const mbedtls_mpi_uint *B,
                         size_t B_len,
@@ -393,6 +506,25 @@ void MPI_CORE(montmul)( mbedtls_mpi_uint *X,
     (void) MPI_CORE(add_if)( X, N, n, fixup );
 }
 
+void MPI_CORE(montmul)( mbedtls_mpi_uint *X,
+                        const mbedtls_mpi_uint *A,
+                        const mbedtls_mpi_uint *B,
+                        size_t B_len,
+                        const mbedtls_mpi_uint *N,
+                        size_t n,
+                        mbedtls_mpi_uint mm,
+                        mbedtls_mpi_uint *T )
+{
+    /* Quick hack to insert specialized Montmul for p384r1 */
+    if( B_len == 6 && n == 6 )
+    {
+        montmul_384_384( X, A, B, N, mm );
+        return;
+    }
+
+    MPI_CORE(montmul_var)( X, A, B, B_len, N, n, mm, T );
+}
+
 void MPI_CORE(montmul_d)( mbedtls_mpi_uint *X,
                           const mbedtls_mpi_uint *B,
                           const mbedtls_mpi_uint *N,
@@ -409,6 +541,11 @@ void MPI_CORE(add_mod)( mbedtls_mpi_uint *X,
                         const mbedtls_mpi_uint *N,
                         size_t n )
 {
+    if( n == 6 )
+    {
+        addmod_384( X, A, B, N );
+        return;
+    }
     size_t carry, borrow = 0, fixup;
     carry  = MPI_CORE(add)( X, A, B, n );
     borrow = MPI_CORE(sub)( X, X, N, n );
@@ -443,6 +580,11 @@ void MPI_CORE(sub_mod)( mbedtls_mpi_uint *X,
                         const mbedtls_mpi_uint *N,
                         size_t n )
 {
+    if( n == 6 )
+    {
+        submod_384( X, A, B, N );
+        return;
+    }
     size_t borrow = MPI_CORE(sub)( X, A, B, n );
     (void) MPI_CORE(add_if)( X, N, n, borrow );
 }
@@ -593,6 +735,7 @@ cleanup:
     return( ret );
 }
 
+__attribute__((noinline))
 int MPI_CORE(inv_mod_prime)( mbedtls_mpi_uint *X,
                              mbedtls_mpi_uint const *A,
                              const mbedtls_mpi_uint *P,
@@ -607,7 +750,7 @@ int MPI_CORE(inv_mod_prime)( mbedtls_mpi_uint *X,
     (void) MPI_CORE(sub_int)( P2, P, 2, n );
     /* Inversion by power: g^|G| = 1 <=> g^{-1} = g^{|G|-1} */
     MBEDTLS_MPI_CHK( MPI_CORE(mod_reduce)( X, A, n, P, n, RR ) );
-    MBEDTLS_MPI_CHK( MPI_CORE(exp_mod)( X, A, P, n, P2, n, RR ) );
+    MBEDTLS_MPI_CHK( MPI_CORE(exp_mod_pubexp)( X, A, P, n, P2, n, RR ) );
 
 cleanup:
 
@@ -747,6 +890,180 @@ cleanup:
     mbedtls_free( mempool );
     return( ret );
 }
+
+int MPI_CORE(exp_mod_pubexp)( mbedtls_mpi_uint *X,
+                              mbedtls_mpi_uint const *A,
+                              const mbedtls_mpi_uint *N,
+                              size_t n,
+                              const mbedtls_mpi_uint *E,
+                              size_t E_len,
+                              const mbedtls_mpi_uint *RR )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    /* heap allocated memory pool */
+    mbedtls_mpi_uint *mempool = NULL;
+    /* pointers to temporaries within memory pool */
+    mbedtls_mpi_uint *Wtbl, *Wselect, *temp;
+    /* pointers to table entries */
+    mbedtls_mpi_uint *Wcur, *Wlast, *W1;
+
+    size_t wsize, welem;
+    mbedtls_mpi_uint one = 1, mm;
+
+    mm = MPI_CORE(mont_init)( *N ); /* Compute Montgomery constant */
+    E += E_len;               /* Skip to end of exponent buffer */
+
+    wsize = mpi_exp_mod_get_window_size( E_len * biL );
+    welem = 1 << wsize;
+
+    /* Allocate memory pool and set pointers to parts of it */
+    const size_t table_limbs   = welem * n;
+    const size_t temp_limbs    = 2 * n + 1;
+    const size_t total_limbs   = table_limbs + temp_limbs;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_alloc( &mempool, total_limbs ) );
+    Wtbl    = mempool;
+    temp    = Wtbl + table_limbs;
+
+    /*
+     * Window precomputation
+     */
+
+    /* W[0] = 1 (in Montgomery presentation) */
+    memset( Wtbl, 0, n * ciL ); Wtbl[0] = 1;
+    MPI_CORE(montmul_d)( Wtbl, RR, N, n, mm, temp );
+    Wcur = Wtbl + n;
+    /* W[1] = A * R^2 * R^-1 mod N = A * R mod N */
+    memcpy( Wcur, A, n * ciL );
+    MPI_CORE(montmul_d)( Wcur, RR, N, n, mm, temp );
+    W1 = Wcur;
+    Wcur += n;
+    /* W[i+1] = W[i] * W[1], i >= 2 */
+    Wlast = W1;
+    for( size_t i=2; i < welem; i++, Wlast += n, Wcur += n )
+        MPI_CORE(montmul)( Wcur, Wlast, W1, n, N, n, mm, temp );
+
+    /*
+     * Sliding window exponentiation
+     */
+
+    /* X = 1 (in Montgomery presentation) initially */
+    memcpy( X, Wtbl, n * ciL );
+
+    size_t limb_bits_remaining = 0;
+    mbedtls_mpi_uint window = 0;
+    size_t window_bits = 0, cur_limb;
+    while( 1 )
+    {
+        size_t window_bits_missing = wsize - window_bits;
+
+        const int no_more_bits =
+            ( limb_bits_remaining == 0 ) && ( E_len == 0 );
+        const int window_full =
+            ( window_bits_missing == 0 );
+
+        /* Clear window if it's full or if we don't have further bits. */
+        if( window_full || no_more_bits )
+        {
+            if( window_bits == 0 )
+                break;
+            Wselect = Wtbl + window * n;
+            MPI_CORE(montmul_d)( X, Wselect, N, n, mm, temp );
+            window = window_bits = 0;
+            continue;
+        }
+
+        /* Load next exponent limb if necessary */
+        if( limb_bits_remaining == 0 )
+        {
+            cur_limb = *--E;
+            E_len--;
+            limb_bits_remaining = biL;
+        }
+
+        /* Square */
+        MPI_CORE(montmul_d)( X, X, N, n, mm, temp );
+
+        /* Insert next exponent bit into window */
+        window   <<= 1;
+        window    |= ( cur_limb >> ( biL - 1 ) );
+        cur_limb <<= 1;
+        window_bits++;
+        limb_bits_remaining--;
+    }
+
+    /* Convert X back to normal presentation */
+    MPI_CORE(montmul)( X, X, &one, 1, N, n, mm, temp );
+
+    ret = 0;
+
+cleanup:
+
+    mbedtls_free( mempool );
+    return( ret );
+}
+
+void MPI_CORE(inv_mod_p384r1_mont)( mbedtls_mpi_uint *X,
+                                    mbedtls_mpi_uint const *A,
+                                    const mbedtls_mpi_uint *N,
+                                    size_t n )
+{
+    mbedtls_mpi_uint tmp[9][6];
+    mbedtls_mpi_uint mm;
+    mm = MPI_CORE(mont_init)( *N );
+
+    montmul_p384( tmp[0], A,      A,      N, mm );
+    montmul_p384( tmp[0], tmp[0], A,      N, mm );     /* 2^2 - 1   */
+    montmul_p384( tmp[1], tmp[0], A,      N, mm );
+    montmul_p384( tmp[1], tmp[1], A,      N, mm );     /* 2^3 - 1   */
+    montmul_p384( tmp[2], tmp[1], tmp[1], N, mm );
+    montmul_p384( tmp[2], tmp[2], tmp[2], N, mm );
+    montmul_p384( tmp[2], tmp[2], tmp[2], N, mm );
+    montmul_p384( tmp[2], tmp[2], tmp[1], N, mm );     /* 2^6 - 1   */
+    montmul_p384( tmp[3], tmp[2], tmp[2], N, mm );
+    for( size_t cnt=1; cnt < 6; cnt++ )
+        montmul_p384( tmp[3], tmp[3], tmp[3], N, mm );
+    montmul_p384( tmp[3], tmp[3], tmp[2], N, mm );     /* 2^12 - 1  */
+    montmul_p384( tmp[4], tmp[3], tmp[3], N, mm );
+    for( size_t cnt=1; cnt < 3; cnt++ )
+        montmul_p384( tmp[4], tmp[4], tmp[4], N, mm );
+    montmul_p384( tmp[4], tmp[4], tmp[1], N, mm );     /* 2^15 - 1  */
+    montmul_p384( tmp[5], tmp[4], tmp[4], N, mm );
+    for( size_t cnt=1; cnt < 15; cnt++ )
+        montmul_p384( tmp[5], tmp[5], tmp[5], N, mm );
+    montmul_p384( tmp[5], tmp[5], tmp[4], N, mm );     /* 2^30 - 1  */
+    montmul_p384( tmp[6], tmp[5], tmp[5], N, mm );
+    for( size_t cnt=1; cnt < 30; cnt++ )
+        montmul_p384( tmp[6], tmp[6], tmp[6], N, mm );
+    montmul_p384( tmp[6], tmp[6], tmp[5], N, mm );     /* 2^60 - 1  */
+    montmul_p384( tmp[7], tmp[6], tmp[6], N, mm );
+    for( size_t cnt=1; cnt < 60; cnt++ )
+        montmul_p384( tmp[7], tmp[7], tmp[7], N, mm );
+    montmul_p384( tmp[7], tmp[7], tmp[6], N, mm );     /* 2^120 - 1 */
+    montmul_p384( tmp[8], tmp[7], tmp[7], N, mm );
+    for( size_t cnt=1; cnt < 120; cnt++ )
+        montmul_p384( tmp[8], tmp[8], tmp[8], N, mm );
+    montmul_p384( tmp[8], tmp[8], tmp[7], N, mm );     /* 2^240 - 1 */
+    for( size_t cnt=0; cnt < 15; cnt++ )
+        montmul_p384( tmp[8], tmp[8], tmp[8], N, mm ); /* 2^255 - 2^15 */
+    montmul_p384( tmp[8], tmp[8], tmp[4], N, mm );     /* 2^255 - 1    */
+    for( size_t cnt=0; cnt < 31; cnt++ )
+        montmul_p384( tmp[8], tmp[8], tmp[8], N, mm ); /* 2^286 - 2^31             */
+    montmul_p384( tmp[8], tmp[8], tmp[5], N, mm );     /* 2^286 - 2^31 + 2^30 - 1  */
+                                                       /* 2^286 - 2^30 - 1         */
+    montmul_p384( tmp[8], tmp[8], tmp[8], N, mm );
+    montmul_p384( tmp[8], tmp[8], tmp[8], N, mm );     /* 2^288 - 2^32 - 2^2       */
+    montmul_p384( tmp[8], tmp[8], tmp[0], N, mm );     /* 2^286 - 2^32 - 1         */
+    for( size_t cnt=0; cnt < 94; cnt++ )
+        montmul_p384( tmp[8], tmp[8], tmp[8], N, mm ); /* 2^382 - 2^126 - 2^94            */
+    montmul_p384( tmp[8], tmp[8], tmp[5], N, mm );     /* 2^384 - 2^126 - 2^94 + 2^30 - 1 */
+    montmul_p384( tmp[8], tmp[8], tmp[8], N, mm );
+    montmul_p384( tmp[8], tmp[8], tmp[8], N, mm );     /* 2^384 - 2^128 - 2^96 + 2^32 - 4 */
+    montmul_p384( tmp[8], tmp[8], A,      N, mm );     /* 2^384 - 2^128 - 2^96 + 2^32 - 3 */
+
+    memcpy( X, tmp[8], n * ciL );
+    mbedtls_platform_zeroize( tmp, sizeof( tmp ) );
+}
+
 
 void MPI_CORE(get_montgomery_constant_safe)( mbedtls_mpi_uint *RR,
                                              mbedtls_mpi_uint const *N,
