@@ -1702,6 +1702,291 @@ cleanup:
 
     return( ret );
 }
+/*****************   EXPERIMENT ONLY     ***********************************/
+
+/*
+ *
+ * Some experimental implementation of safegcd algorithm by Bernstein Yang.
+ *
+ */
+
+#define MPI_UINT_COND_SWAP(x,y,cond)                                  \
+        do {                                                          \
+            mbedtls_mpi_uint tmp0, tmp1;                              \
+            tmp0 = y; tmp1 = x;                                       \
+            x =    (cond)  * tmp0 + (1-(cond))*tmp1;                  \
+            y = (1-(cond)) * tmp0 +    (cond) *tmp1;                  \
+        } while( 0 )
+
+#define UNUSED __attribute__((unused))
+
+UNUSED
+void mbedtls_mpi_core_divstep2x( mbedtls_mpi_uint f, mbedtls_mpi_uint g,
+                                 mbedtls_mpi_sint *mat, int *delta_ptr,
+                                 int cnt )
+{
+    mbedtls_mpi_sint u=1, v=0, q=0, r=1;
+    int delta = *delta_ptr;
+
+    while( cnt-- )
+    {
+        unsigned flip = ( delta > 0 ) && ( g & 1 );
+        int sign = mbedtls_ct_cond_select_sign( flip, -1, 1 );
+
+        delta *= sign; f *= sign; u *= sign; v *= sign;
+        MPI_UINT_COND_SWAP(u,q,flip);
+        MPI_UINT_COND_SWAP(v,r,flip);
+        MPI_UINT_COND_SWAP(f,g,flip);
+
+        unsigned bit0 = ( g & 1 );
+        delta++;
+
+        g += bit0 * f; g >>= 1;
+        q += bit0 * u; r += bit0 * v;
+        u *= 2;        v *= 2;
+    }
+
+    mat[0] = u; mat[1] = v; mat[2] = q; mat[3] = r;
+    *delta_ptr = delta;
+}
+#undef MPI_UINT_COND_SWAP
+
+/* Signed 2x2 (scalar Matrix) x (big Vector) multiplication */
+
+UNUSED
+static int mpi_mul_sint_2x2(
+    mbedtls_mpi *D, mbedtls_mpi const *F, mbedtls_mpi const *G, mbedtls_mpi_sint u, mbedtls_mpi_sint v )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi S, T0, T1;
+    mbedtls_mpi_init( &S ); mbedtls_mpi_init( &T0 ); mbedtls_mpi_init( &T1 );
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &S, u ) );               /* load u    */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &T0, F, &S ) );       /* u*f       */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &S, v ) );               /* load v    */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &T1, G, &S ) );       /* v*g       */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( D, &T0, &T1 ) );      /* u*f + v*g */
+
+cleanup:
+    mbedtls_mpi_free( &S ); mbedtls_mpi_free( &T0 ); mbedtls_mpi_free( &T1 );
+    return( ret );
+}
+
+UNUSED
+int mbedtls_mpi_gcd_jumpstep( mbedtls_mpi *G, const mbedtls_mpi *A, const mbedtls_mpi *B )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi TF,TG,T0,T1,T2,T3,S,V,R;
+
+    mbedtls_mpi_init( &TF ); mbedtls_mpi_init( &TG );
+    mbedtls_mpi_init( &T0 ); mbedtls_mpi_init( &T1 );
+    mbedtls_mpi_init( &T2 ); mbedtls_mpi_init( &T3 );
+    mbedtls_mpi_init( &S );
+    mbedtls_mpi_init( &V ); mbedtls_mpi_init( &R );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TF, A ) ); TF.s = 1;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TG, B ) ); TG.s = 1;
+
+    mbedtls_mpi_lset( &V, 0 );
+    mbedtls_mpi_lset( &R, 1 );
+
+    /* Prematurely abort if A or B == 0 */
+    if( mbedtls_mpi_cmp_int( B, 0 ) == 0 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, A ) );
+        goto cleanup;
+    }
+    if( mbedtls_mpi_cmp_int( A, 0 ) == 0 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, B ) );
+        goto cleanup;
+    }
+
+    size_t lF = mbedtls_mpi_lsb( &TF ); size_t lG = mbedtls_mpi_lsb( &TG );
+    size_t lcommon = lF > lG ? lG : lF;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TF, lF ) );
+
+    int maxlimbs   = TF.n > TG.n ? TF.n : TG.n;
+    int iterations = 4 + 3*maxlimbs*biL;
+
+    int delta = 1;
+    int count = 62;
+    iterations = ( ( iterations + count - 1 ) / count );
+
+    for( int i=0; i < iterations; i++ )
+    {
+        mbedtls_mpi_sint mat[4];
+        mbedtls_mpi_core_divstep2x( TF.s * TF.p[0], TG.s * TG.p[0], mat, &delta, count );
+
+        /* Matrix vector multiplication [[u,v],[q,r]] * [f,g] */
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &T2, &TF, &TG, mat[0], mat[1] ) );
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &T3, &TF, &TG, mat[2], mat[3] ) );
+
+        /* Divide by 2^k */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TF, &T2 ) );             /* store new f */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TG, &T3 ) );             /* store new g */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TF, count ) );        /* f <- f / 2^k */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TG, count ) );        /* g <- g / 2^k */
+
+        /* Matrix vector product [[u,v],[q,r]] * [v_old, r_old] */
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &T2, &V, &R, mat[0], mat[1] ) );
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &T3, &V, &R, mat[2], mat[3] ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( &V, &T2, A ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( &R, &T3, A ) );
+    }
+
+    TF.s = 1;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l( &TF, lcommon ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, &TF ) );
+
+cleanup:
+    mbedtls_mpi_free( &TF ); mbedtls_mpi_free( &TG );
+    mbedtls_mpi_free( &T0 ); mbedtls_mpi_free( &T1 );
+    mbedtls_mpi_free( &T2 ); mbedtls_mpi_free( &T3 );
+    mbedtls_mpi_free( &S );
+    return( ret );
+}
+
+UNUSED
+int mbedtls_mpi_gcd_divstep( mbedtls_mpi *G, const mbedtls_mpi *A, const mbedtls_mpi *B )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi TF,TG,T;
+    mbedtls_mpi_init( &TF ); mbedtls_mpi_init( &TG ); mbedtls_mpi_init( &T );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TF, A ) ); TF.s = 1;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TG, B ) ); TG.s = 1;
+
+    /* Prematurely abort if A or B == 0 */
+    if( mbedtls_mpi_cmp_int( B, 0 ) == 0 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, A ) );
+        goto cleanup;
+    }
+    if( mbedtls_mpi_cmp_int( A, 0 ) == 0 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, B ) );
+        goto cleanup;
+    }
+
+    size_t lF = mbedtls_mpi_lsb( &TF ); size_t lG = mbedtls_mpi_lsb( &TG );
+    size_t lcommon = lF > lG ? lG : lF;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TF, lF ) );
+
+    int maxlimbs   = TF.n > TG.n ? TF.n : TG.n;
+    int iterations = 4 + 3*maxlimbs*biL;
+    int delta = 1;
+    for( int i=0; i < iterations; i++ )
+    {
+        mbedtls_mpi_uint bit0 = mbedtls_mpi_get_bit( &TG, 0 );
+        /* TODO: Make sure this is computed without a branch */
+        unsigned char flip = ( delta > 0 ) && ( bit0 != 0 );
+        int sign = mbedtls_ct_cond_select_sign( flip, -1, 1 );
+
+        delta *= sign; TF.s *= sign; delta++;
+        MBEDTLS_MPI_CHK( mbedtls_mpi_safe_cond_swap( &TF, &TG, flip ) );
+
+        bit0 = mbedtls_mpi_get_bit( &TG, 0 );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( &T, &TG, &TF ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_safe_cond_assign( &TG, &T, bit0 ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TG, 1 ) );
+    }
+    TF.s = 1;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l( &TF, lcommon ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( G, &TF ) );
+
+cleanup:
+    mbedtls_mpi_free( &TF ); mbedtls_mpi_free( &TG ); mbedtls_mpi_free( &T );
+    return( ret );
+}
+
+UNUSED
+int mbedtls_mpi_inv_mod_jumpstep( mbedtls_mpi *G, const mbedtls_mpi *A, const mbedtls_mpi *N )
+{
+    /* Requires N to be odd */
+    if( mbedtls_mpi_get_bit( N, 0 ) == 0 )
+    {
+        /* Fall back to original algorithm. */
+        return( mbedtls_mpi_inv_mod( G, A, N ) );
+    }
+
+    if( mbedtls_mpi_cmp_int( N, 1 ) <= 0 )
+        return( MBEDTLS_ERR_MPI_BAD_INPUT_DATA );
+
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi TF,TG,X,Y,S,V,R;
+
+    mbedtls_mpi_init( &TF ); mbedtls_mpi_init( &TG );
+    mbedtls_mpi_init( &X ); mbedtls_mpi_init( &Y );
+    mbedtls_mpi_init( &S ); mbedtls_mpi_init( &V ); mbedtls_mpi_init( &R );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TF, N ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TG, A ) );
+
+    mbedtls_mpi_lset( &V, 0 );
+    mbedtls_mpi_lset( &R, 1 );
+
+    int delta = 1;
+    int count = 62;
+
+    int maxlimbs = TF.n > TG.n ? TF.n : TG.n;
+    int iterations = 4 + 3*maxlimbs*biL;
+    int jump_iterations = ( ( iterations + count - 1 ) / count );
+    for( int i=0; i < jump_iterations; i++ )
+    {
+        mbedtls_mpi_sint mat[4];
+        MBEDTLS_MPI_CHK( mbedtls_mpi_grow( &TF, 1 ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_grow( &TG, 1 ) );
+        mbedtls_mpi_core_divstep2x( TF.s * TF.p[0], TG.s * TG.p[0], mat, &delta, count );
+
+        /* Matrix vector multiplication [[u,v],[q,r]] * [f,g] */
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &X, &TF, &TG, mat[0], mat[1] ) );
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &Y, &TF, &TG, mat[2], mat[3] ) );
+
+        /* Divide by 2^k */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TF, &X ) );             /* store new f */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &TG, &Y ) );             /* store new g */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TF, count ) );        /* f <- f / 2^k */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &TG, count ) );        /* g <- g / 2^k */
+
+        /* Matrix vector product [[u,v],[q,r]] * [v_old, r_old] */
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &X, &V, &R, mat[0], mat[1] ) );
+        MBEDTLS_MPI_CHK( mpi_mul_sint_2x2( &Y, &V, &R, mat[2], mat[3] ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( &V, &X, N ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( &R, &Y, N ) );
+    }
+
+    V.s *= TF.s;
+    TF.s = 1;
+
+    if( mbedtls_mpi_cmp_int( &TF, 1 ) != 0 )
+    {
+        ret = MBEDTLS_ERR_MPI_NOT_ACCEPTABLE;
+        goto cleanup;
+    }
+
+    if( mbedtls_mpi_cmp_int( &TG, 0 ) != 0 )
+    {
+        /* Should never happen */
+        ret = MBEDTLS_ERR_MPI_BAD_INPUT_DATA;
+        goto cleanup;
+    }
+
+    /* X = 1/2 mod F */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_int( &X, N, 1 ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &X, 1 ) );
+    /* X = (1/2)^iterations mod F */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &Y, jump_iterations * count ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &X, &X, &Y, N, NULL ) );
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &V, &V, &X ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi(  G, &V, N ) );
+
+cleanup:
+    mbedtls_mpi_free( &TF ); mbedtls_mpi_free( &TG );
+    mbedtls_mpi_free( &X ); mbedtls_mpi_free( &Y );
+    mbedtls_mpi_free( &S );
+    return( ret );
+}
+
+/*********************************************************************************/
 
 /*
  * Fill X with size bytes of random.
