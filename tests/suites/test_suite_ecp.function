@@ -446,7 +446,8 @@ void ecp_test_mul( int id, data_t * n_hex,
     if( expected_ret == 0 )
     {
         TEST_ASSERT( mbedtls_mpi_cmp_mpi( &nP.X, &R.X ) == 0 );
-        TEST_ASSERT( mbedtls_mpi_cmp_mpi( &nP.Y, &R.Y ) == 0 );
+        if( mbedtls_ecp_get_type( &grp ) == MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS )
+            TEST_ASSERT( mbedtls_mpi_cmp_mpi( &nP.Y, &R.Y ) == 0 );
         TEST_ASSERT( mbedtls_mpi_cmp_mpi( &nP.Z, &R.Z ) == 0 );
     }
 

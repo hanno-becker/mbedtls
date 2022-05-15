@@ -105,15 +105,14 @@
  *
  * - ECP_MPI_ADD
  * - ECP_MPI_SUB
- * - ECP_MPI_SUB_INT
  * - ECP_MPI_MUL
+ * - ECP_MPI_MUL3
  * - ECP_MPI_SQR
- * - ECP_MPI_MUL_INT
  * - ECP_MPI_INV
  * - ECP_MPI_MOV
  * - ECP_MOV
  * - ECP_ZERO
- * - ECP_MPI_SHIFT_L
+ * - ECP_MPI_DOUBLE
  * - ECP_MPI_LSET
  * - ECP_MPI_CMP_INT
  * - ECP_MPI_CMP
@@ -124,18 +123,6 @@
  * - ECP_MPI_COND_ASSIGN
  * - ECP_MPI_COND_SWAP
  * - ECP_MPI_REDUCE
- */
-
-/* Currently there is only one implementation to choose from:
- *
- * - ECP_ARITH_WRAPPER_FIXSIZE_HEAP:
- *   This wraps public types in dummy structs and ensures that coordinates
- *   have standard size. The underlying modular arithmetic is implemented
- *   by unwrapping and calling mbedtls_mpi_foo() as before.
- *
- * To add a new implementation, add a macro identifier here, implement
- * the new internal types in ecp_arith_foo_typedefs.h and the rest in
- * ecp_arith_foo.h, and conditionally include ecp_arith_foo_typedefs.h below.
  */
 
 #include "mbedtls/build_info.h"
@@ -163,8 +150,12 @@
 #define ECP_MPI_NEED_SHIFT_L_MOD
 #endif
 
-#if defined(ECP_ARITH_WRAPPER_FIXSIZE_HEAP)
-#include "ecp_arith_wrapper_fixsize_heap.h"
-#endif /* ECP_ARITH_WRAPPER_FIXSIZE_HEAP */
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM)
+#include "ecp_arith_wrapper_core_bignum.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
+#include "ecp_arith_wrapper_core_bignum_raw.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */
 
 #endif /* ecp_arith.h */
