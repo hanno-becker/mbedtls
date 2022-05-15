@@ -26,25 +26,7 @@
 #include "mbedtls/bignum.h"
 #endif
 
-/** Perform a known-size multiply accumulate operation
- *
- * Add \p b * \p s to \p d.
- *
- * \param[in,out] d     The pointer to the (little-endian) array
- *                      representing the bignum to accumulate onto.
- * \param d_len         The number of limbs of \p d. This must be
- *                      at least \p s_len.
- * \param[in] s         The pointer to the (little-endian) array
- *                      representing the bignum to multiply with.
- *                      This may be the same as \p d. Otherwise,
- *                      it must be disjoint from \p d.
- * \param s_len         The number of limbs of \p s.
- * \param b             A scalar to multiply with.
- *
- * \return c            The carry at the end of the operation.
- */
-mbedtls_mpi_uint mbedtls_mpi_core_mla( mbedtls_mpi_uint *d, size_t d_len ,
-                                       const mbedtls_mpi_uint *s, size_t s_len,
-                                       mbedtls_mpi_uint b );
+int mbedtls_mpi_get_montgomery_constant_unsafe( mbedtls_mpi *RR,
+                                                mbedtls_mpi const *N );
 
 #endif /* MBEDTLS_BIGNUM_INTERNAL_H */
