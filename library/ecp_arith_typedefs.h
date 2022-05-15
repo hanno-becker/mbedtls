@@ -23,7 +23,10 @@
 
 #include "mbedtls/build_info.h"
 
-#define ECP_ARITH_WRAPPER_FIXSIZE_HEAP
+//#define ECP_ARITH_WRAPPER_FIXSIZE_HEAP
+//#define ECP_ARITH_WRAPPER_CORE_BIGNUM
+//#define ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW
+#define ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_DUAL
 
 /*
  * Select the right header to import
@@ -31,5 +34,17 @@
 #if defined(ECP_ARITH_WRAPPER_FIXSIZE_HEAP)
 #include "ecp_arith_wrapper_fixsize_heap_typedefs.h"
 #endif /* ECP_ARITH_WRAPPER_FIXSIZE_HEAP */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM)
+#include "ecp_arith_wrapper_core_bignum_typedefs.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
+#include "ecp_arith_wrapper_core_bignum_raw_typedefs.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_DUAL)
+#include "ecp_arith_wrapper_core_bignum_raw_dual_typedefs.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_DUAL */
 
 #endif /* ecp_arith_typedefs.h */

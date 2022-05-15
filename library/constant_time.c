@@ -263,24 +263,9 @@ unsigned mbedtls_ct_uint_if( unsigned condition,
 }
 
 #if defined(MBEDTLS_BIGNUM_C)
-
-/** Select between two sign values without branches.
- *
- * This is functionally equivalent to `condition ? if1 : if0` but uses only bit
- * operations in order to avoid branches.
- *
- * \note if1 and if0 must be either 1 or -1, otherwise the result
- *       is undefined.
- *
- * \param condition     Condition to test.
- * \param if1           The first sign; must be either +1 or -1.
- * \param if0           The second sign; must be either +1 or -1.
- *
- * \return  \c if1 if \p condition is nonzero, otherwise \c if0.
- * */
-static int mbedtls_ct_cond_select_sign( unsigned char condition,
-                                        int if1,
-                                        int if0 )
+int mbedtls_ct_cond_select_sign( unsigned char condition,
+                                 int if1,
+                                 int if0 )
 {
     /* In order to avoid questions about what we can reasonably assume about
      * the representations of signed integers, move everything to unsigned

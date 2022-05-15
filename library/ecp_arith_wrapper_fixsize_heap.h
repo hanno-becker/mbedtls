@@ -50,10 +50,10 @@
  */
 
 /* Point */
-#define ECP_DECL_TEMP_POINT_TMP(x) x ## _tmp
-#define ECP_DECL_TEMP_POINT(x)                                          \
-    mbedtls_ecp_point_internal ECP_DECL_TEMP_POINT_TMP(x);              \
-    mbedtls_ecp_point_internal * const x = &ECP_DECL_TEMP_POINT_TMP(x); \
+#define ECP_DECL_TEMP_POINT_TMP(ctx,x) x ## _tmp
+#define ECP_DECL_TEMP_POINT(ctx,x)                                          \
+    mbedtls_ecp_point_internal ECP_DECL_TEMP_POINT_TMP(ctx,x);              \
+    mbedtls_ecp_point_internal * const x = &ECP_DECL_TEMP_POINT_TMP(ctx,x); \
     mbedtls_ecp_point_init( (mbedtls_ecp_point*) x )
 #define ECP_SETUP_TEMP_POINT(x)                                         \
     MBEDTLS_MPI_CHK( ecp_point_force_single( getGrp(grp),               \
@@ -63,27 +63,16 @@
 
 /* Single width coordinate                                             */
 
-#define ECP_DECL_TEMP_MPI_TMP(x) x ## _tmp
-#define ECP_DECL_TEMP_MPI(x)                                            \
-    mbedtls_ecp_mpi_internal ECP_DECL_TEMP_MPI_TMP(x);                  \
-    mbedtls_ecp_mpi_internal * const x = &ECP_DECL_TEMP_MPI_TMP(x);     \
+#define ECP_DECL_TEMP_MPI_TMP(ctx,x) x ## _tmp
+#define ECP_DECL_TEMP_MPI(ctx,x)                                        \
+    mbedtls_ecp_mpi_internal ECP_DECL_TEMP_MPI_TMP(ctx,x);              \
+    mbedtls_ecp_mpi_internal * const x = &ECP_DECL_TEMP_MPI_TMP(ctx,x); \
     mbedtls_mpi_init( (mbedtls_mpi*) x )
 #define ECP_SETUP_TEMP_MPI(x)                                           \
     MBEDTLS_MPI_CHK( mpi_force_single( getGrp(grp),                     \
                                        (mbedtls_mpi*) x ) )
 #define ECP_FREE_TEMP_MPI(x)                                            \
     mbedtls_mpi_free( (mbedtls_mpi*) x )
-
-/* Static array of single width coordinates                            */
-
-#define ECP_DECL_TEMP_MPI_STATIC_ARRAY(x,n)                             \
-    mbedtls_ecp_mpi_internal (x)[(n)];                                  \
-    mpi_init_many( (mbedtls_mpi*) x, (n) )
-#define ECP_SETUP_TEMP_MPI_STATIC_ARRAY(x,n)                            \
-    MBEDTLS_MPI_CHK( mpi_force_single_many( getGrp(grp),                \
-                                            (mbedtls_mpi*) x, (n) ) )
-#define ECP_FREE_TEMP_MPI_STATIC_ARRAY(x,n)                             \
-    mpi_free_many( (mbedtls_mpi*) x, (n) )
 
 /* Dynamic array of single width coordinates                           */
 
@@ -107,6 +96,8 @@
         mpi_free_many( (mbedtls_mpi*) x, (n) );                         \
         mbedtls_free( x );                                              \
     } while( 0 )
+
+#define getItem(c,i) &(c)[(i)]
 
 /*
  * Conversions
@@ -191,21 +182,30 @@
 #define ECP_MPI_ADD( X, A, B )                                            \
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_mod( grp, &((X)->v),                 \
                                           &((A)->v), &((B)->v) ) )
+#define ECP_MPI_ADD_D( X, B )                                             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_mod( grp, &((X)->v),                 \
+                                          &((X)->v), &((B)->v) ) )
 #define ECP_MPI_SUB( X, A, B )                                            \
     MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mod( grp, &((X)->v),                 \
                                           &((A)->v), &((B)->v) ) )
-#define ECP_MPI_SUB_INT( X, A, c )                                        \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int_mod( grp, &((X)->v),             \
-                                              &((A)->v), c ) )
+#define ECP_MPI_SUB_D( X, B )                                             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mod( grp, &((X)->v),                 \
+                                          &((X)->v), &((B)->v) ) )
 #define ECP_MPI_MUL( X, A, B )                                            \
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &((X)->v),                 \
                                           &((A)->v), &((B)->v) ) )
+#define ECP_MPI_MUL_D( X, B )                                             \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &((X)->v),                 \
+                                          &((X)->v), &((B)->v) ) )
 #define ECP_MPI_SQR( X, A )                                               \
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &((X)->v),                 \
                                           &((A)->v), &((A)->v) ) )
-#define ECP_MPI_MUL_INT( X, A, c )                                        \
+#define ECP_MPI_SQR_D( X )                                                \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &((X)->v),                 \
+                                          &((X)->v), &((X)->v) ) )
+#define ECP_MPI_MUL3( X, A )                                              \
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_int_mod( grp, &((X)->v),             \
-                                              &((A)->v), c ) )
+                                              &((A)->v), 3 ) )
 #define ECP_MPI_INV( d, s )                                               \
     MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod_internal( grp, &(d)->v,          \
                                                    &(s)->v,               \
@@ -215,20 +215,24 @@
 #define ECP_MOV( d, s )                                                   \
     MBEDTLS_MPI_CHK( mbedtls_ecp_copy( (mbedtls_ecp_point*)(d),           \
                                        (mbedtls_ecp_point*) (s) ) )
+#define ECP_MPI_ZERO( X )                                                 \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &(X)->v, 0 ) )
 #define ECP_ZERO( X )                                                     \
     do {                                                                  \
-        ECP_MPI_LSET( getX(X), 0 );                                       \
-        ECP_MPI_LSET( getY(X), 0 );                                       \
-        ECP_MPI_LSET( getZ(X), 1 );                                       \
+        ECP_MPI_SET1( getX(X) );                                               \
+        ECP_MPI_SET1( getY(X) );                                               \
+        ECP_MPI_ZERO( getZ(X) );                                               \
     } while( 0 )
-#define ECP_MPI_SHIFT_L( X, count )                                       \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l_mod( grp, &((X)->v), count ) )
-#define ECP_MPI_LSET( X, c )                                              \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &((X)->v), c ) )
-#define ECP_MPI_CMP_INT( X, c )                                           \
-    mbedtls_mpi_cmp_int( &((X)->v), c )
-#define ECP_MPI_CMP( X, Y )                                               \
-    mbedtls_mpi_cmp_mpi( &((X)->v), &((Y)->v) )
+#define ECP_MPI_DOUBLE( X )                                               \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_l_mod( grp, &((X)->v), 1 ) )
+#define ECP_MPI_CMP( X, Y, result )                                       \
+    *result = mbedtls_mpi_cmp_mpi( &(X)->v, &(Y)->v )
+#define ECP_MPI_SET1( X )                                                 \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &((X)->v), 1 ) )
+#define ECP_MPI_CMP_INT( X, c, result )                \
+    *(result) = mbedtls_mpi_cmp_int( &((X)->v), c )
+#define ECP_MPI_IS_ZERO( X, result ) ECP_MPI_CMP_INT( X, 0, result )
+#define ECP_MPI_CMP1( X, result ) ECP_MPI_CMP_INT( X, 1, result )
 #define ECP_MPI_RAND( X )                                                 \
     MBEDTLS_MPI_CHK( mbedtls_mpi_random( &((X)->v), 2, &getGrp(grp)->P,   \
                                          f_rng, p_rng ) )
@@ -242,8 +246,6 @@
 #define ECP_MPI_COND_SWAP( X, Y, cond )                                   \
     MBEDTLS_MPI_CHK( mbedtls_mpi_safe_cond_swap( &((X)->v),               \
                                                  &((Y)->v), (cond) ) )
-#define ECP_MPI_REDUCE(x)                                                 \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, &(x)->v, &(x)->v ) )
 
 /*
  * Initialization and freeing of instances of internal ECP/MPI types
@@ -346,6 +348,14 @@ cleanup:
 }
 #endif /* MBEDTLS_ECP_INTERNAL_ALT */
 
+
+static void mbedtls_ecp_point_internal_free_Z(
+    mbedtls_ecp_group_internal const *grp, mbedtls_ecp_point_internal *pt )
+{
+    ((void) grp);
+    mbedtls_ecp_mpi_internal_free( getZ(pt) );
+}
+
 /*
  *
  * Implementation details
@@ -377,7 +387,7 @@ static int mpi_force_single( const mbedtls_ecp_group *grp,
 static int mpi_force_double( const mbedtls_ecp_group *grp,
                              mbedtls_mpi *X )
 {
-    return( mpi_force_size( X, 2 * grp->P.n + 1 ) );
+    return( mpi_force_size( X, 2 * grp->P.n /* + 1 */ ) );
 }
 
 static void mpi_init_many( mbedtls_mpi *arr, size_t size )
@@ -624,19 +634,6 @@ static int mbedtls_mpi_mul_int_mod( const mbedtls_ecp_group_internal *grp,
     mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_int( tmp, A, c ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_add( grp, X, tmp ) );
-cleanup:
-    return( ret );
-}
-
-static int mbedtls_mpi_sub_int_mod( const mbedtls_ecp_group_internal *grp,
-                                    mbedtls_mpi *X,
-                                    const mbedtls_mpi *A,
-                                    mbedtls_mpi_uint c )
-{
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi * const tmp = (mbedtls_mpi*) getTmpDouble(grp);
-    MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int( tmp, A, c ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mod_after_sub( grp, X, tmp ) );
 cleanup:
     return( ret );
 }

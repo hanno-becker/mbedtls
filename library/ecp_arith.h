@@ -105,15 +105,14 @@
  *
  * - ECP_MPI_ADD
  * - ECP_MPI_SUB
- * - ECP_MPI_SUB_INT
  * - ECP_MPI_MUL
+ * - ECP_MPI_MUL3
  * - ECP_MPI_SQR
- * - ECP_MPI_MUL_INT
  * - ECP_MPI_INV
  * - ECP_MPI_MOV
  * - ECP_MOV
  * - ECP_ZERO
- * - ECP_MPI_SHIFT_L
+ * - ECP_MPI_DOUBLE
  * - ECP_MPI_LSET
  * - ECP_MPI_CMP_INT
  * - ECP_MPI_CMP
@@ -166,5 +165,17 @@
 #if defined(ECP_ARITH_WRAPPER_FIXSIZE_HEAP)
 #include "ecp_arith_wrapper_fixsize_heap.h"
 #endif /* ECP_ARITH_WRAPPER_FIXSIZE_HEAP */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM)
+#include "ecp_arith_wrapper_core_bignum.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
+#include "ecp_arith_wrapper_core_bignum_raw.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */
+
+#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_DUAL)
+#include "ecp_arith_wrapper_core_bignum_raw_dual.h"
+#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_DUAL */
 
 #endif /* ecp_arith.h */
