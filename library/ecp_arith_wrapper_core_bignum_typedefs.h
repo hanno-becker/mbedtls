@@ -37,8 +37,8 @@
 //#define ECP_ARITH_WRAPPER_CORE_BIGNUM_LOCAL_TEMPORARIES
 #define ECP_ARITH_WRAPPER_CORE_BIGNUM_GLOBAL_TEMPORARIES
 
-//#define ECP_ARITH_WRAPPER_CORE_BIGNUM_BUFS_BY_VALUE
-#define ECP_ARITH_WRAPPER_CORE_BIGNUM_BUFS_BY_REF
+#define ECP_ARITH_WRAPPER_CORE_BIGNUM_BUFS_BY_VALUE
+//#define ECP_ARITH_WRAPPER_CORE_BIGNUM_BUFS_BY_REF
 
 #if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_GLOBAL_TEMPORARIES)
 #define ECP_ARITH_WRAPPER_NUM_MPI_TEMPS 5
@@ -74,6 +74,8 @@ typedef struct mbedtls_ecp_group_internal
     mbedtls_mpi_buf     T;     /* Temporary for Montgomery multiplication. */
     mbedtls_mpi_buf   tmp;     /* Temporary for modular arithmetic         */
 
+    mbedtls_mpi_uint  *lookup; /* Temporary for CT table lookup */
+
 #if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_GLOBAL_TEMPORARIES)
     /* Temporaries for ECP arithmetic */
     mbedtls_ecp_point_internal inputs[ECP_ARITH_WRAPPER_NUM_PT_INPUTS];
@@ -83,47 +85,6 @@ typedef struct mbedtls_ecp_group_internal
     mbedtls_mpi_uint   mm;
 
 } mbedtls_ecp_group_internal;
-
-/*
- * Macro initialization
- */
-
-#define MPI_BUF_FROM_RAW_REF_RO( P, N )                 \
-    {                                                   \
-        .p = (mbedtls_mpi_uint*) (P),                   \
-        .n = (N),                                       \
-    }
-
-#define MPI_BUF_FROM_RAW_STATIC_REF( P )                \
-    MPI_BUF_FROM_RAW_REF_RO(                            \
-           P, sizeof( P ) / sizeof( mbedtls_mpi_uint ) )
-
-#define MPI_BUF_FROM_RAW_REF_RW( P, N )                 \
-    {                                                   \
-        .p = (P),                                       \
-        .n = (N),                                       \
-    }
-
-#define MPI_BUF_UNSET()                                 \
-    {                                                   \
-        .p = NULL,                                      \
-        .n = 0,                                         \
-    }
-
-#define ECP_POINT_INTERNAL_INIT_XY_Z1( x, y )                 \
-      {                                                       \
-          .X = MPI_BUF_FROM_RAW_STATIC_REF( x ),              \
-          .Y = MPI_BUF_FROM_RAW_STATIC_REF( y ),              \
-          .Z = MPI_BUF_FROM_RAW_REF_RO(                       \
-              mpi_one, sizeof(x) / sizeof(mbedtls_mpi_uint) ) \
-      }
-
-#define ECP_POINT_INTERNAL_INIT_XY_Z0( x, y )                 \
-      {                                                       \
-          .X = MPI_BUF_FROM_RAW_STATIC_REF( x ),              \
-          .Y = MPI_BUF_FROM_RAW_STATIC_REF( y ),              \
-          .Z = MPI_BUF_UNSET()                                \
-      }
 
 #define ECP_DP_SECP192R1_USE_MONTGOMERY
 #define ECP_DP_SECP224R1_USE_MONTGOMERY

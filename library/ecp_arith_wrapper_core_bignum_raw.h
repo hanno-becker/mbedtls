@@ -36,6 +36,8 @@
 /* } */
 //#define mpi_buf_print(a,b) do {} while( 0 )
 
+#define UNUSED __attribute__((unused))
+
 /*
  *
  * Implementation of internal API
@@ -274,6 +276,7 @@ static void mbedtls_ecp_mpi_internal_free( mbedtls_ecp_mpi_internal *x )
     mbedtls_free( x );
 }
 
+UNUSED
 static void mbedtls_ecp_point_internal_init( mbedtls_ecp_point_internal *x )
 {
     ((void) x);
@@ -325,6 +328,7 @@ cleanup:
     return( ret );
 }
 
+UNUSED
 static int mbedtls_ecp_point_internal_setup( mbedtls_ecp_group_internal *grp,
                                              mbedtls_ecp_point_internal *pt )
 {
@@ -453,6 +457,23 @@ cleanup:
     return( ret );
 }
 
+static void mbedtls_ecp_mpi_internal_setup_raw_ref(
+    mbedtls_ecp_group_internal *grp,
+    mbedtls_ecp_mpi_internal **x,
+    mbedtls_mpi_uint *raw )
+{
+    ((void) grp);
+    *x = (mbedtls_ecp_mpi_internal*) raw;
+}
+
+static void mbedtls_ecp_mpi_internal_setup_raw_copy(
+    mbedtls_ecp_group_internal *grp,
+    mbedtls_ecp_mpi_internal *x,
+    mbedtls_mpi_uint const *raw )
+{
+    memcpy( *x, raw, ciL * grp->Pn );
+}
+
 static int mbedtls_ecp_point_internal_setup_ref(
     mbedtls_ecp_group_internal *grp,
     mbedtls_ecp_point_internal *pt,
@@ -470,17 +491,19 @@ cleanup:
     return( ret );
 }
 
+static void mbedtls_ecp_point_internal_setup_raw_ref(
+    mbedtls_ecp_group_internal *grp,
+    mbedtls_ecp_point_internal *pt,
+    mbedtls_mpi_uint *x, mbedtls_mpi_uint *y, mbedtls_mpi_uint *z )
+{
+    mbedtls_ecp_mpi_internal_setup_raw_ref( grp, &getX(pt), x );
+    mbedtls_ecp_mpi_internal_setup_raw_ref( grp, &getY(pt), y );
+    mbedtls_ecp_mpi_internal_setup_raw_ref( grp, &getZ(pt), z );
+}
+
 #if defined(MBEDTLS_ECP_INTERNAL_ALT)
 /* TODO */
 #endif /* MBEDTLS_ECP_INTERNAL_ALT */
-
-static void mbedtls_ecp_point_internal_free_Z(
-    mbedtls_ecp_group_internal const *grp, mbedtls_ecp_point_internal *pt )
-{
-    ((void) grp);
-    mbedtls_ecp_mpi_internal_free( getZ(pt) );
-    pt->Z = NULL;
-}
 
 /*
  *
@@ -564,6 +587,8 @@ static int mbedtls_ecp_group_internal_setup(
     grp->G.Y = (mbedtls_ecp_mpi_internal*) cur; cur += 1 * Pn;
     grp->G.Z = (mbedtls_ecp_mpi_internal*) cur; cur += 1 * Pn;
     grp->T   = cur;                             cur += 2 * Pn + 1;
+
+    grp->lookup = grp->T;
 
     MBEDTLS_MPI_CHK( mbedtls_ecp_point_internal_setup_copy(
                          grp, &grp->G, &getGrp(grp)->G ) );

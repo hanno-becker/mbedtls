@@ -771,13 +771,6 @@ cleanup:
     return( ret );
 }
 
-static void mbedtls_ecp_point_internal_free_Z(
-    mbedtls_ecp_group_internal const *grp, mbedtls_ecp_point_internal *pt )
-{
-    ((void) grp);
-    mbedtls_ecp_mpi_internal_free( getZ(pt) );
-}
-
 #if defined(MBEDTLS_ECP_INTERNAL_ALT)
 /* TODO */
 #endif /* MBEDTLS_ECP_INTERNAL_ALT */
@@ -902,6 +895,7 @@ static int mbedtls_ecp_group_internal_setup(
     mbedtls_mpi_buf tmp = { .p = cur,  .n = 1 * Pn     }; cur += 1 * Pn;
     mbedtls_mpi_buf T   = { .p = cur,  .n = 2 * Pn + 1 }; cur += 2 * Pn + 1;
     grp->tmp = tmp; grp->T = T;
+    grp->lookup = T.p;
 
     mbedtls_mpi_buf GX = { .p = cur,  .n = 1 * Pn }; cur += 1 * Pn;
     mbedtls_mpi_buf GY = { .p = cur,  .n = 1 * Pn }; cur += 1 * Pn;

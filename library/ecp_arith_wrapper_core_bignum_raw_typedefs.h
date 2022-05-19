@@ -69,6 +69,7 @@ typedef struct mbedtls_ecp_group_internal
     mbedtls_ecp_mpi_internal *   tmp;     /* Temporary for modular arithmetic         */
 
     mbedtls_mpi_uint *             T;     /* Temporary for Montgomery multiplication. */
+    mbedtls_mpi_uint *        lookup;     /* Temporary for table lookup */
 
     /* Temporaries for ECP arithmetic */
     mbedtls_ecp_point_internal inputs[ECP_ARITH_WRAPPER_NUM_PT_INPUTS];
@@ -77,24 +78,6 @@ typedef struct mbedtls_ecp_group_internal
     mbedtls_mpi_uint   mm;
 
 } mbedtls_ecp_group_internal;
-
-/*
- * Macro initialization
- */
-
-#define ECP_POINT_INTERNAL_INIT_XY_Z1( x, y )                 \
-      {                                                       \
-          .X = (mbedtls_ecp_mpi_internal*) (x),               \
-          .Y = (mbedtls_ecp_mpi_internal*) (y),               \
-          .Z = NULL,                                          \
-      }
-
-#define ECP_POINT_INTERNAL_INIT_XY_Z0( x, y )                 \
-      {                                                       \
-          .X = (mbedtls_ecp_mpi_internal*) (x),               \
-          .Y = (mbedtls_ecp_mpi_internal*) (y),               \
-          .Z = NULL,                                          \
-      }
 
 /* #define ECP_DP_SECP192R1_USE_MONTGOMERY */
 /* #define ECP_DP_SECP224R1_USE_MONTGOMERY */
