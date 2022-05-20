@@ -28,6 +28,7 @@
 int mbedtls_mpi_get_montgomery_constant_unsafe( mbedtls_mpi *RR,
                                                 mbedtls_mpi const *N );
 
+int mbedtls_mpi_resize_clear( mbedtls_mpi *X, size_t limbs );
 
 #define MPI_FROM_RAW_REF_RO( P, N )                     \
     {                                                   \

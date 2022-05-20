@@ -175,7 +175,7 @@ int mbedtls_mpi_shrink( mbedtls_mpi *X, size_t nblimbs )
 }
 
 /* Resize X to have exactly n limbs and set it to 0. */
-static int mbedtls_mpi_resize_clear( mbedtls_mpi *X, size_t limbs )
+int mbedtls_mpi_resize_clear( mbedtls_mpi *X, size_t limbs )
 {
     if( limbs == 0 )
     {

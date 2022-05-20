@@ -29,6 +29,8 @@
 
 #include "mbedtls/ecdsa.h"
 #include "mbedtls/asn1write.h"
+#include "bignum_core.h"
+#include "bignum_internal.h"
 
 #include <string.h>
 
@@ -238,20 +240,51 @@ static int derive_mpi( const mbedtls_ecp_group *grp, mbedtls_mpi *x,
     /* While at it, reduce modulo N */
     if( mbedtls_mpi_cmp_mpi( x, &grp->N ) >= 0 )
         MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi( x, x, &grp->N ) );
+cleanup:
+    return( ret );
+}
+
+static int derive_mpi_raw( const mbedtls_ecp_group *grp, mbedtls_mpi_buf *x,
+                           const unsigned char *buf, size_t blen )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi_buf n_b = { .p = grp->N.p, .n = grp->N.n };
+    size_t n_size = ( grp->nbits + 7 ) / 8;
+    size_t use_size = blen > n_size ? n_size : blen;
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_read_binary_be(
+                         *x, buf, use_size ) );
+    if( use_size * 8 > grp->nbits )
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_shift_r_p( x, use_size * 8 - grp->nbits ) );
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_single_p( x, &n_b ) );
 
 cleanup:
     return( ret );
 }
 #endif /* ECDSA_DETERMINISTIC || !ECDSA_SIGN_ALT || !ECDSA_VERIFY_ALT */
 
+static int mpi_buf_from_orig_mod( mbedtls_mpi_buf *buf,
+                                  mbedtls_mpi const *x,
+                                  mbedtls_mpi_buf const *n,
+                                  mbedtls_mpi_buf const *nr )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi_buf x_b = { .p = x->p, .n = x->n };
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_p( buf, &x_b, n, nr ) );
+cleanup:
+    return( ret );
+}
+
 #if !defined(MBEDTLS_ECDSA_SIGN_ALT)
+
 /*
  * Compute ECDSA signature of a hashed message (SEC1 4.1.3)
  * Obviously, compared to SEC1 4.1.3, we skip step 4 (hash message)
  */
 static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
-                mbedtls_mpi *r, mbedtls_mpi *s,
-                const mbedtls_mpi *d, const unsigned char *buf, size_t blen,
+                mbedtls_mpi *r_orig, mbedtls_mpi *s_orig,
+                const mbedtls_mpi *d_orig, const unsigned char *buf, size_t blen,
                 int (*f_rng)(void *, unsigned char *, size_t), void *p_rng,
                 int (*f_rng_blind)(void *, unsigned char *, size_t),
                 void *p_rng_blind,
@@ -260,23 +293,49 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
     int ret, key_tries, sign_tries;
     int *p_sign_tries = &sign_tries, *p_key_tries = &key_tries;
     mbedtls_ecp_point R;
-    mbedtls_mpi k, e, t;
-    mbedtls_mpi *pk = &k, *pr = r;
+    mbedtls_mpi k;
+    mbedtls_mpi *pk_orig = &k;
 
     /* Fail cleanly on curves such as Curve25519 that can't be used for ECDSA */
     if( ! mbedtls_ecdsa_can_do( grp->id ) || grp->N.p == NULL )
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
 
     /* Make sure d is in range 1..n-1 */
-    if( mbedtls_mpi_cmp_int( d, 1 ) < 0 || mbedtls_mpi_cmp_mpi( d, &grp->N ) >= 0 )
+    if( mbedtls_mpi_cmp_int( d_orig, 1 ) < 0 || mbedtls_mpi_cmp_mpi( d_orig, &grp->N ) >= 0 )
         return( MBEDTLS_ERR_ECP_INVALID_KEY );
 
+    /* Memory pool for temporaries moduli N */
+    mbedtls_mpi_uint *mempool = NULL;
+    const size_t num_temp = 5;
+
     mbedtls_ecp_point_init( &R );
-    mbedtls_mpi_init( &k ); mbedtls_mpi_init( &e ); mbedtls_mpi_init( &t );
+    mbedtls_mpi_init( &k );
+
+    size_t Nn = grp->N.n;
+    MBEDTLS_MPI_CHK( mbedtls_mpi_resize_clear( r_orig, Nn ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_resize_clear( s_orig, Nn ) );
+    mbedtls_mpi_buf  r  = { .p = r_orig->p, .n = r_orig->n };
+    mbedtls_mpi_buf  s  = { .p = s_orig->p, .n = s_orig->n };
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_alloc( &mempool, num_temp * Nn + 2 * Nn + 1) );
+    mbedtls_mpi_buf  nn  = { .p = grp->N.p,         .n = Nn };
+    mbedtls_mpi_uint mm  = MPI_CORE(mont_init)( nn.p[0] ) ;
+    mbedtls_mpi_buf  pk  = { .p = mempool + 0 * Nn, .n = Nn };
+    mbedtls_mpi_buf  e   = { .p = mempool + 1 * Nn, .n = Nn };
+    mbedtls_mpi_buf  d   = { .p = mempool + 2 * Nn, .n = Nn };
+    mbedtls_mpi_buf  t   = { .p = mempool + 3 * Nn, .n = Nn };
+    mbedtls_mpi_buf nr   = { .p = mempool + 4 * Nn, .n = Nn };
+    mbedtls_mpi_buf  tmp = { .p = mempool + 5 * Nn, .n = 2 * Nn + 1 };
+    //MBEDTLS_MPI_CHK( mbedtls_ecp_curve_get_rn( grp->id, &nrr.p, &nrr.n ) )
+    /* TODO: Replace -- this is very slow */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_get_montgomery_constant_safe_p(
+                         &nr, &nn ) );
+    MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &d, d_orig, &nn, &nr ) );
 
     ECDSA_RS_ENTER( sig );
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
+    #error not yet adapted
     if( rs_ctx != NULL && rs_ctx->sig != NULL )
     {
         /* redirect to our context */
@@ -315,7 +374,7 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
                 goto cleanup;
             }
 
-            MBEDTLS_MPI_CHK( mbedtls_ecp_gen_privkey( grp, pk, f_rng, p_rng ) );
+            MBEDTLS_MPI_CHK( mbedtls_ecp_gen_privkey( grp, pk_orig, f_rng, p_rng ) );
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
             if( rs_ctx != NULL && rs_ctx->sig != NULL )
@@ -323,13 +382,18 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
 
 mul:
 #endif
-            MBEDTLS_MPI_CHK( mbedtls_ecp_mul_restartable( grp, &R, pk, &grp->G,
+            MBEDTLS_MPI_CHK( mbedtls_ecp_mul_restartable( grp, &R, pk_orig, &grp->G,
                                                           f_rng_blind,
                                                           p_rng_blind,
                                                           ECDSA_RS_ECP ) );
-            MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( pr, &R.X, &grp->N ) );
+
+            MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &r, &R.X,    &nn, &nr ) );
+            MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &pk, pk_orig, &nn, &nr ) );
         }
-        while( mbedtls_mpi_cmp_int( pr, 0 ) == 0 );
+        while( mbedtls_mpi_core_is_zero_p( &r ) );
+
+        mbedtls_ecp_point_free( &R );
+        mbedtls_mpi_free( pk_orig );
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
         if( rs_ctx != NULL && rs_ctx->sig != NULL )
@@ -343,31 +407,63 @@ modn:
          */
         ECDSA_BUDGET( MBEDTLS_ECP_OPS_INV + 4 );
 
-        /*
+        ;        /*
          * Step 5: derive MPI from hashed message
          */
-        MBEDTLS_MPI_CHK( derive_mpi( grp, &e, buf, blen ) );
+        MBEDTLS_MPI_CHK( derive_mpi_raw( grp, &e, buf, blen ) );
+
+        /*
+         * Convert inputs to following modular arithmetic into Montgomery form
+         */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &e, &e, &nr,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &r, &r, &nr,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &d, &d, &nr,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &pk, &pk, &nr,
+                                                     &nn, &tmp, mm ) );
+
 
         /*
          * Generate a random value to blind inv_mod in next step,
          * avoiding a potential timing leak.
+         *
+         * NOTE: Drop this since we use inversion-by-power now?
+         * NOTE: No need to convert to Montgomery form -- cancels out
          */
-        MBEDTLS_MPI_CHK( mbedtls_ecp_gen_privkey( grp, &t, f_rng_blind,
-                                                  p_rng_blind ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_be_p(
+                             &t, Nn * ciL, f_rng_blind, p_rng_blind ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_p( &t, &t, &nn, &nr ) );
 
         /*
          * Step 6: compute s = (e + r * d) / k = t (e + rd) / (kt) mod n
+         *
          */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( s, pr, d ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( &e, &e, s ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &e, &e, &t ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( pk, pk, &t ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( pk, pk, &grp->N ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod( s, pk, &grp->N ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( s, s, &e ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( s, s, &grp->N ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &r, &d,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_add_mod_p( &e, &e,  &s,
+                                                     &nn ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &e,  &e, &t,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &pk, &pk, &t,
+                                                     &nn, &tmp, mm ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_inv_mod_prime_p( &s, &pk,
+                                                           &nn, &nr ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &s, &e,
+                                                     &nn, &tmp, mm ) );
+
     }
-    while( mbedtls_mpi_cmp_int( s, 0 ) == 0 );
+    while( mbedtls_mpi_core_is_zero_p( &s ) );
+
+    /* Store result
+     *
+     * We computed in Montgomery domain, so need to remove Montgomery form. */
+    mbedtls_mpi_uint one = { 1 }; mbedtls_mpi_buf one_b = { .p = &one, .n = 1 };
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &r, &r, &one_b,
+                                                 &nn, &tmp, mm ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &s, &nr,
+                                                 &nn, &tmp, mm ) );
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
     if( rs_ctx != NULL && rs_ctx->sig != NULL )
@@ -375,8 +471,9 @@ modn:
 #endif
 
 cleanup:
+    mbedtls_free( mempool ); mempool = NULL;
     mbedtls_ecp_point_free( &R );
-    mbedtls_mpi_free( &k ); mbedtls_mpi_free( &e ); mbedtls_mpi_free( &t );
+    mbedtls_mpi_free( &k );
 
     ECDSA_RS_LEAVE( sig );
 
