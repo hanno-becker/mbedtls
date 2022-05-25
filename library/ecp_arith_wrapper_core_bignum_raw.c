@@ -47,40 +47,24 @@ typedef struct mbedtls_ecp_point_internal
 /* Groups */
 typedef struct mbedtls_ecp_group_internal
 {
-    mbedtls_ecp_group       *src;
-    int montgomery;
+    mbedtls_ecp_group *src;
 
-    mbedtls_mpi_uint    *mempool;
-    size_t            mempool_sz;
+    mbedtls_mpi_uint *mempool;
+    size_t mempool_sz;
 
-    mbedtls_ecp_mpi_internal *     P;     /* Underlying prime (referenced)     */
-    size_t Pn;                            /* Number of limbs in P.             */
+    mbedtls_mpi_modulus         P;
+    mbedtls_ecp_point_internal  G;
+    mbedtls_ecp_mpi_internal   *A;     /* A coordinate (in Montgomery form) */
+    mbedtls_ecp_mpi_internal   *B;     /* B coordinate (in Montgomery form) */
+    mbedtls_ecp_mpi_internal *tmp;
 
-    mbedtls_ecp_mpi_internal *    RP;     /* Montgomery constant (referenced)  */
-
-    mbedtls_ecp_point_internal G;
-    mbedtls_ecp_mpi_internal *     A;     /* A coordinate (in Montgomery form) */
-    mbedtls_ecp_mpi_internal *     B;     /* B coordinate (in Montgomery form) */
-    mbedtls_ecp_mpi_internal *   tmp;     /* Temporary for modular arithmetic         */
-
-    mbedtls_mpi_uint *             T;     /* Temporary for Montgomery multiplication. */
-    mbedtls_mpi_uint *        lookup;     /* Temporary for table lookup */
+    mbedtls_mpi_uint      *lookup;     /* Temporary for table lookup */
 
     /* Temporaries for ECP arithmetic */
     mbedtls_ecp_point_internal inputs[ECP_ARITH_WRAPPER_NUM_PT_INPUTS];
     mbedtls_ecp_mpi_internal * locals[ECP_ARITH_WRAPPER_NUM_MPI_TEMPS];
 
-    mbedtls_mpi_uint   mm;
-
 } mbedtls_ecp_group_internal;
-
-/* static void mpi_buf_print( const char *p, mbedtls_mpi_buf m ) */
-/* { */
-/*     mbedtls_mpi x = { .s = 1, .p = m.p, .n = m.n }; */
-/*     fprintf( stderr, "=== PRINT BUF %s, len %u\n", p, (unsigned) m.n  ); */
-/*     mbedtls_mpi_write_file( p, &x, 16, NULL ); */
-/* } */
-//#define mpi_buf_print(a,b) do {} while( 0 )
 
 #define UNUSED __attribute__((unused))
 
@@ -248,23 +232,28 @@ typedef struct mbedtls_ecp_group_internal
 
 /* Coordinate arithmetic */
 #define ECP_MPI_ADD( X, A, B )                                                 \
-    MBEDTLS_MPI_CHK( ecp_mpi_add( (X), (A), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_add( *(X), *(A), *(B), &grp->P ) )
 #define ECP_MPI_ADD_D( X, B )                                                  \
-    MBEDTLS_MPI_CHK( ecp_mpi_add_d( (X), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_add( *(X), *(X), *(B), &grp->P ) )
 #define ECP_MPI_SUB( X, A, B )                                                 \
-    MBEDTLS_MPI_CHK( ecp_mpi_sub( (X), (A), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_sub( *(X), *(A), *(B), &grp->P ) )
 #define ECP_MPI_SUB_D( X, B )                                                  \
-    MBEDTLS_MPI_CHK( ecp_mpi_sub_d( (X), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_sub( *(X), *(X), *(B), &grp->P ) )
 #define ECP_MPI_MUL( X, A, B )                                                 \
-    MBEDTLS_MPI_CHK( ecp_mpi_mul( (X), (A), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_mul( *(X), *(A), *(B), &grp->P ) )
 #define ECP_MPI_MUL_D( X, B )                                                  \
-    MBEDTLS_MPI_CHK( ecp_mpi_mul_d( (X), (B), grp ) )
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_mul( *(X), *(X), *(B), &grp->P ) )
+#define ECP_MPI_INV( D, S )                                                    \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_inv_prime( *(D), *(S), &grp->P ) )
+#define ECP_MPI_REDUCE(X)                                                      \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce( *(X), *(X), grp->P.n, &grp->P ) )
+#define ECP_MPI_NEG( X )                                                       \
+    MBEDTLS_MPI_CHK( ecp_mpi_neg( (X), grp ) )
+
 #define ECP_MPI_ZERO( X )                                                      \
     MBEDTLS_MPI_CHK( ecp_mpi_zero( (X), grp ) )
 #define ECP_ZERO( X )                                                          \
     MBEDTLS_MPI_CHK( ecp_point_internal_zero( (X), grp ) )
-#define ECP_MPI_INV( D, S )                                                    \
-    MBEDTLS_MPI_CHK( ecp_mpi_inv( (D), (S), grp ) )
 #define ECP_MPI_MOV( X, A )                                                    \
     MBEDTLS_MPI_CHK( ecp_mpi_copy( (X), (A), grp ) )
 #define ECP_MOV( D, S )                                                        \
@@ -275,8 +264,6 @@ typedef struct mbedtls_ecp_group_internal
     MBEDTLS_MPI_CHK( ecp_mpi_cmp( (X), (Y), (result), grp ) )
 #define ECP_MPI_RAND( X )                                                      \
     MBEDTLS_MPI_CHK( ecp_mpi_rand( (X), f_rng, p_rng, grp ) )
-#define ECP_MPI_NEG( X )                                                       \
-    MBEDTLS_MPI_CHK( ecp_mpi_neg( (X), grp ) )
 #define ECP_MPI_VALID( X )                                                     \
     ((X) != NULL)
 #define ECP_MPI_COND_NEG( X, cond )                                            \
@@ -285,8 +272,6 @@ typedef struct mbedtls_ecp_group_internal
     MBEDTLS_MPI_CHK( ecp_mpi_cond_assign( (X), (Y), (cond), grp  ) )
 #define ECP_MPI_COND_SWAP( X, Y, cond )                                        \
     MBEDTLS_MPI_CHK( ecp_mpi_cond_swap( (X), (Y), (cond), grp  ) )
-#define ECP_MPI_REDUCE(X)                                                      \
-    MBEDTLS_MPI_CHK( ecp_mpi_reduce( (X), grp ) )
 #define ECP_MPI_IS_ZERO( X, result )                                           \
     MBEDTLS_MPI_CHK( ecp_mpi_is_zero( (X), (result), grp ) )
 
@@ -294,11 +279,10 @@ typedef struct mbedtls_ecp_group_internal
 
 #define ECP_MPI_CMP1( X, result )                                              \
     do {                                                                       \
-        /* Very roundabout, but this macro is only used once: */               \
-        /* Multiple by a non-zero number and check that it    */               \
-        /* hasn't changed.                                    */               \
-        ECP_MPI_MUL( grp->tmp, grp->RP, (X) );                                 \
-        ECP_MPI_CMP( grp->tmp, grp->RP, (result) );                            \
+        /* This is only used once, when it is already known that X isn't zero. */  \
+        /* So just square and see if result is unchanged. */            \
+        ECP_MPI_MUL( grp->tmp, (X), (X) );                                     \
+        ECP_MPI_CMP( grp->tmp, (X), (result) );                                \
     } while( 0 )
 #define ECP_MPI_DOUBLE( X )                                                    \
     ECP_MPI_ADD( (X), (X), (X) )
@@ -355,7 +339,7 @@ static int mbedtls_ecp_mpi_internal_alloc( mbedtls_ecp_group_internal *grp,
                                            mbedtls_ecp_mpi_internal **x )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_alloc( (mbedtls_mpi_uint**) x, grp->Pn ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_alloc( (mbedtls_mpi_uint**) x, grp->P.n ) );
     ret = 0;
 cleanup:
     return( ret );
@@ -397,21 +381,14 @@ cleanup:
 static int mbedtls_ecp_mpi_internal_convert_data_inv( mbedtls_ecp_group_internal const *grp,
                                                       mbedtls_ecp_mpi_internal *x )
 {
-    if( grp->montgomery )
-    {
-        mbedtls_mpi_uint one = 1;
-        MPI_CORE(montmul)( *x, *x, &one, 1, *grp->P, grp->Pn, grp->mm, grp->T );
-    }
+    mbedtls_mpi_core_mod_conv_inv( *x, &grp->P );
     return( 0 );
 }
 
 static int mbedtls_ecp_mpi_internal_convert_data_fwd( mbedtls_ecp_group_internal const *grp,
                                                       mbedtls_ecp_mpi_internal *x )
 {
-    if( grp->montgomery )
-    {
-        MPI_CORE(montmul_d)( *x, *grp->RP, *grp->P, grp->Pn, grp->mm, grp->T );
-    }
+    mbedtls_mpi_core_mod_conv_fwd( *x, &grp->P );
     return( 0 );
 }
 
@@ -449,8 +426,8 @@ static int mbedtls_ecp_mpi_internal_setup_copy(
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
     size_t limbs = x_orig->n;
-    if( limbs > grp->Pn )
-        limbs = grp->Pn;
+    if( limbs > grp->P.n )
+        limbs = grp->P.n;
 
     if( x_orig->p == NULL )
     {
@@ -459,7 +436,7 @@ static int mbedtls_ecp_mpi_internal_setup_copy(
     }
 
     memcpy( **x,         x_orig->p, limbs * ciL );
-    memset( **x + limbs, 0, ( grp->Pn - limbs ) * ciL );
+    memset( **x + limbs, 0, ( grp->P.n - limbs ) * ciL );
 
     /* Convert to Montgomery presentation */
     MBEDTLS_MPI_CHK( mbedtls_ecp_mpi_internal_convert_data_fwd( grp, *x ) );
@@ -493,7 +470,7 @@ static int mbedtls_ecp_mpi_internal_setup_ref(
     mbedtls_mpi *x_orig )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    MBEDTLS_MPI_CHK( mpi_force_size( x_orig, grp->Pn ) );
+    MBEDTLS_MPI_CHK( mpi_force_size( x_orig, grp->P.n ) );
     *x = (mbedtls_ecp_mpi_internal*) x_orig->p;
     ret = 0;
 
@@ -517,7 +494,7 @@ static void mbedtls_ecp_mpi_internal_setup_raw_copy(
     mbedtls_ecp_mpi_internal *x,
     mbedtls_mpi_uint const *raw )
 {
-    memcpy( *x, raw, ciL * grp->Pn );
+    memcpy( *x, raw, ciL * grp->P.n );
 }
 
 static int mbedtls_ecp_point_internal_setup_ref(
@@ -597,7 +574,6 @@ static int mbedtls_ecp_group_internal_setup(
     mbedtls_mpi_uint *mempool = NULL;
     grp->src = src;
 
-    grp->montgomery = ( getGrp(grp)->modp_raw == NULL );
 
     size_t Pn  = getGrp(grp)->P.n;
     int have_A = ( getGrp(grp)->A.p != NULL );
@@ -611,17 +587,6 @@ static int mbedtls_ecp_group_internal_setup(
     mempool_limbs += 1 * Pn * ECP_ARITH_WRAPPER_NUM_MPI_TEMPS;
     mempool_limbs += 3 * Pn * ECP_ARITH_WRAPPER_NUM_PT_INPUTS;
 
-    /* P is referenced, not copied. */
-    grp->P = (mbedtls_ecp_mpi_internal*) getGrp(grp)->P.p;
-    grp->Pn = Pn;
-
-    /* Fetch / compute Montgomery constants */
-    size_t throwaway;
-    mbedtls_ecp_curve_get_rp( getGrp(grp)->id,
-                              (const mbedtls_mpi_uint**) &grp->RP,
-                              &throwaway );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mont_init( &grp->mm, (*grp->P)[0] ) );
-
     size_t mempool_sz = mempool_limbs * sizeof( mbedtls_mpi_uint );
     MBEDTLS_MPI_CHK( mbedtls_mpi_core_alloc( &mempool, mempool_limbs ) );
     grp->mempool    = mempool;
@@ -632,9 +597,22 @@ static int mbedtls_ecp_group_internal_setup(
     grp->G.X = (mbedtls_ecp_mpi_internal*) cur; cur += 1 * Pn;
     grp->G.Y = (mbedtls_ecp_mpi_internal*) cur; cur += 1 * Pn;
     grp->G.Z = (mbedtls_ecp_mpi_internal*) cur; cur += 1 * Pn;
-    grp->T   = cur;                             cur += 2 * Pn + 1;
+    grp->lookup = cur; cur += 2 * Pn + 1;
 
-    grp->lookup = grp->T;
+    /*
+     * Setup modulus structure
+     */
+
+    /* P is referenced, not copied. */
+    grp->P.quasi_reduce_n = getGrp(grp)->modp_raw;
+    grp->P.N = getGrp(grp)->P.p;
+    grp->P.n = Pn;
+    /* Fetch / compute Montgomery constants */
+    size_t ignore;
+    mbedtls_ecp_curve_get_rp( getGrp(grp)->id, &grp->P.RR, &ignore );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mont_init( &grp->P.mm, *grp->P.N ) );
+    /* Temporary -- can use same memory as lookup buffer */
+    grp->P.tmp = grp->lookup;
 
     MBEDTLS_MPI_CHK( mbedtls_ecp_point_internal_setup_copy(
                          grp, &grp->G, &getGrp(grp)->G ) );
@@ -681,104 +659,11 @@ cleanup:
  */
 
 __attribute__((noinline))
-static int ecp_mpi_add( mbedtls_ecp_mpi_internal *X,
-                        mbedtls_ecp_mpi_internal const *A,
-                        mbedtls_ecp_mpi_internal const *B,
-                        mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(add_mod)( (*X), (*A), *(B), *grp->P, grp->Pn );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_add_d( mbedtls_ecp_mpi_internal *X,
-                          mbedtls_ecp_mpi_internal const  *B,
-                          mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(add_mod_d)( (*X), *(B), *grp->P, grp->Pn );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_sub( mbedtls_ecp_mpi_internal *X,
-                        mbedtls_ecp_mpi_internal const *A,
-                        mbedtls_ecp_mpi_internal const *B,
-                        mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(sub_mod)( (*X), (*A), *(B), *grp->P, grp->Pn );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_sub_d( mbedtls_ecp_mpi_internal *X,
-                          mbedtls_ecp_mpi_internal const *B,
-                          mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(sub_mod_d)( (*X), *(B), *grp->P, grp->Pn );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_mul( mbedtls_ecp_mpi_internal *X,
-                        mbedtls_ecp_mpi_internal const *A,
-                        mbedtls_ecp_mpi_internal const *B,
-                        mbedtls_ecp_group_internal const *grp )
-{
-    if( grp->montgomery )
-    {
-        MPI_CORE(montmul)( *X, *A, *B, grp->Pn, *grp->P, grp->Pn, grp->mm, grp->T );
-        return( 0 );
-    }
-
-    /* Schoolbook multiplication followed by dedicated reduction */
-    MPI_CORE(mul)( grp->T, *A, grp->Pn, *B, grp->Pn );
-    getGrp(grp)->modp_raw( grp->T, 2 * grp->Pn );
-
-    mbedtls_mpi_uint borrow, fixup, carry;
-    carry = grp->T[grp->Pn];
-    /* TODO: Double-check that carry is never greater than 1? */
-    borrow = MPI_CORE(sub)( *X, grp->T, *grp->P, grp->Pn );
-    fixup = ( carry < borrow );
-    (void) MPI_CORE(add_if)( *X, *grp->P, grp->Pn, fixup );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_mul_d( mbedtls_ecp_mpi_internal *X,
-                          mbedtls_ecp_mpi_internal const *B,
-                          mbedtls_ecp_group_internal const *grp )
-{
-    return( ecp_mpi_mul( X, X, B, grp ) );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_inv( mbedtls_ecp_mpi_internal *D,
-                        mbedtls_ecp_mpi_internal const *S,
-                        mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(inv_mod_prime)( *D, *S, *grp->P, grp->Pn, *grp->RP );
-    if( grp->montgomery )
-    {
-        mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D );
-        mbedtls_ecp_mpi_internal_convert_data_fwd( grp, D );
-    }
-    return( 0 );
-}
-
-__attribute__((noinline))
 static int ecp_mpi_copy( mbedtls_ecp_mpi_internal *X,
                          mbedtls_ecp_mpi_internal const *A,
                          mbedtls_ecp_group_internal const *grp )
 {
-    memcpy( *X, *A, ciL * grp->Pn );
-    return( 0 );
-}
-
-__attribute__((noinline))
-static int ecp_mpi_reduce( mbedtls_ecp_mpi_internal *X,
-                           mbedtls_ecp_group_internal const *grp )
-{
-    MPI_CORE(mod_reduce)( *X, *X, grp->Pn, *grp->P, grp->Pn, *grp->RP );
+    memcpy( *X, *A, ciL * grp->P.n );
     return( 0 );
 }
 
@@ -786,7 +671,7 @@ static int ecp_copy( mbedtls_ecp_point_internal *x,
                      mbedtls_ecp_point_internal const *y,
                      mbedtls_ecp_group_internal const *grp )
 {
-    size_t len = ciL * grp->Pn;
+    size_t len = ciL * grp->P.n;
     memcpy( getX(x), getX(y), len );
     memcpy( getZ(x), getZ(y), len );
     /* In x/z coordinates, y is unset */
@@ -799,7 +684,7 @@ __attribute__((noinline))
 static int ecp_mpi_zero( mbedtls_ecp_mpi_internal *X,
                          mbedtls_ecp_group_internal const *grp )
 {
-    memset( *X, 0, ciL * grp->Pn );
+    memset( *X, 0, ciL * grp->P.n );
     return( 0 );
 }
 
@@ -834,7 +719,7 @@ static int ecp_mpi_cmp( mbedtls_ecp_mpi_internal *X,
                         int *result,
                         mbedtls_ecp_group_internal const *grp )
 {
-    *result = mbedtls_ct_memcmp( *X, *Y, ciL * grp->Pn );
+    *result = mbedtls_ct_memcmp( *X, *Y, ciL * grp->P.n );
     return( 0 );
 }
 
@@ -843,13 +728,13 @@ static int ecp_mpi_rand( mbedtls_ecp_mpi_internal *X,
                          mbedtls_ecp_group_internal const *grp )
 {
     return( MPI_CORE(random_range_be)(
-                *X, 2, *grp->P, grp->Pn, getGrp(grp)->pbits, f_rng, p_rng ) );
+                *X, 2, grp->P.N, grp->P.n, getGrp(grp)->pbits, f_rng, p_rng ) );
 }
 
 static int ecp_mpi_neg( mbedtls_ecp_mpi_internal *X,
                         mbedtls_ecp_group_internal const *grp )
 {
-    MPI_CORE(neg_mod)( *X, *X, *grp->P, grp->Pn );
+    MPI_CORE(neg_mod)( *X, *X, grp->P.N, grp->P.n );
     return( 0 );
 }
 
@@ -858,7 +743,7 @@ static int ecp_mpi_cond_assign( mbedtls_ecp_mpi_internal *X,
                                 int cond,
                                 mbedtls_ecp_group_internal const *grp  )
 {
-    mbedtls_ct_mpi_uint_cond_assign( grp->Pn, *X, *Y, cond );
+    mbedtls_ct_mpi_uint_cond_assign( grp->P.n, *X, *Y, cond );
     return( 0 );
 }
 
@@ -914,7 +799,6 @@ static int ecp_group_internal_selftest( mbedtls_ecp_group_internal *grp )
     ECP_MPI_SET1(t0);
     ECP_MPI_SET1(t1);
     ECP_MPI_SET1(t2);
-    ECP_MPI_MOV(t3,grp->RP);
     ECP_MPI_MUL(t2,t3,t0);
     int cmp;
     ECP_MPI_CMP(t2,t3,&cmp);

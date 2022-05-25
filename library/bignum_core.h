@@ -82,9 +82,9 @@ typedef struct
      * or full multiplication + reduction. */
     mbedtls_mpi_core_quasi_reduce_t quasi_reduce_n;
 
-    mbedtls_mpi_uint *N;   /* Modulus                */
-    mbedtls_mpi_uint *RR;  /* 2^{2*n*biL} mod N    -- only needed for Montgomery */
-    mbedtls_mpi_uint  mm;  /* -N^{-1} mod 2^{ciL}  -- only needed for Montgomery */
+    mbedtls_mpi_uint const *N;   /* Modulus                */
+    mbedtls_mpi_uint const *RR;  /* 2^{2*n*biL} mod N    -- only needed for Montgomery */
+    mbedtls_mpi_uint  mm;        /* -N^{-1} mod 2^{ciL}  -- only needed for Montgomery */
 
     mbedtls_mpi_uint *tmp; /* Temporary buffer of size 2*n+1 limbs */
     size_t n;              /* Limbs in modulus */
@@ -159,6 +159,8 @@ int mbedtls_mpi_core_shift_r( mbedtls_mpi_buf const *x, size_t count );
 mbedtls_mpi_uint MPI_CORE(lt)( const mbedtls_mpi_uint *l,
                                const mbedtls_mpi_uint *r,
                                size_t n );
+
+int MPI_CORE(is_zero)( mbedtls_mpi_uint const *x, size_t nx );
 
 /**
  * \brief Add two known-size large unsigned integers, returning the carry.
@@ -380,6 +382,9 @@ int mbedtls_mpi_core_montmul( mbedtls_mpi_buf const *x,
                               mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *t,
                               mbedtls_mpi_uint mm );
 
+int mbedtls_mpi_core_montmul_d( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *b,
+                                mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *t,
+                                mbedtls_mpi_uint mm );
 
 /**
  * \brief          Perform a modular exponentiation with secret exponent: X = A^E mod N
@@ -440,12 +445,11 @@ int mbedtls_mpi_core_crt_inv( mbedtls_mpi_buf const *t,
                               mbedtls_mpi_buf const *rp,
                               mbedtls_mpi_buf const *qinvp );
 
-
 /* TODO: Document */
 int MPI_CORE(inv_mod_prime)( mbedtls_mpi_uint *X,
                              mbedtls_mpi_uint const *A,
                              const mbedtls_mpi_uint *P, size_t n,
-                             mbedtls_mpi_uint *RR );
+                             mbedtls_mpi_uint const *RR );
 
 int mbedtls_mpi_core_inv_mod_prime( mbedtls_mpi_buf const *x,
                                     mbedtls_mpi_buf const *a,
@@ -476,10 +480,8 @@ int MPI_CORE(mod_reduce)( mbedtls_mpi_uint *X,
                    const mbedtls_mpi_uint *N, size_t n,
                    const mbedtls_mpi_uint *RR );
 
-int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_buf const *x,
-                                 mbedtls_mpi_buf const *a,
-                                 mbedtls_mpi_buf const *n,
-                                 mbedtls_mpi_buf const *rr );
+int mbedtls_mpi_core_reduce_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                                 mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *rr );
 
 void MPI_CORE(mod_reduce_single)( mbedtls_mpi_uint *X,
                                   const mbedtls_mpi_uint *N, size_t n );
@@ -558,6 +560,9 @@ int mbedtls_mpi_core_write_binary_be( mbedtls_mpi_buf const *x,
 int MPI_CORE(write_binary_le)( const mbedtls_mpi_uint *X, size_t nx,
                                unsigned char *buf, size_t buflen );
 
+int mbedtls_mpi_core_write_binary_le( mbedtls_mpi_buf const *x,
+                                      unsigned char *buf, size_t buflen );
+
 int MPI_CORE(read_binary_be)( mbedtls_mpi_uint *X, size_t nx,
                               const unsigned char *buf, size_t buflen );
 
@@ -566,15 +571,22 @@ int mbedtls_mpi_core_read_binary_be( mbedtls_mpi_buf const *x,
 
 int MPI_CORE(read_binary_le)( mbedtls_mpi_uint *X, size_t nx,
                               const unsigned char *buf, size_t buflen );
+int mbedtls_mpi_core_read_binary_le( mbedtls_mpi_buf const *x,
+                                     const unsigned char *buf, size_t buflen );
 
 void MPI_CORE(bigendian_to_host)( mbedtls_mpi_uint *X, size_t nx );
+int mbedtls_mpi_core_bigendian_to_host( mbedtls_mpi_buf const *p );
 
 int MPI_CORE(random_range_be)( mbedtls_mpi_uint *X,
                                mbedtls_mpi_uint min,
-                               mbedtls_mpi_uint *upper_bound,
+                               mbedtls_mpi_uint const *upper_bound,
                                size_t n,
                                size_t n_bits,
                                int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
+
+int MPI_CORE(random_be)( mbedtls_mpi_uint *X, size_t nx,
+                         size_t n_bytes,
+                         int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
 
 /**
  * \brief Negate a known-size large integer in 2s complement.
@@ -702,9 +714,35 @@ int mbedtls_mpi_core_random_range_be( mbedtls_mpi_buf const *x,
                                         int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
 
 int mbedtls_mpi_core_random_be( mbedtls_mpi_buf const *x, size_t n_bytes,
-                                  int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
-
+                                int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
 
 int mbedtls_mpi_core_is_zero( mbedtls_mpi_buf const *x );
+
+/*
+ *
+ * Modular arihtmetic wrappers taking raw buffers and modulus struct
+ *
+ */
+
+/* Change from public (little endian) to internal data presentation. */
+int mbedtls_mpi_core_mod_conv_fwd( mbedtls_mpi_uint *X, const mbedtls_mpi_modulus *modulus );
+/* Change from internal to public (little endian) data presentation. */
+int mbedtls_mpi_core_mod_conv_inv( mbedtls_mpi_uint *X, const mbedtls_mpi_modulus *modulus );
+
+int mbedtls_mpi_core_mod_add( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus );
+
+int mbedtls_mpi_core_mod_sub( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus );
+
+int mbedtls_mpi_core_mod_mul( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus );
+
+int mbedtls_mpi_core_mod_inv_prime( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                                    const mbedtls_mpi_modulus *prime );
+
+int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_uint *X,
+                                 mbedtls_mpi_uint const *A, size_t A_len,
+                                 const mbedtls_mpi_modulus *prime );
 
 #endif /* MBEDTLS_BIGNUM_CORE_H */

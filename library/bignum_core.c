@@ -606,7 +606,7 @@ int MPI_CORE(inv_mod_prime)( mbedtls_mpi_uint *X,
                              mbedtls_mpi_uint const *A,
                              const mbedtls_mpi_uint *P,
                              size_t n,
-                             mbedtls_mpi_uint *RR )
+                             mbedtls_mpi_uint const *RR )
 {
     int ret = MBEDTLS_ERR_MPI_ALLOC_FAILED;
     mbedtls_mpi_uint *P2;
@@ -788,6 +788,7 @@ static mbedtls_mpi_uint mpi_uint_bigendian_to_host_c( mbedtls_mpi_uint x )
     return( tmp );
 }
 
+static
 mbedtls_mpi_uint mbedtls_mpi_core_uint_bigendian_to_host( mbedtls_mpi_uint x )
 {
 #if defined(__BYTE_ORDER__)
@@ -911,7 +912,7 @@ void MPI_CORE(shift_r)( mbedtls_mpi_uint *X, size_t nx, size_t count )
 
 int MPI_CORE(random_range_be)( mbedtls_mpi_uint *X,
                                mbedtls_mpi_uint lower_bound_uint,
-                               mbedtls_mpi_uint *upper_bound,
+                               mbedtls_mpi_uint const *upper_bound,
                                size_t n,
                                size_t n_bits,
                                int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
@@ -944,6 +945,102 @@ cleanup:
     return( ret );
 }
 
+int MPI_CORE(is_zero)( mbedtls_mpi_uint const *x, size_t nx )
+{
+    volatile mbedtls_mpi_uint total = 0;
+    while( nx-- )
+        total |= x[nx];
+    return( total == 0 );
+}
+
+/*************************************************************************
+ *
+ * Modular arithmetic wrappers
+ *
+ ************************************************************************/
+
+
+int mbedtls_mpi_core_mod_conv_inv( mbedtls_mpi_uint *X, const mbedtls_mpi_modulus *modulus )
+{
+    mbedtls_mpi_uint one = 1;
+    if( modulus->quasi_reduce_n != NULL )
+        return( 0 );
+    MPI_CORE(montmul)( X, X, &one, 1, modulus->N, modulus->n, modulus->mm, modulus->tmp );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mod_conv_fwd( mbedtls_mpi_uint *X, const mbedtls_mpi_modulus *modulus )
+{
+    if( modulus->quasi_reduce_n != NULL )
+        return( 0 );
+    MPI_CORE(montmul_d)( X, modulus->RR, modulus->N, modulus->n, modulus->mm, modulus->tmp );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mod_add( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus )
+{
+    MPI_CORE(add_mod)( X, A, B, modulus->N, modulus->n );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mod_sub( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus )
+{
+    MPI_CORE(sub_mod)( X, A, B, modulus->N, modulus->n );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mod_mul( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                              mbedtls_mpi_uint const *B, const mbedtls_mpi_modulus *modulus )
+{
+    /* Make a single copy to avoid re-loading -- the compiler cannot know that
+     * the modulus structure doesn't change. */
+    const mbedtls_mpi_modulus mod = *modulus;
+
+    if( mod.quasi_reduce_n == NULL )
+    {
+        MPI_CORE(montmul)( X, A, B, mod.n, mod.N, mod.n, mod.mm, mod.tmp );
+        return( 0 );
+    }
+
+    /* Schoolbook multiplication followed by dedicated reduction */
+    MPI_CORE(mul)( mod.tmp, A, mod.n, B, mod.n );
+    mod.quasi_reduce_n( mod.tmp, 2 * mod.n );
+
+    mbedtls_mpi_uint borrow, fixup, carry;
+    carry = mod.tmp[mod.n];
+    borrow = MPI_CORE(sub)( X, mod.tmp, mod.N, mod.n );
+    fixup = ( carry < borrow );
+    (void) MPI_CORE(add_if)( X, mod.N, mod.n, fixup );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mod_inv_prime( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
+                                    const mbedtls_mpi_modulus *prime )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    MBEDTLS_MPI_CHK( MPI_CORE(inv_mod_prime)( X, A, prime->N,
+                                              prime->n, prime->RR ) );
+
+    /* If we're using Montgomery presentation, the inversion is the Montgomery
+     * presentation of X R^{-2}. */
+    if( prime->quasi_reduce_n == NULL )
+    {
+        mbedtls_mpi_core_mod_conv_fwd( X, prime );
+        mbedtls_mpi_core_mod_conv_fwd( X, prime );
+    }
+cleanup:
+    return( ret );
+}
+
+int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_uint *X,
+                                 mbedtls_mpi_uint const *A, size_t A_len,
+                                 const mbedtls_mpi_modulus *prime )
+{
+    return( MPI_CORE(mod_reduce)( X, A, A_len, prime->N, prime->n, prime->RR ) );
+}
+
 /*************************************************************************
  *
  * Trivial wrappers with some length checks
@@ -952,11 +1049,7 @@ cleanup:
 
 int mbedtls_mpi_core_is_zero( mbedtls_mpi_buf const *x )
 {
-    size_t len = x->n;
-    volatile mbedtls_mpi_uint total = 0;
-    while( len-- )
-        total |= x->p[len];
-    return( total == 0 );
+    return( MPI_CORE(is_zero)( x->p, x->n ) );
 }
 
 int mbedtls_mpi_core_add( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l, mbedtls_mpi_buf const *r,
@@ -1038,10 +1131,11 @@ int mbedtls_mpi_core_montmul( mbedtls_mpi_buf const *x,
                               mbedtls_mpi_buf const *t,
                               mbedtls_mpi_uint mm )
 {
-    BIGNUM_CORE_CHECK( x->n == n->n &&
-                       a->n == n->n &&
-                       b->n <= n->n &&
-                       t->n == 2*n->n + 1 );
+    BIGNUM_CORE_CHECK( x->n == n->n );
+    BIGNUM_CORE_CHECK( a->n == n->n );
+    BIGNUM_CORE_CHECK( b->n <= n->n );
+    BIGNUM_CORE_CHECK( t->n == 2*n->n + 1 );
+
     MPI_CORE(montmul)( x->p, a->p, b->p, b->n, n->p, n->n, mm, t->p );
     return( 0 );
 }
@@ -1082,7 +1176,7 @@ int mbedtls_mpi_core_exp_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a
     return( MPI_CORE(exp_mod)( x->p, a->p, n->p, n->n, e->p, e->n, rr->p ) );
 }
 
-int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+int mbedtls_mpi_core_reduce_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
                                  mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *rr )
 {
     BIGNUM_CORE_CHECK( x->n == n->n && rr->n == n->n );
@@ -1187,8 +1281,6 @@ int mbedtls_mpi_core_inv_mod_prime( mbedtls_mpi_buf const *x,
     BIGNUM_CORE_CHECK( x->n == p->n && a->n == p->n && rr->n == p->n );
     return( MPI_CORE(inv_mod_prime)(x->p,a->p,p->p,p->n,rr->p) );
 }
-
-mbedtls_mpi_uint mbedtls_mpi_core_uint_bigendian_to_host( mbedtls_mpi_uint x );
 
 int mbedtls_mpi_core_bigendian_to_host( mbedtls_mpi_buf const *p )
 {
