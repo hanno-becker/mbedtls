@@ -1,6 +1,3 @@
-/**
- * \file ecp_arith_wrapper_fixsize_heap.h
- */
 /*
  *  Copyright The Mbed TLS Contributors
  *  SPDX-License-Identifier: Apache-2.0
@@ -18,15 +15,64 @@
  *  limitations under the License.
  */
 
-#ifndef MBEDTLS_ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_H
-#define MBEDTLS_ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_H
-
 #include "mbedtls/build_info.h"
 #include "mbedtls/ecp.h"
 
 #include "constant_time_internal.h"
 
-#include "ecp_arith_wrapper_core_bignum_raw_typedefs.h"
+#include "bignum_core.h"
+#include "bignum_internal.h"
+
+/*
+ *
+ * Type definitions for internal ECP/MPI interface
+ *
+ */
+
+#define ECP_ARITH_WRAPPER_NUM_MPI_TEMPS 5
+#define ECP_ARITH_WRAPPER_NUM_PT_INPUTS 2
+
+//#define ECP_NO_RANDOMIZATION_BEFORE_NORMALIZATION
+//#define ECP_NO_RANDOMIZATION_OF_COMB_TABLE
+
+/* Coordinates */
+typedef mbedtls_mpi_uint mbedtls_ecp_mpi_internal[];
+
+/* Points */
+typedef struct mbedtls_ecp_point_internal
+{
+    mbedtls_ecp_mpi_internal *X, *Y, *Z;
+} mbedtls_ecp_point_internal;
+
+/* Groups */
+typedef struct mbedtls_ecp_group_internal
+{
+    mbedtls_ecp_group       *src;
+    int montgomery;
+
+    mbedtls_mpi_uint    *mempool;
+    size_t            mempool_sz;
+
+    mbedtls_ecp_mpi_internal *     P;     /* Underlying prime (referenced)     */
+    size_t Pn;                            /* Number of limbs in P.             */
+
+    mbedtls_ecp_mpi_internal *    RP;     /* Montgomery constant (referenced)  */
+
+    mbedtls_ecp_point_internal G;
+    mbedtls_ecp_mpi_internal *     A;     /* A coordinate (in Montgomery form) */
+    mbedtls_ecp_mpi_internal *     B;     /* B coordinate (in Montgomery form) */
+    mbedtls_ecp_mpi_internal *   tmp;     /* Temporary for modular arithmetic         */
+
+    mbedtls_mpi_uint *             T;     /* Temporary for Montgomery multiplication. */
+    mbedtls_mpi_uint *        lookup;     /* Temporary for table lookup */
+
+    /* Temporaries for ECP arithmetic */
+    mbedtls_ecp_point_internal inputs[ECP_ARITH_WRAPPER_NUM_PT_INPUTS];
+    mbedtls_ecp_mpi_internal * locals[ECP_ARITH_WRAPPER_NUM_MPI_TEMPS];
+
+    mbedtls_mpi_uint   mm;
+
+} mbedtls_ecp_group_internal;
 
 /* static void mpi_buf_print( const char *p, mbedtls_mpi_buf m ) */
 /* { */
@@ -891,5 +937,3 @@ cleanup:
 #else
 #define INC_MUL_COUNT
 #endif
-
-#endif /* MBEDTLS_ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW_H */

@@ -28,8 +28,19 @@
 #include "bn_mul.h"
 #include "bignum_internal.h"
 #include "bignum_core.h"
-#include "ecp_arith_typedefs.h"
 #include "ecp_invasive.h"
+
+/* #define ECP_DP_SECP192R1_USE_MONTGOMERY */
+/* #define ECP_DP_SECP224R1_USE_MONTGOMERY */
+/* #define ECP_DP_SECP256R1_USE_MONTGOMERY */
+/* #define ECP_DP_SECP384R1_USE_MONTGOMERY */
+/* #define ECP_DP_SECP521R1_USE_MONTGOMERY */
+#define ECP_DP_BP256R1_USE_MONTGOMERY
+#define ECP_DP_BP384R1_USE_MONTGOMERY
+#define ECP_DP_BP512R1_USE_MONTGOMERY
+#define ECP_DP_SECP192K1_USE_MONTGOMERY
+#define ECP_DP_SECP224K1_USE_MONTGOMERY
+#define ECP_DP_SECP256K1_USE_MONTGOMERY
 
 #include <string.h>
 

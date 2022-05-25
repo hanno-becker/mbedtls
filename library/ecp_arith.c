@@ -1,5 +1,5 @@
 /**
- * \file ecp_arith.h
+ * \file ecp_arith.c
  *
  * \brief Wrappers for internal EC point and coordinate structures
  *        and low-level prime modular arithmetic operating on them
@@ -20,9 +20,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
-#ifndef MBEDTLS_ECP_ARITH_H
-#define MBEDTLS_ECP_ARITH_H
 
 /*
  * The internal API consists of the following macros and functions
@@ -126,7 +123,6 @@
  */
 
 #include "mbedtls/build_info.h"
-#include "ecp_arith_typedefs.h"
 
 /* Most modular arithmetic operations are needed unconditionally.
  * Modular subtraction and left-shift, however, may be unnecessary
@@ -150,8 +146,4 @@
 #define ECP_MPI_NEED_SHIFT_L_MOD
 #endif
 
-#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
-#include "ecp_arith_wrapper_core_bignum_raw.h"
-#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */
-
-#endif /* ecp_arith.h */
+#include "ecp_arith_wrapper_core_bignum_raw.c"

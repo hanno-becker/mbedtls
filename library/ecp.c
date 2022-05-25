@@ -115,7 +115,7 @@
 static unsigned long add_count, dbl_count, mul_count;
 #endif
 
-#include "ecp_arith.h"
+#include "ecp_arith.c"
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
 /*
