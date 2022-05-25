@@ -23,16 +23,11 @@
 
 #include "mbedtls/build_info.h"
 
-//#define ECP_ARITH_WRAPPER_CORE_BIGNUM
 #define ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW
 
 /*
  * Select the right header to import
  */
-#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM)
-#include "ecp_arith_wrapper_core_bignum_typedefs.h"
-#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM */
-
 #if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
 #include "ecp_arith_wrapper_core_bignum_raw_typedefs.h"
 #endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */

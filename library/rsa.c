@@ -769,16 +769,16 @@ int mbedtls_rsa_public( mbedtls_rsa_context *ctx,
     mbedtls_mpi_buf mod = { .p = ctx->N.p,  .n = n        };
     mbedtls_mpi_buf e   = { .p = ctx->E.p,  .n = ctx->E.n };
     mbedtls_mpi_buf rn  = { .p = ctx->RN.p, .n = n        };
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_read_binary_be( t, input, ctx->len ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_lt( t, mod, &lt ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_read_binary_be( &t, input, ctx->len ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_lt( &t, &mod, &lt ) );
     if( !lt )
     {
         ret = MBEDTLS_ERR_MPI_BAD_INPUT_DATA;
         goto cleanup;
     }
 
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( t, t, mod, e, rn ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_write_binary_be( t, output, ctx->len ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &t, &t, &mod, &e, &rn ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_write_binary_be( &t, output, ctx->len ) );
 
 cleanup:
 #if defined(MBEDTLS_THREADING_C)
@@ -864,10 +864,10 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
 #if !defined(MBEDTLS_RSA_NO_CRT)
     /* Make sure Montgomery constants are available. */
     /* TODO: This should only be done once */
-    mbedtls_mpi_core_get_montgomery_constant_safe( rp, p );
-    mbedtls_mpi_core_get_montgomery_constant_safe( rq, q );
+    mbedtls_mpi_core_get_montgomery_constant_safe( &rp, &p );
+    mbedtls_mpi_core_get_montgomery_constant_safe( &rq, &q );
 #endif
-    mbedtls_mpi_core_get_montgomery_constant_safe( rn, mod );
+    mbedtls_mpi_core_get_montgomery_constant_safe( &rn, &mod );
 
     /* Allocate single memory pool for temporaries needed by this function. */
     size_t mempool_limbs = 3*mod.n;
@@ -884,8 +884,8 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
     mbedtls_mpi_buf tq = { .p = tp.p + tp.n, .n = q.n };
 #endif
 
-    mbedtls_mpi_core_read_binary_be( t, input, bytelen );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_lt( t, mod, &lt ) );
+    mbedtls_mpi_core_read_binary_be( &t, input, bytelen );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_lt( &t, &mod, &lt ) );
     if( !lt )
     {
         ret = MBEDTLS_ERR_MPI_BAD_INPUT_DATA;
@@ -894,24 +894,24 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
     memcpy( i.p, t.p, n*ciL );
 
 #if defined(MBEDTLS_RSA_NO_CRT)
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( t, t, mod, d, rn ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &t, &t, &mod, &d, &rn ) );
 #else
     /* Faster decryption using the CRT */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_crt_fwd( tp, tq, p, q, t, rp, rq ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( tp, tp, p, dp, rp ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( tq, tq, q, dq, rq ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_crt_inv( t, tp, tq, p, q, rp, qp ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_crt_fwd( &tp, &tq, &p, &q, &t, &rp, &rq ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &tp, &tp, &p, &dp, &rp ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &tq, &tq, &q, &dq, &rq ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_crt_inv( &t, &tp, &tq, &p, &q, &rp, &qp ) );
 #endif /* MBEDTLS_RSA_NO_CRT */
 
     /* Verify the result to prevent glitching attacks. */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( c, t, mod, e, rn ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &c, &t, &mod, &e, &rn ) );
     if( memcmp( i.p, c.p, n*ciL ) != 0 )
     {
         ret = MBEDTLS_ERR_RSA_VERIFY_FAILED;
         goto cleanup;
     }
 
-    mbedtls_mpi_core_write_binary_be( t, output, bytelen );
+    mbedtls_mpi_core_write_binary_be( &t, output, bytelen );
 
 cleanup:
 #if defined(MBEDTLS_THREADING_C)

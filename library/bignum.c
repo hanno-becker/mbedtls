@@ -703,7 +703,7 @@ int mbedtls_mpi_read_binary( mbedtls_mpi *X, const unsigned char *buf, size_t bu
     MBEDTLS_MPI_CHK( mbedtls_mpi_resize_clear( X, limbs ) );
 
     mbedtls_mpi_buf x = { .p = X->p, .n = X->n };
-    mbedtls_mpi_core_read_binary_be( x, buf, buflen );
+    mbedtls_mpi_core_read_binary_be( &x, buf, buflen );
 
 cleanup:
 
@@ -764,7 +764,7 @@ int mbedtls_mpi_shift_r( mbedtls_mpi *X, size_t count )
 {
     MPI_VALIDATE_RET( X != NULL );
     mbedtls_mpi_buf x = { .p = X->p, .n = X->n };
-    mbedtls_mpi_core_shift_r( x, count );
+    mbedtls_mpi_core_shift_r( &x, count );
     return( 0 );
 }
 
@@ -948,8 +948,8 @@ int mbedtls_mpi_sub_abs( mbedtls_mpi *X, const mbedtls_mpi *A, const mbedtls_mpi
     mbedtls_mpi_buf a    = { .p = A->p, .n = n };
     mbedtls_mpi_buf b    = { .p = B->p, .n = n };
 
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_sub( x_lo, a, b, &carry ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_sub_int( x_hi, x_hi, carry, &carry ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_sub( &x_lo, &a, &b, &carry ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_sub_int( &x_hi, &x_hi, carry, &carry ) );
     if( carry != 0 )
     {
         ret = MBEDTLS_ERR_MPI_NEGATIVE_VALUE;
@@ -1108,7 +1108,7 @@ int mbedtls_mpi_mul_mpi( mbedtls_mpi *X, const mbedtls_mpi *A, const mbedtls_mpi
     mbedtls_mpi_buf x = { .p = X->p, .n = i + j };
     mbedtls_mpi_buf a = { .p = A->p, .n = i };
     mbedtls_mpi_buf b = { .p = B->p, .n = j };
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mul( x, a, b ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mul( &x, &a, &b ) );
 
     /* If the result is 0, we don't shortcut the operation, which reduces
      * but does not eliminate side channels leaking the zero-ness. We do
@@ -1160,7 +1160,7 @@ int mbedtls_mpi_mul_int( mbedtls_mpi *X, const mbedtls_mpi *A, mbedtls_mpi_uint 
 
     mbedtls_mpi_buf x = { .p = X->p, .n = X->n };
     mbedtls_mpi_buf a = { .p = A->p, .n = n };
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mla( x, a, b - 1, NULL ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mla( &x, &a, b - 1, NULL ) );
 
 cleanup:
     return( ret );
@@ -1567,7 +1567,7 @@ int mbedtls_mpi_exp_mod( mbedtls_mpi *X, const mbedtls_mpi *A,
 
     /* Now input and output have standard size and can be passed to
      * the low-level exponentiation routine. */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( x, a, mod, e, rr ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_exp_mod( &x, &a, &mod, &e, &rr ) );
     /* Correct the sign */
     if( neg && E->n != 0 && ( E->p[0] & 1 ) != 0 )
     {
@@ -1727,7 +1727,7 @@ int mbedtls_mpi_fill_random( mbedtls_mpi *X, size_t size,
 
     mbedtls_mpi_buf x = { .p = X->p, .n = limbs };
 
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_be( x, size, f_rng, p_rng ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_be( &x, size, f_rng, p_rng ) );
 
 cleanup:
     return( ret );
@@ -1755,7 +1755,7 @@ int mbedtls_mpi_random( mbedtls_mpi *X,
     mbedtls_mpi_buf upper_bound = { .p = N->p, .n = N->n };
     mbedtls_mpi_buf x           = { .p = X->p, .n = X->n };
     MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_range_be(
-                         x, min, upper_bound, n_bits, f_rng, p_rng ) );
+                         &x, min, &upper_bound, n_bits, f_rng, p_rng ) );
 
 cleanup:
     return( ret );

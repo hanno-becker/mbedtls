@@ -73,6 +73,24 @@ typedef struct
     size_t n;
 } mbedtls_mpi_buf;
 
+typedef int (*mbedtls_mpi_core_quasi_reduce_t)( mbedtls_mpi_uint*, size_t );
+
+typedef struct
+{
+    /* Quasi-reduction -- postconditions to be properly documented. */
+    /* This being non-NULL decides whether to use Montgomery multiplication
+     * or full multiplication + reduction. */
+    mbedtls_mpi_core_quasi_reduce_t quasi_reduce_n;
+
+    mbedtls_mpi_uint *N;   /* Modulus                */
+    mbedtls_mpi_uint *RR;  /* 2^{2*n*biL} mod N    -- only needed for Montgomery */
+    mbedtls_mpi_uint  mm;  /* -N^{-1} mod 2^{ciL}  -- only needed for Montgomery */
+
+    mbedtls_mpi_uint *tmp; /* Temporary buffer of size 2*n+1 limbs */
+    size_t n;              /* Limbs in modulus */
+
+} mbedtls_mpi_modulus;
+
 /**
  * \brief        Compare to same-size large unsigned integers in constant time.
  *
@@ -126,6 +144,8 @@ void MPI_CORE(shift_l)( mbedtls_mpi_uint *X, size_t nx, size_t count );
  */
 void MPI_CORE(shift_r)( mbedtls_mpi_uint *X, size_t nx, size_t count );
 
+int mbedtls_mpi_core_shift_r( mbedtls_mpi_buf const *x, size_t count );
+
 /**
  * \brief        Compare to same-size large unsigned integers in constant time.
  *
@@ -160,6 +180,11 @@ mbedtls_mpi_uint MPI_CORE(add)( mbedtls_mpi_uint *d,
                                 const mbedtls_mpi_uint *l,
                                 const mbedtls_mpi_uint *r,
                                 size_t n );
+
+int mbedtls_mpi_core_add( mbedtls_mpi_buf const *d,
+                            mbedtls_mpi_buf const *l,
+                            mbedtls_mpi_buf const *r,
+                            mbedtls_mpi_uint *carry );
 
 /**
  * \brief Constant-time conditional addition of two known-size large unsigned
@@ -204,6 +229,11 @@ mbedtls_mpi_uint MPI_CORE(add_int)( mbedtls_mpi_uint *d,
                                     const mbedtls_mpi_uint *l,
                                     mbedtls_mpi_uint c, size_t n );
 
+int mbedtls_mpi_core_add_int( mbedtls_mpi_buf const *d,
+                              mbedtls_mpi_buf const *l,
+                              mbedtls_mpi_uint c,
+                              mbedtls_mpi_uint *carry );
+
 /**
  * \brief Subtract two known-size large unsigned integers, returning the borrow.
  *
@@ -226,6 +256,9 @@ mbedtls_mpi_uint MPI_CORE(sub)( mbedtls_mpi_uint *d,
                                 const mbedtls_mpi_uint *r,
                                 size_t n );
 
+int mbedtls_mpi_core_sub( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
+                            mbedtls_mpi_buf const *r, mbedtls_mpi_uint *borrow );
+
 /**
  * \brief Subtract unsigned integer from known-size large unsigned integers.
  *        Return the borrow.
@@ -241,6 +274,9 @@ mbedtls_mpi_uint MPI_CORE(sub)( mbedtls_mpi_uint *d,
 mbedtls_mpi_uint MPI_CORE(sub_int)( mbedtls_mpi_uint *d,
                                     const mbedtls_mpi_uint *l,
                                     mbedtls_mpi_uint r, size_t n );
+
+int mbedtls_mpi_core_sub_int( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
+                                mbedtls_mpi_uint c, mbedtls_mpi_uint *borrow );
 
 /**
  * \brief Perform a known-size multiply accumulate operation
@@ -264,6 +300,10 @@ mbedtls_mpi_uint MPI_CORE(mla)( mbedtls_mpi_uint *d, size_t d_len ,
                                 const mbedtls_mpi_uint *s, size_t s_len,
                                 mbedtls_mpi_uint b );
 
+int mbedtls_mpi_core_mla( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *s,
+                          mbedtls_mpi_uint b, mbedtls_mpi_uint *carry );
+
+
 /**
  * \brief Perform a known-size multiplication
  *
@@ -280,6 +320,10 @@ mbedtls_mpi_uint MPI_CORE(mla)( mbedtls_mpi_uint *d, size_t d_len ,
 void MPI_CORE(mul)( mbedtls_mpi_uint *X,
                     const mbedtls_mpi_uint *A, size_t a,
                     const mbedtls_mpi_uint *B, size_t b );
+
+int mbedtls_mpi_core_mul( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                          mbedtls_mpi_buf const *b );
+
 
 /**
  * \brief Perform a known-size multiplication with specified output width.
@@ -331,6 +375,12 @@ void MPI_CORE(montmul)( mbedtls_mpi_uint *X,
                         size_t n, mbedtls_mpi_uint mm,
                         mbedtls_mpi_uint *T );
 
+int mbedtls_mpi_core_montmul( mbedtls_mpi_buf const *x,
+                              mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
+                              mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_uint mm );
+
+
 /**
  * \brief          Perform a modular exponentiation with secret exponent: X = A^E mod N
  *
@@ -351,6 +401,10 @@ int MPI_CORE(exp_mod)( mbedtls_mpi_uint *X,
                        const mbedtls_mpi_uint *E, size_t E_len,
                        const mbedtls_mpi_uint *RR );
 
+int mbedtls_mpi_core_exp_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *e,
+                              mbedtls_mpi_buf const *rr );
+
 /* Forward CRT */
 /* TODO: Document */
 int MPI_CORE(crt_fwd)( mbedtls_mpi_uint *TP, mbedtls_mpi_uint *TQ,
@@ -359,6 +413,14 @@ int MPI_CORE(crt_fwd)( mbedtls_mpi_uint *TP, mbedtls_mpi_uint *TQ,
                        const mbedtls_mpi_uint *T, size_t T_len,
                        const mbedtls_mpi_uint *RP,
                        const mbedtls_mpi_uint *RQ );
+
+int mbedtls_mpi_core_crt_fwd( mbedtls_mpi_buf const *tp,
+                              mbedtls_mpi_buf const *tq,
+                              mbedtls_mpi_buf const *p,
+                              mbedtls_mpi_buf const *q,
+                              mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_buf const *rp,
+                              mbedtls_mpi_buf const *rq );
 
 /* Inverse CRT */
 /* TODO: Document */
@@ -370,11 +432,25 @@ int MPI_CORE(crt_inv)( mbedtls_mpi_uint *T,
                        const mbedtls_mpi_uint *RP,
                        const mbedtls_mpi_uint *QinvP );
 
+int mbedtls_mpi_core_crt_inv( mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_buf const *tp,
+                              mbedtls_mpi_buf const *tq,
+                              mbedtls_mpi_buf const *p,
+                              mbedtls_mpi_buf const *q,
+                              mbedtls_mpi_buf const *rp,
+                              mbedtls_mpi_buf const *qinvp );
+
+
 /* TODO: Document */
 int MPI_CORE(inv_mod_prime)( mbedtls_mpi_uint *X,
                              mbedtls_mpi_uint const *A,
                              const mbedtls_mpi_uint *P, size_t n,
                              mbedtls_mpi_uint *RR );
+
+int mbedtls_mpi_core_inv_mod_prime( mbedtls_mpi_buf const *x,
+                                    mbedtls_mpi_buf const *a,
+                                    mbedtls_mpi_buf const *p,
+                                    mbedtls_mpi_buf const *rr );
 
 /**
  * \brief        Perform a modular reduction
@@ -400,8 +476,16 @@ int MPI_CORE(mod_reduce)( mbedtls_mpi_uint *X,
                    const mbedtls_mpi_uint *N, size_t n,
                    const mbedtls_mpi_uint *RR );
 
+int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_buf const *x,
+                                 mbedtls_mpi_buf const *a,
+                                 mbedtls_mpi_buf const *n,
+                                 mbedtls_mpi_buf const *rr );
+
 void MPI_CORE(mod_reduce_single)( mbedtls_mpi_uint *X,
                                   const mbedtls_mpi_uint *N, size_t n );
+
+int mbedtls_mpi_core_mod_reduce_single( mbedtls_mpi_buf const *x,
+                                        mbedtls_mpi_buf const *n );
 
 /**
  * \brief Perform a known-size modular addition.
@@ -423,9 +507,17 @@ void MPI_CORE(add_mod_d)( mbedtls_mpi_uint *X,
                           mbedtls_mpi_uint const *B, const mbedtls_mpi_uint *N,
                           size_t n );
 
+int mbedtls_mpi_core_add_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n );
+int mbedtls_mpi_core_add_mod_d( mbedtls_mpi_buf const *x,
+                                mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n );
+
 /* TODO: Document */
 void MPI_CORE(neg_mod)( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
                         const mbedtls_mpi_uint *N, size_t n );
+
+int mbedtls_mpi_core_neg_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *n );
 
 /**
  * \brief Perform a known-size modular subtraction.
@@ -442,21 +534,39 @@ void MPI_CORE(sub_mod)( mbedtls_mpi_uint *X, mbedtls_mpi_uint const *A,
                         mbedtls_mpi_uint const *B, const mbedtls_mpi_uint *N,
                         size_t n );
 
+int mbedtls_mpi_core_sub_mod( mbedtls_mpi_buf const *x,
+                                mbedtls_mpi_buf const *a,
+                                mbedtls_mpi_buf const *b,
+                                mbedtls_mpi_buf const *n );
+
 /* Destructive version */
 void MPI_CORE(sub_mod_d)( mbedtls_mpi_uint *X,
                           mbedtls_mpi_uint const *B, const mbedtls_mpi_uint *N,
                           size_t n );
 
+int mbedtls_mpi_core_sub_mod_d( mbedtls_mpi_buf const *x,
+                                mbedtls_mpi_buf const *b,
+                                mbedtls_mpi_buf const *n );
 
 /* TODO: Document */
 int MPI_CORE(write_binary_be)( const mbedtls_mpi_uint *X, size_t nx,
                                unsigned char *buf, size_t buflen );
+
+int mbedtls_mpi_core_write_binary_be( mbedtls_mpi_buf const *x,
+                                      unsigned char *buf, size_t buflen );
+
 int MPI_CORE(write_binary_le)( const mbedtls_mpi_uint *X, size_t nx,
                                unsigned char *buf, size_t buflen );
+
 int MPI_CORE(read_binary_be)( mbedtls_mpi_uint *X, size_t nx,
                               const unsigned char *buf, size_t buflen );
+
+int mbedtls_mpi_core_read_binary_be( mbedtls_mpi_buf const *x,
+                                     const unsigned char *buf, size_t buflen );
+
 int MPI_CORE(read_binary_le)( mbedtls_mpi_uint *X, size_t nx,
                               const unsigned char *buf, size_t buflen );
+
 void MPI_CORE(bigendian_to_host)( mbedtls_mpi_uint *X, size_t nx );
 
 int MPI_CORE(random_range_be)( mbedtls_mpi_uint *X,
@@ -510,6 +620,9 @@ int MPI_CORE(mont_init_wide)( mbedtls_mpi_uint *X,
  */
 mbedtls_mpi_uint MPI_CORE(mont_init)( mbedtls_mpi_uint m );
 
+int mbedtls_mpi_core_mont_init( mbedtls_mpi_uint *m_inv,
+                                mbedtls_mpi_uint m );
+
 /**
  * \brief        Compute (2^{biL})^{2*n} mod N
  *
@@ -523,6 +636,9 @@ mbedtls_mpi_uint MPI_CORE(mont_init)( mbedtls_mpi_uint m );
 void MPI_CORE(get_montgomery_constant_safe)( mbedtls_mpi_uint *RR,
                                              mbedtls_mpi_uint const *N,
                                              size_t n );
+
+int mbedtls_mpi_core_get_montgomery_constant_safe( mbedtls_mpi_buf const *rr,
+                                                   mbedtls_mpi_buf const *n );
 
 /**
  * \brief Extract bit from known-size large integer.
@@ -562,471 +678,33 @@ unsigned char MPI_CORE(get_bit)( const mbedtls_mpi_uint *X, size_t nx, size_t po
 void MPI_CORE(set_bit)( mbedtls_mpi_uint *X, size_t pos, unsigned char val );
 
 /*
- * Some wrappers around core functions
- *
- * We experiment with multiple versions:
- * - Passing buffer+length pairs by value ( foo() variant )
- * - Passing buffer+length pairs by reference ( foo_p() variant )
- */
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_add( mbedtls_mpi_buf d, mbedtls_mpi_buf l, mbedtls_mpi_buf r,
-                          mbedtls_mpi_uint *carry )
-{
-    mbedtls_mpi_uint res;
-    BIGNUM_CORE_CHECK( d.n == l.n && l.n == r.n );
-
-    res = MPI_CORE(add)( d.p, l.p, r.p, d.n );
-    if( carry != NULL )
-        *carry = res;
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_add_int( mbedtls_mpi_buf d, mbedtls_mpi_buf l,
-                              mbedtls_mpi_uint c, mbedtls_mpi_uint *carry )
-{
-    mbedtls_mpi_uint res;
-    BIGNUM_CORE_CHECK( d.n == l.n );
-
-    res = MPI_CORE(add_int)( d.p, l.p, c, d.n );
-    if( carry != NULL )
-        *carry = res;
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_sub( mbedtls_mpi_buf d, mbedtls_mpi_buf l,
-                          mbedtls_mpi_buf r, mbedtls_mpi_uint *borrow )
-{
-    mbedtls_mpi_uint res;
-    BIGNUM_CORE_CHECK( d.n == l.n && l.n == r.n );
-
-    res = MPI_CORE(sub)( d.p, l.p, r.p, r.n );
-    if( borrow != NULL )
-        *borrow = res;
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_sub_int( mbedtls_mpi_buf d, mbedtls_mpi_buf l,
-                              mbedtls_mpi_uint c, mbedtls_mpi_uint *borrow )
-{
-    mbedtls_mpi_uint res;
-    BIGNUM_CORE_CHECK( d.n == l.n );
-    res = MPI_CORE(sub_int)( d.p, l.p, c, d.n );
-    if( borrow != NULL )
-        *borrow = res;
-    return( 0 );
-}
-
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_mla( mbedtls_mpi_buf d, mbedtls_mpi_buf s,
-                          mbedtls_mpi_uint b, mbedtls_mpi_uint *carry )
-{
-    mbedtls_mpi_uint res;
-    res = MPI_CORE(mla)( d.p, d.n, s.p, s.n, b );
-    if( carry != NULL )
-        *carry = res;
-    return( 0 );
-}
-
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_mul( mbedtls_mpi_buf x, mbedtls_mpi_buf a, mbedtls_mpi_buf b )
-{
-    BIGNUM_CORE_CHECK( x.n == a.n + b.n );
-    MPI_CORE(mul)( x.p, a.p, a.n, b.p, b.n );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_mont_init( mbedtls_mpi_uint *m_inv,
-                                mbedtls_mpi_uint m )
-{
-    BIGNUM_CORE_CHECK( m_inv != NULL );
-    *m_inv = MPI_CORE(mont_init)( m );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_montmul( mbedtls_mpi_buf x,
-                              mbedtls_mpi_buf a,
-                              mbedtls_mpi_buf b,
-                              mbedtls_mpi_buf n,
-                              mbedtls_mpi_buf t,
-                              mbedtls_mpi_uint mm )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n &&
-                       a.n == n.n &&
-                       b.n <= n.n &&
-                       t.n == 2*n.n + 1 );
-    MPI_CORE(montmul)( x.p, a.p, b.p, b.n, n.p, n.n, mm, t.p );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_montmul_d( mbedtls_mpi_buf x,
-                                mbedtls_mpi_buf b,
-                                mbedtls_mpi_buf n,
-                                mbedtls_mpi_buf t,
-                                mbedtls_mpi_uint mm )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n &&
-                       b.n == n.n &&
-                       t.n == 2*n.n + 1 );
-    MPI_CORE(montmul_d)( x.p, b.p, n.p, n.n, mm, t.p );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_copy( mbedtls_mpi_buf a, mbedtls_mpi_buf b )
-{
-    BIGNUM_CORE_CHECK( a.n == b.n );
-    memcpy( a.p, b.p, a.n * ciL );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_get_montgomery_constant_safe( mbedtls_mpi_buf rr,
-                                                   mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( rr.n == n.n );
-    MPI_CORE(get_montgomery_constant_safe)( rr.p, n.p, n.n );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_exp_mod( mbedtls_mpi_buf x, mbedtls_mpi_buf a,
-                              mbedtls_mpi_buf n, mbedtls_mpi_buf e,
-                              mbedtls_mpi_buf rr )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && a.n == n.n && rr.n == n.n );
-    return( MPI_CORE(exp_mod)( x.p, a.p, n.p, n.n, e.p, e.n, rr.p ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_buf x, mbedtls_mpi_buf a,
-                                 mbedtls_mpi_buf n, mbedtls_mpi_buf rr )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && rr.n == n.n );
-    return( MPI_CORE(mod_reduce)( x.p, a.p, a.n, n.p, n.n, rr.p ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_mod_reduce_single( mbedtls_mpi_buf x, mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n );
-    MPI_CORE(mod_reduce_single)( x.p, n.p, n.n );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_crt_fwd( mbedtls_mpi_buf tp,
-                              mbedtls_mpi_buf tq,
-                              mbedtls_mpi_buf p,
-                              mbedtls_mpi_buf q,
-                              mbedtls_mpi_buf t,
-                              mbedtls_mpi_buf rp,
-                              mbedtls_mpi_buf rq )
-{
-    BIGNUM_CORE_CHECK( tp.n == p.n && tq.n == q.n &&
-                       rp.n == p.n && rq.n == q.n );
-    return( MPI_CORE(crt_fwd)( tp.p, tq.p, p.p, p.n, q.p,
-                               q.n, t.p, t.n, rp.p, rq.p ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_crt_inv( mbedtls_mpi_buf t,
-                              mbedtls_mpi_buf tp,
-                              mbedtls_mpi_buf tq,
-                              mbedtls_mpi_buf p,
-                              mbedtls_mpi_buf q,
-                              mbedtls_mpi_buf rp,
-                              mbedtls_mpi_buf qinvp )
-{
-    BIGNUM_CORE_CHECK( tp.n == p.n && tq.n == q.n && rp.n == p.n &&
-                       qinvp.n == p.n && t.n == p.n + q.n );
-    return( MPI_CORE(crt_inv)( t.p, tp.p, tq.p, p.p, p.n,
-                               q.p, q.n, rp.p, qinvp.p ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_lt( mbedtls_mpi_buf l, mbedtls_mpi_buf r, unsigned *lt )
-{
-    BIGNUM_CORE_CHECK( l.n == r.n && lt != NULL );
-    *lt = MPI_CORE(lt)( l.p, r.p, l.n );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_cmp( mbedtls_mpi_buf a, mbedtls_mpi_buf b,
-                          int *result )
-{
-    BIGNUM_CORE_CHECK( a.n == b.n );
-    *result = mbedtls_ct_memcmp( a.p, b.p, a.n * ciL );
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_add_mod( mbedtls_mpi_buf x, mbedtls_mpi_buf a,
-                              mbedtls_mpi_buf b, mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && a.n == n.n && b.n == n.n );
-    MPI_CORE(add_mod)(x.p,a.p,b.p,n.p,n.n);
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_add_mod_d( mbedtls_mpi_buf x,
-                                mbedtls_mpi_buf b, mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && b.n == n.n );
-    MPI_CORE(add_mod_d)(x.p,b.p,n.p,n.n);
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_neg_mod( mbedtls_mpi_buf x, mbedtls_mpi_buf a,
-                              mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && a.n == n.n );
-    MPI_CORE(neg_mod)(x.p,a.p,n.p,n.n);
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_sub_mod( mbedtls_mpi_buf x, mbedtls_mpi_buf a,
-                              mbedtls_mpi_buf b, mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && a.n == n.n && b.n == n.n );
-    MPI_CORE(sub_mod)(x.p,a.p,b.p,n.p,n.n);
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_sub_mod_d( mbedtls_mpi_buf x,
-                                mbedtls_mpi_buf b, mbedtls_mpi_buf n )
-{
-    BIGNUM_CORE_CHECK( x.n == n.n && b.n == n.n );
-    MPI_CORE(sub_mod)(x.p,x.p,b.p,n.p,n.n);
-    return( 0 );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_inv_mod_prime( mbedtls_mpi_buf x,
-                                    mbedtls_mpi_buf a,
-                                    mbedtls_mpi_buf p,
-                                    mbedtls_mpi_buf rr )
-{
-    BIGNUM_CORE_CHECK( x.n == p.n && a.n == p.n && rr.n == p.n );
-    return( MPI_CORE(inv_mod_prime)(x.p,a.p,p.p,p.n,rr.p) );
-}
-
-/* TODO: Document */
-mbedtls_mpi_uint mbedtls_mpi_core_uint_bigendian_to_host( mbedtls_mpi_uint x );
-ALWAYS_INLINE
-int mbedtls_mpi_core_bigendian_to_host( mbedtls_mpi_buf p )
-{
-    MPI_CORE(bigendian_to_host)(p.p,p.n);
-    return( 0 );
-}
-
-int mbedtls_mpi_core_bigendian_to_host_p( mbedtls_mpi_buf const *p );
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_read_binary_be( mbedtls_mpi_buf x,
-                                     const unsigned char *buf, size_t buflen )
-{
-    return( MPI_CORE(read_binary_be)(x.p,x.n,buf,buflen) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_read_binary_le( mbedtls_mpi_buf x,
-                                     const unsigned char *buf, size_t buflen )
-{
-    return( MPI_CORE(read_binary_le)(x.p,x.n,buf,buflen) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_write_binary_be( mbedtls_mpi_buf x,
-                                      unsigned char *buf, size_t buflen )
-{
-    return( MPI_CORE(write_binary_be)( x.p, x.n, buf, buflen ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_write_binary_le( mbedtls_mpi_buf x,
-                                      unsigned char *buf, size_t buflen )
-{
-    return( MPI_CORE(write_binary_le)( x.p, x.n, buf, buflen ) );
-}
-
-int MPI_CORE(random_be)( mbedtls_mpi_uint *X, size_t nx, size_t n_bytes,
-                         int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_random_be( mbedtls_mpi_buf x, size_t n_bytes,
-                                int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
-{
-    BIGNUM_CORE_CHECK( x.n >= CHARS_TO_LIMBS( n_bytes ) );
-    if( x.n == 0 )
-        return( 0 );
-    return( MPI_CORE(random_be)( x.p, x.n, n_bytes, f_rng, p_rng ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_random_range_be( mbedtls_mpi_buf x,
-                                      mbedtls_mpi_uint lower_bound,
-                                      mbedtls_mpi_buf upper_bound,
-                                      size_t n_bits,
-                                      int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
-{
-    BIGNUM_CORE_CHECK( x.n == upper_bound.n );
-    return( MPI_CORE(random_range_be)( x.p, lower_bound, upper_bound.p,
-                                       upper_bound.n, n_bits, f_rng, p_rng ) );
-}
-
-ALWAYS_INLINE
-int mbedtls_mpi_core_shift_r( mbedtls_mpi_buf x, size_t count )
-{
-    MPI_CORE(shift_r)( x.p, x.n, count );
-    return( 0 );
-}
-
-/*
  *
  * Wrappers passing buffer+length pairs by reference
  *
  */
 
-int mbedtls_mpi_core_shift_r_p( mbedtls_mpi_buf const *x, size_t count );
+int mbedtls_mpi_core_copy( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b );
 
-int mbedtls_mpi_core_add_p( mbedtls_mpi_buf const *d,
-                            mbedtls_mpi_buf const *l,
-                            mbedtls_mpi_buf const *r,
-                            mbedtls_mpi_uint *carry );
-
-int mbedtls_mpi_core_add_int_p( mbedtls_mpi_buf const *d,
-                                mbedtls_mpi_buf const *l,
-                                mbedtls_mpi_uint *c,
-                                mbedtls_mpi_uint *carry );
-
-void mbedtls_mpi_core_zero_p( mbedtls_mpi_buf const *x );
-
-int mbedtls_mpi_core_sub_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                            mbedtls_mpi_buf const *r, mbedtls_mpi_uint *borrow );
-
-
-int mbedtls_mpi_core_sub_int_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                                mbedtls_mpi_uint c, mbedtls_mpi_uint *borrow );
-
-
-int mbedtls_mpi_core_mla_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *s,
-                            mbedtls_mpi_uint b, mbedtls_mpi_uint *carry );
-
-
-int mbedtls_mpi_core_mul_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b );
-
-
-int mbedtls_mpi_core_copy_p( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b );
-
-
-int mbedtls_mpi_core_montmul_p( mbedtls_mpi_buf const *x,
-                                mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
-                                mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *t,
-                                mbedtls_mpi_uint mm );
-
-int mbedtls_mpi_core_get_montgomery_constant_safe_p( mbedtls_mpi_buf const *rr,
-                                                     mbedtls_mpi_buf const *n );
-
-
-int mbedtls_mpi_core_exp_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *e,
-                                mbedtls_mpi_buf const *rr );
-
-int mbedtls_mpi_core_write_binary_be_p( mbedtls_mpi_buf const *x,
-                                        unsigned char *buf, size_t buflen );
-
-int mbedtls_mpi_core_crt_inv_p( mbedtls_mpi_buf const *t,
-                                mbedtls_mpi_buf const *tp,
-                                mbedtls_mpi_buf const *tq,
-                                mbedtls_mpi_buf const *p,
-                                mbedtls_mpi_buf const *q,
-                                mbedtls_mpi_buf const *rp,
-                                mbedtls_mpi_buf const *qinvp );
-
-int mbedtls_mpi_core_crt_fwd_p( mbedtls_mpi_buf const *tp,
-                                mbedtls_mpi_buf const *tq,
-                                mbedtls_mpi_buf const *p,
-                                mbedtls_mpi_buf const *q,
-                                mbedtls_mpi_buf const *t,
-                                mbedtls_mpi_buf const *rp,
-                                mbedtls_mpi_buf const *rq );
-
-
-int mbedtls_mpi_core_lt_p( mbedtls_mpi_buf const *l,
+int mbedtls_mpi_core_lt( mbedtls_mpi_buf const *l,
                            mbedtls_mpi_buf const *r,
                            unsigned *lt );
 
-
-int mbedtls_mpi_core_cmp_p( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
+int mbedtls_mpi_core_cmp( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
                             int *result );
 
+int mbedtls_mpi_core_write_binary( mbedtls_mpi_buf const *x,
+                                   unsigned char *buf, size_t buflen );
 
-int mbedtls_mpi_core_add_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n );
-int mbedtls_mpi_core_add_mod_d_p( mbedtls_mpi_buf const *x,
-                                  mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n );
-
-
-int mbedtls_mpi_core_neg_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *n );
-
-int mbedtls_mpi_core_sub_mod_p( mbedtls_mpi_buf const *x,
-                                mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *b,
-                                mbedtls_mpi_buf const *n );
-int mbedtls_mpi_core_sub_mod_d_p( mbedtls_mpi_buf const *x,
-                                  mbedtls_mpi_buf const *b,
-                                  mbedtls_mpi_buf const *n );
-
-
-int mbedtls_mpi_core_write_binary_p( mbedtls_mpi_buf const *x,
-                                     unsigned char *buf, size_t buflen );
-
-
-int mbedtls_mpi_core_inv_mod_prime_p( mbedtls_mpi_buf const *x,
-                                      mbedtls_mpi_buf const *a,
-                                      mbedtls_mpi_buf const *p,
-                                      mbedtls_mpi_buf const *rr );
-
-int mbedtls_mpi_core_mod_reduce_p( mbedtls_mpi_buf const *x,
-                                   mbedtls_mpi_buf const *a,
-                                   mbedtls_mpi_buf const *n,
-                                   mbedtls_mpi_buf const *rr );
-
-int mbedtls_mpi_core_mod_reduce_single_p( mbedtls_mpi_buf const *x,
-                                          mbedtls_mpi_buf const *n );
-
-
-int mbedtls_mpi_core_random_range_be_p( mbedtls_mpi_buf const *x,
+int mbedtls_mpi_core_random_range_be( mbedtls_mpi_buf const *x,
                                         mbedtls_mpi_uint lower_bound,
                                         mbedtls_mpi_buf const *upper_bound,
                                         size_t n_bits,
                                         int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
 
-int mbedtls_mpi_core_random_be_p( mbedtls_mpi_buf const *x, size_t n_bytes,
+int mbedtls_mpi_core_random_be( mbedtls_mpi_buf const *x, size_t n_bytes,
                                   int (*f_rng)(void *, unsigned char *, size_t), void *p_rng );
 
-static inline int mbedtls_mpi_core_is_zero_p( mbedtls_mpi_buf const *x )
-{
-    size_t len = x->n;
-    volatile mbedtls_mpi_uint total = 0;
-    while( len-- )
-        total |= x->p[len];
-    return( total == 0 );
-}
+
+int mbedtls_mpi_core_is_zero( mbedtls_mpi_buf const *x );
 
 #endif /* MBEDTLS_BIGNUM_CORE_H */

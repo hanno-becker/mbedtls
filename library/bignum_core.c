@@ -946,189 +946,305 @@ cleanup:
 
 /*************************************************************************
  *
- * Trivial wrappers around always-inline variants,
- * taking all arguments by reference.
+ * Trivial wrappers with some length checks
  *
  ************************************************************************/
 
-int mbedtls_mpi_core_add_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                            mbedtls_mpi_buf const *r, mbedtls_mpi_uint *carry )
+int mbedtls_mpi_core_is_zero( mbedtls_mpi_buf const *x )
 {
-    return( mbedtls_mpi_core_add( *d, *l, *r, carry ) );
+    size_t len = x->n;
+    volatile mbedtls_mpi_uint total = 0;
+    while( len-- )
+        total |= x->p[len];
+    return( total == 0 );
 }
 
-int mbedtls_mpi_core_add_int_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                                mbedtls_mpi_uint *c, mbedtls_mpi_uint *carry )
+int mbedtls_mpi_core_add( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l, mbedtls_mpi_buf const *r,
+                          mbedtls_mpi_uint *carry )
 {
-    return( mbedtls_mpi_core_add_int( *d, *l, *c, carry ) );
+    mbedtls_mpi_uint res;
+    BIGNUM_CORE_CHECK( d->n == l->n && l->n == r->n );
+
+    res = MPI_CORE(add)( d->p, l->p, r->p, d->n );
+    if( carry != NULL )
+        *carry = res;
+    return( 0 );
 }
 
-int mbedtls_mpi_core_sub_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                            mbedtls_mpi_buf const *r, mbedtls_mpi_uint *borrow )
+int mbedtls_mpi_core_add_int( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
+                              mbedtls_mpi_uint c, mbedtls_mpi_uint *carry )
 {
-    return( mbedtls_mpi_core_sub( *d, *l, *r, borrow ) );
+    mbedtls_mpi_uint res;
+    BIGNUM_CORE_CHECK( d->n == l->n );
+
+    res = MPI_CORE(add_int)( d->p, l->p, c, d->n );
+    if( carry != NULL )
+        *carry = res;
+    return( 0 );
 }
 
-int mbedtls_mpi_core_sub_int_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
-                                mbedtls_mpi_uint c, mbedtls_mpi_uint *borrow )
+int mbedtls_mpi_core_sub( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
+                          mbedtls_mpi_buf const *r, mbedtls_mpi_uint *borrow )
 {
-    return( mbedtls_mpi_core_sub_int( *d, *l, c, borrow ) );
+    mbedtls_mpi_uint res;
+    BIGNUM_CORE_CHECK( d->n == l->n && l->n == r->n );
+
+    res = MPI_CORE(sub)( d->p, l->p, r->p, r->n );
+    if( borrow != NULL )
+        *borrow = res;
+    return( 0 );
 }
 
-int mbedtls_mpi_core_mla_p( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *s,
-                            mbedtls_mpi_uint b, mbedtls_mpi_uint *carry )
+int mbedtls_mpi_core_sub_int( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *l,
+                              mbedtls_mpi_uint c, mbedtls_mpi_uint *borrow )
 {
-    return( mbedtls_mpi_core_mla( *d, *s, b, carry ) );
+    mbedtls_mpi_uint res;
+    BIGNUM_CORE_CHECK( d->n == l->n );
+    res = MPI_CORE(sub_int)( d->p, l->p, c, d->n );
+    if( borrow != NULL )
+        *borrow = res;
+    return( 0 );
 }
 
-int mbedtls_mpi_core_mul_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b )
+int mbedtls_mpi_core_mla( mbedtls_mpi_buf const *d, mbedtls_mpi_buf const *s,
+                          mbedtls_mpi_uint b, mbedtls_mpi_uint *carry )
 {
-    return( mbedtls_mpi_core_mul( *x, *a, *b ) );
+    mbedtls_mpi_uint res;
+    res = MPI_CORE(mla)( d->p, d->n, s->p, s->n, b );
+    if( carry != NULL )
+        *carry = res;
+    return( 0 );
 }
 
-int mbedtls_mpi_core_montmul_p( mbedtls_mpi_buf const *x,
-                                mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
-                                mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *t,
+int mbedtls_mpi_core_mul( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b )
+{
+    BIGNUM_CORE_CHECK( x->n == a->n + b->n );
+    MPI_CORE(mul)( x->p, a->p, a->n, b->p, b->n );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_mont_init( mbedtls_mpi_uint *m_inv,
+                                mbedtls_mpi_uint m )
+{
+    BIGNUM_CORE_CHECK( m_inv != NULL );
+    *m_inv = MPI_CORE(mont_init)( m );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_montmul( mbedtls_mpi_buf const *x,
+                              mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *b,
+                              mbedtls_mpi_buf const *n,
+                              mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_uint mm )
+{
+    BIGNUM_CORE_CHECK( x->n == n->n &&
+                       a->n == n->n &&
+                       b->n <= n->n &&
+                       t->n == 2*n->n + 1 );
+    MPI_CORE(montmul)( x->p, a->p, b->p, b->n, n->p, n->n, mm, t->p );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_montmul_d( mbedtls_mpi_buf const *x,
+                                mbedtls_mpi_buf const *b,
+                                mbedtls_mpi_buf const *n,
+                                mbedtls_mpi_buf const *t,
                                 mbedtls_mpi_uint mm )
 {
-    return( mbedtls_mpi_core_montmul( *x, *a, *b, *n, *t, mm ) );
+    BIGNUM_CORE_CHECK( x->n == n->n &&
+                       b->n == n->n &&
+                       t->n == 2*n->n + 1 );
+    MPI_CORE(montmul_d)( x->p, b->p, n->p, n->n, mm, t->p );
+    return( 0 );
 }
 
-int mbedtls_mpi_core_copy_p( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b )
+int mbedtls_mpi_core_copy( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b )
 {
-    return( mbedtls_mpi_core_copy( *a, *b ) );
+    BIGNUM_CORE_CHECK( a->n == b->n );
+    memcpy( a->p, b->p, a->n * ciL );
+    return( 0 );
 }
 
-int mbedtls_mpi_core_get_montgomery_constant_safe_p( mbedtls_mpi_buf const *rr,
-                                                     mbedtls_mpi_buf const *n )
+int mbedtls_mpi_core_get_montgomery_constant_safe( mbedtls_mpi_buf const *rr,
+                                                   mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_get_montgomery_constant_safe( *rr, *n ) );
+    BIGNUM_CORE_CHECK( rr->n == n->n );
+    MPI_CORE(get_montgomery_constant_safe)( rr->p, n->p, n->n );
+    return( 0 );
 }
 
-int mbedtls_mpi_core_exp_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *e,
-                                mbedtls_mpi_buf const *rr )
+int mbedtls_mpi_core_exp_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *e,
+                              mbedtls_mpi_buf const *rr )
 {
-    return( mbedtls_mpi_core_exp_mod( *x, *a, *n, *e, *rr ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && a->n == n->n && rr->n == n->n );
+    return( MPI_CORE(exp_mod)( x->p, a->p, n->p, n->n, e->p, e->n, rr->p ) );
 }
 
-int mbedtls_mpi_core_mod_reduce_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                   mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *rr )
+int mbedtls_mpi_core_mod_reduce( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                                 mbedtls_mpi_buf const *n, mbedtls_mpi_buf const *rr )
 {
-    return( mbedtls_mpi_core_mod_reduce( *x, *a, *n, *rr ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && rr->n == n->n );
+    return( MPI_CORE(mod_reduce)( x->p, a->p, a->n, n->p, n->n, rr->p ) );
 }
 
-int mbedtls_mpi_core_crt_fwd_p( mbedtls_mpi_buf const *tp,
-                                mbedtls_mpi_buf const *tq,
-                                mbedtls_mpi_buf const *p,
-                                mbedtls_mpi_buf const *q,
-                                mbedtls_mpi_buf const *t,
-                                mbedtls_mpi_buf const *rp,
-                                mbedtls_mpi_buf const *rq )
+int mbedtls_mpi_core_mod_reduce_single( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_crt_fwd( *tp, *tq, *p, *q, *t, *rp, *rq ) );
+    BIGNUM_CORE_CHECK( x->n == n->n );
+    MPI_CORE(mod_reduce_single)( x->p, n->p, n->n );
+    return( 0 );
 }
 
-int mbedtls_mpi_core_crt_inv_p( mbedtls_mpi_buf const *t,
-                                mbedtls_mpi_buf const *tp,
-                                mbedtls_mpi_buf const *tq,
-                                mbedtls_mpi_buf const *p,
-                                mbedtls_mpi_buf const *q,
-                                mbedtls_mpi_buf const *rp,
-                                mbedtls_mpi_buf const *qinvp )
+int mbedtls_mpi_core_crt_fwd( mbedtls_mpi_buf const *tp,
+                              mbedtls_mpi_buf const *tq,
+                              mbedtls_mpi_buf const *p,
+                              mbedtls_mpi_buf const *q,
+                              mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_buf const *rp,
+                              mbedtls_mpi_buf const *rq )
 {
-    return( mbedtls_mpi_core_crt_inv( *t, *tp, *tq, *p, *q, *rp, *qinvp ) );
+    BIGNUM_CORE_CHECK( tp->n == p->n && tq->n == q->n &&
+                       rp->n == p->n && rq->n == q->n );
+    return( MPI_CORE(crt_fwd)( tp->p, tq->p, p->p, p->n, q->p,
+                               q->n, t->p, t->n, rp->p, rq->p ) );
 }
 
-int mbedtls_mpi_core_lt_p( mbedtls_mpi_buf const *l, mbedtls_mpi_buf const *r, unsigned *lt )
+int mbedtls_mpi_core_crt_inv( mbedtls_mpi_buf const *t,
+                              mbedtls_mpi_buf const *tp,
+                              mbedtls_mpi_buf const *tq,
+                              mbedtls_mpi_buf const *p,
+                              mbedtls_mpi_buf const *q,
+                              mbedtls_mpi_buf const *rp,
+                              mbedtls_mpi_buf const *qinvp )
 {
-    return( mbedtls_mpi_core_lt( *l, *r, lt ) );
+    BIGNUM_CORE_CHECK( tp->n == p->n && tq->n == q->n && rp->n == p->n &&
+                       qinvp->n == p->n && t->n == p->n + q->n );
+    return( MPI_CORE(crt_inv)( t->p, tp->p, tq->p, p->p, p->n,
+                               q->p, q->n, rp->p, qinvp->p ) );
 }
 
-int mbedtls_mpi_core_cmp_p( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
-                            int *result )
+int mbedtls_mpi_core_lt( mbedtls_mpi_buf const *l, mbedtls_mpi_buf const *r, unsigned *lt )
 {
-    return( mbedtls_mpi_core_cmp( *a, *b, result ) );
+    BIGNUM_CORE_CHECK( l->n == r->n && lt != NULL );
+    *lt = MPI_CORE(lt)( l->p, r->p, l->n );
+    return( 0 );
 }
 
-int mbedtls_mpi_core_add_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+int mbedtls_mpi_core_cmp( mbedtls_mpi_buf const *a, mbedtls_mpi_buf const *b,
+                          int *result )
+{
+    BIGNUM_CORE_CHECK( a->n == b->n );
+    *result = mbedtls_ct_memcmp( a->p, b->p, a->n * ciL );
+    return( 0 );
+}
+
+int mbedtls_mpi_core_add_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
+{
+    BIGNUM_CORE_CHECK( x->n == n->n && a->n == n->n && b->n == n->n );
+    MPI_CORE(add_mod)(x->p,a->p,b->p,n->p,n->n);
+    return( 0 );
+}
+
+int mbedtls_mpi_core_add_mod_d( mbedtls_mpi_buf const *x,
                                 mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_add_mod( *x, *a, *b, *n ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && b->n == n->n );
+    MPI_CORE(add_mod_d)(x->p,b->p,n->p,n->n);
+    return( 0 );
 }
 
-int mbedtls_mpi_core_add_mod_d_p( mbedtls_mpi_buf const *x,
-                                  mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
+int mbedtls_mpi_core_neg_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_add_mod_p( x, x, b, n ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && a->n == n->n );
+    MPI_CORE(neg_mod)(x->p,a->p,n->p,n->n);
+    return( 0 );
 }
 
-int mbedtls_mpi_core_neg_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
-                                mbedtls_mpi_buf const *n )
+int mbedtls_mpi_core_sub_mod( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+                              mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_neg_mod( *x, *a, *n ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && a->n == n->n && b->n == n->n );
+    MPI_CORE(sub_mod)(x->p,a->p,b->p,n->p,n->n);
+    return( 0 );
 }
 
-int mbedtls_mpi_core_sub_mod_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *a,
+int mbedtls_mpi_core_sub_mod_d( mbedtls_mpi_buf const *x,
                                 mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
 {
-    return( mbedtls_mpi_core_sub_mod( *x, *a, *b, *n ) );
+    BIGNUM_CORE_CHECK( x->n == n->n && b->n == n->n );
+    MPI_CORE(sub_mod)(x->p,x->p,b->p,n->p,n->n);
+    return( 0 );
 }
 
-int mbedtls_mpi_core_sub_mod_d_p( mbedtls_mpi_buf const *x,
-                                  mbedtls_mpi_buf const *b, mbedtls_mpi_buf const *n )
+int mbedtls_mpi_core_inv_mod_prime( mbedtls_mpi_buf const *x,
+                                    mbedtls_mpi_buf const *a,
+                                    mbedtls_mpi_buf const *p,
+                                    mbedtls_mpi_buf const *rr )
 {
-    return( mbedtls_mpi_core_sub_mod_p( x, x, b, n ) );
+    BIGNUM_CORE_CHECK( x->n == p->n && a->n == p->n && rr->n == p->n );
+    return( MPI_CORE(inv_mod_prime)(x->p,a->p,p->p,p->n,rr->p) );
 }
 
-int mbedtls_mpi_core_mod_reduce_single_p( mbedtls_mpi_buf const *x, mbedtls_mpi_buf const *n )
+mbedtls_mpi_uint mbedtls_mpi_core_uint_bigendian_to_host( mbedtls_mpi_uint x );
+
+int mbedtls_mpi_core_bigendian_to_host( mbedtls_mpi_buf const *p )
 {
-    return( mbedtls_mpi_core_mod_reduce_single( *x, *n ) );
+    MPI_CORE(bigendian_to_host)(p->p,p->n);
+    return( 0 );
 }
 
-int mbedtls_mpi_core_inv_mod_prime_p( mbedtls_mpi_buf const *x,
-                                      mbedtls_mpi_buf const *a,
-                                      mbedtls_mpi_buf const *p,
-                                      mbedtls_mpi_buf const *rr )
+int mbedtls_mpi_core_read_binary_be( mbedtls_mpi_buf const *x,
+                                     const unsigned char *buf, size_t buflen )
 {
-    return( mbedtls_mpi_core_inv_mod_prime( *x, *a, *p, *rr ) );
+    return( MPI_CORE(read_binary_be)(x->p,x->n,buf,buflen) );
 }
 
-int mbedtls_mpi_core_bigendian_to_host_p( mbedtls_mpi_buf const *p )
+int mbedtls_mpi_core_read_binary_le( mbedtls_mpi_buf const *x,
+                                     const unsigned char *buf, size_t buflen )
 {
-    return( mbedtls_mpi_core_bigendian_to_host( *p ) );
+    return( MPI_CORE(read_binary_le)(x->p,x->n,buf,buflen) );
 }
 
-int mbedtls_mpi_core_write_binary_be_p( mbedtls_mpi_buf const *x,
-                                     unsigned char *buf, size_t buflen )
+int mbedtls_mpi_core_write_binary_be( mbedtls_mpi_buf const *x,
+                                      unsigned char *buf, size_t buflen )
 {
-    return( mbedtls_mpi_core_write_binary_be( *x, buf, buflen ) );
+    return( MPI_CORE(write_binary_be)( x->p, x->n, buf, buflen ) );
 }
 
-int mbedtls_mpi_core_random_be_p( mbedtls_mpi_buf const *x, size_t n_bytes,
-                                  int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
+int mbedtls_mpi_core_write_binary_le( mbedtls_mpi_buf const *x,
+                                      unsigned char *buf, size_t buflen )
 {
-    return( mbedtls_mpi_core_random_be( *x, n_bytes, f_rng, p_rng ) );
+    return( MPI_CORE(write_binary_le)( x->p, x->n, buf, buflen ) );
 }
 
-int mbedtls_mpi_core_random_range_be_p( mbedtls_mpi_buf const *x,
-                                        mbedtls_mpi_uint lower_bound,
-                                        mbedtls_mpi_buf const *upper_bound,
-                                        size_t n_bits,
-                                        int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
+int mbedtls_mpi_core_random_be( mbedtls_mpi_buf const *x, size_t n_bytes,
+                                int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
 {
-    return( mbedtls_mpi_core_random_range_be( *x, lower_bound, *upper_bound, n_bits,
-                                              f_rng, p_rng ) );
+    BIGNUM_CORE_CHECK( x->n >= CHARS_TO_LIMBS( n_bytes ) );
+    if( x->n == 0 )
+        return( 0 );
+    return( MPI_CORE(random_be)( x->p, x->n, n_bytes, f_rng, p_rng ) );
 }
 
-int mbedtls_mpi_core_shift_r_p( mbedtls_mpi_buf const *x, size_t count )
+int mbedtls_mpi_core_random_range_be( mbedtls_mpi_buf const *x,
+                                      mbedtls_mpi_uint lower_bound,
+                                      mbedtls_mpi_buf const *upper_bound,
+                                      size_t n_bits,
+                                      int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
 {
-    return( mbedtls_mpi_core_shift_r( *x, count ) );
+    BIGNUM_CORE_CHECK( x->n == upper_bound->n );
+    return( MPI_CORE(random_range_be)( x->p, lower_bound, upper_bound->p,
+                                       upper_bound->n, n_bits, f_rng, p_rng ) );
 }
 
-void mbedtls_mpi_core_zero_p( mbedtls_mpi_buf const *x )
+int mbedtls_mpi_core_shift_r( mbedtls_mpi_buf const *x, size_t count )
 {
-    memset( x->p, 0, x->n * ciL );
+    MPI_CORE(shift_r)( x->p, x->n, count );
+    return( 0 );
 }
+
 
 #endif /* MBEDTLS_BIGNUM_C */

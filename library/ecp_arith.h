@@ -150,10 +150,6 @@
 #define ECP_MPI_NEED_SHIFT_L_MOD
 #endif
 
-#if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM)
-#include "ecp_arith_wrapper_core_bignum.h"
-#endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM */
-
 #if defined(ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW)
 #include "ecp_arith_wrapper_core_bignum_raw.h"
 #endif /* ECP_ARITH_WRAPPER_CORE_BIGNUM_RAW */

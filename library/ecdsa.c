@@ -253,11 +253,11 @@ static int derive_mpi_raw( const mbedtls_ecp_group *grp, mbedtls_mpi_buf *x,
     size_t use_size = blen > n_size ? n_size : blen;
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_core_read_binary_be(
-                         *x, buf, use_size ) );
+                         x, buf, use_size ) );
     if( use_size * 8 > grp->nbits )
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_shift_r_p( x, use_size * 8 - grp->nbits ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_shift_r( x, use_size * 8 - grp->nbits ) );
 
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_single_p( x, &n_b ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_single( x, &n_b ) );
 
 cleanup:
     return( ret );
@@ -271,7 +271,7 @@ static int mpi_buf_from_orig_mod( mbedtls_mpi_buf *buf,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi_buf x_b = { .p = x->p, .n = x->n };
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_p( buf, &x_b, n, nr ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce( buf, &x_b, n, nr ) );
 cleanup:
     return( ret );
 }
@@ -328,7 +328,7 @@ static int ecdsa_sign_restartable( mbedtls_ecp_group *grp,
     mbedtls_mpi_buf  tmp = { .p = mempool + 5 * Nn, .n = 2 * Nn + 1 };
     //MBEDTLS_MPI_CHK( mbedtls_ecp_curve_get_rn( grp->id, &nrr.p, &nrr.n ) )
     /* TODO: Replace -- this is very slow */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_get_montgomery_constant_safe_p(
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_get_montgomery_constant_safe(
                          &nr, &nn ) );
     MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &d, d_orig, &nn, &nr ) );
 
@@ -390,7 +390,7 @@ mul:
             MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &r, &R.X,    &nn, &nr ) );
             MBEDTLS_MPI_CHK( mpi_buf_from_orig_mod( &pk, pk_orig, &nn, &nr ) );
         }
-        while( mbedtls_mpi_core_is_zero_p( &r ) );
+        while( mbedtls_mpi_core_is_zero( &r ) );
 
         mbedtls_ecp_point_free( &R );
         mbedtls_mpi_free( pk_orig );
@@ -415,11 +415,11 @@ modn:
         /*
          * Convert inputs to following modular arithmetic into Montgomery form
          */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &e, &e, &nr,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &e, &e, &nr,
                                                      &nn, &tmp, mm ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &r, &r, &nr,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &r, &r, &nr,
                                                      &nn, &tmp, mm ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &d, &d, &nr,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &d, &d, &nr,
                                                      &nn, &tmp, mm ) );
         MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &pk, &pk, &nr,
                                                      &nn, &tmp, mm ) );
@@ -432,38 +432,38 @@ modn:
          * NOTE: Drop this since we use inversion-by-power now?
          * NOTE: No need to convert to Montgomery form -- cancels out
          */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_be_p(
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_random_be(
                              &t, Nn * ciL, f_rng_blind, p_rng_blind ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce_p( &t, &t, &nn, &nr ) );
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_mod_reduce( &t, &t, &nn, &nr ) );
 
         /*
          * Step 6: compute s = (e + r * d) / k = t (e + rd) / (kt) mod n
          *
          */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &r, &d,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &s, &r, &d,
                                                      &nn, &tmp, mm ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_add_mod_p( &e, &e,  &s,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_add_mod( &e, &e,  &s,
                                                      &nn ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &e,  &e, &t,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &e,  &e, &t,
                                                      &nn, &tmp, mm ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &pk, &pk, &t,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &pk, &pk, &t,
                                                      &nn, &tmp, mm ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_inv_mod_prime_p( &s, &pk,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_inv_mod_prime( &s, &pk,
                                                            &nn, &nr ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &s, &e,
+        MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &s, &s, &e,
                                                      &nn, &tmp, mm ) );
 
     }
-    while( mbedtls_mpi_core_is_zero_p( &s ) );
+    while( mbedtls_mpi_core_is_zero( &s ) );
 
     /* Store result
      *
      * We computed in Montgomery domain, so need to remove Montgomery form. */
     mbedtls_mpi_uint one = { 1 }; mbedtls_mpi_buf one_b = { .p = &one, .n = 1 };
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &r, &r, &one_b,
-                                                 &nn, &tmp, mm ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul_p( &s, &s, &nr,
-                                                 &nn, &tmp, mm ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &r, &r, &one_b,
+                                               &nn, &tmp, mm ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_core_montmul( &s, &s, &nr,
+                                               &nn, &tmp, mm ) );
 
 #if defined(MBEDTLS_ECP_RESTARTABLE)
     if( rs_ctx != NULL && rs_ctx->sig != NULL )
